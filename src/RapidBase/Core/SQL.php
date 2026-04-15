@@ -214,25 +214,71 @@ class SQL
             self::$queryCacheMisses++;
         }
         
-        // Usar SelectBuilder para construir la consulta
-        $builder = new SelectBuilder($fields, '', $where, $sort, $page, $perPage);
+        // Construir FROM con JOINs usando la lógica existente
+        $fromClause = self::buildFromWithMap($table);
         
-        // Configurar FROM y JOINs
-        $builder->setFrom($table);
+        // Construir WHERE
+        $whereData = empty($where) ? ['sql' => '', 'params' => []] : self::buildWhere($where);
+        $whereClause = empty($whereData['sql']) ? '' : 'WHERE ' . $whereData['sql'];
         
-        // Configurar GROUP BY
+        // Construir GROUP BY
+        $groupByClause = '';
         if (!empty($groupBy)) {
-            $builder->groupBy = $groupBy;
+            $groupByFields = [];
+            foreach ($groupBy as $field) {
+                $groupByFields[] = strpos($field, '.') !== false || preg_match('/\(/', $field) 
+                    ? $field 
+                    : self::quote($field);
+            }
+            $groupByClause = 'GROUP BY ' . implode(', ', $groupByFields);
         }
         
-        // Configurar HAVING
+        // Construir HAVING
+        $havingClause = '';
         if (!empty($having)) {
-            $builder->having = $having;
+            $havingData = self::buildWhere($having);
+            if (!empty($havingData['sql'])) {
+                $havingClause = 'HAVING ' . $havingData['sql'];
+                $whereData['params'] = array_merge($whereData['params'], $havingData['params']);
+            }
         }
         
-        // Construir SQL final
-        $sql = $builder->toSql();
-        $params = $builder->params;
+        // Construir ORDER BY
+        $orderByClause = '';
+        if (!empty($sort)) {
+            $sortParts = [];
+            foreach ($sort as $field => $dir) {
+                $dirUpper = strtoupper($dir);
+                if (!in_array($dirUpper, ['ASC', 'DESC'])) {
+                    $dirUpper = 'ASC';
+                }
+                $sortParts[] = "$field $dirUpper";
+            }
+            $orderByClause = 'ORDER BY ' . implode(', ', $sortParts);
+        }
+        
+        // Construir LIMIT/OFFSET
+        $limit = $perPage;
+        $offset = ($page - 1) * $perPage;
+        $limitClause = "LIMIT $limit OFFSET $offset";
+        
+        // Construir SELECT
+        $selectFields = '*';
+        if (is_array($fields)) {
+            $selectFields = implode(', ', $fields);
+        } elseif ($fields !== '*') {
+            $selectFields = $fields;
+        }
+        
+        // Ensamblar SQL final
+        $sqlParts = ["SELECT $selectFields", $fromClause];
+        if ($whereClause !== '') $sqlParts[] = $whereClause;
+        if ($groupByClause !== '') $sqlParts[] = $groupByClause;
+        if ($havingClause !== '') $sqlParts[] = $havingClause;
+        if ($orderByClause !== '') $sqlParts[] = $orderByClause;
+        $sqlParts[] = $limitClause;
+        
+        $sql = implode(' ', $sqlParts);
         
         // Almacenar en caché la plantilla SQL
         if ($cacheKey !== null && count(self::$queryCache) < self::$queryCacheMaxSize) {
@@ -242,7 +288,7 @@ class SQL
             }
         }
         
-        return [$sql, $params];
+        return [$sql, $whereData['params']];
     }
 
     /**
