@@ -1,6 +1,6 @@
 <?php
 
-namespace Core\Cache\Adapters;
+namespace RapidBase\Core\Cache\Adapters;
 
 /**
  * DirectoryCacheAdapter: Persistencia en archivos .php con sharding.

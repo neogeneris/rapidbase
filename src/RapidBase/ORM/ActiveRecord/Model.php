@@ -1,8 +1,8 @@
 <?php
 
-namespace ORM\ActiveRecord;
+namespace RapidBase\ORM\ActiveRecord;
 
-use Core\DB;
+use RapidBase\Core\DB;
 use InvalidArgumentException;
 
 abstract class Model

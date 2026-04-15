@@ -1,7 +1,7 @@
 <?php
 // File: src/Meta/Discovery/DiscoveryFactory.php
 
-namespace Meta\Discovery;
+namespace RapidBase\Meta\Discovery;
 
 use PDO;
 use InvalidArgumentException;

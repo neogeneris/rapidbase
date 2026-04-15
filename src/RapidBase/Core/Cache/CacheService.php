@@ -1,8 +1,8 @@
 <?php
 
-namespace Core\Cache;
+namespace RapidBase\Core\Cache;
 
-use Core\Cache\Adapters\DirectoryCacheAdapter;
+use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
 
 class CacheService
 {

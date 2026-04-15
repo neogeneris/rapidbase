@@ -1,6 +1,6 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Back;
 
 class SQL {
     private static array $relMap = [];
