@@ -158,10 +158,10 @@ class SQL
     // ========== CONSTRUCCIÓN DE SELECT ==========
 
     /**
-     * Construye una consulta SELECT con caché opcional de la estructura SQL.
+     * Construye una consulta SELECT utilizando SelectBuilder internamente.
      * 
-     * El caché almacena la plantilla SQL generada (sin los valores de parámetros),
-     * lo que reduce la CPU en consultas complejas con múltiples JOINs.
+     * Esta versión usa un objeto SelectBuilder en lugar de arrays para mejor
+     * rendimiento y mantenibilidad. El caché almacena la plantilla SQL generada.
      * 
      * @param mixed $fields Columnas a seleccionar.
      * @param mixed $table Tabla o array de tablas para JOINs.
@@ -188,7 +188,6 @@ class SQL
         // Generar clave de caché basada en la ESTRUCTURA de la consulta (no los valores)
         $cacheKey = null;
         if (self::$queryCacheEnabled) {
-            // La clave incluye la estructura pero NO los valores específicos de where/sort
             $structureKey = json_encode([
                 'fields' => $fields,
                 'table' => $table,
@@ -205,7 +204,6 @@ class SQL
             if (isset(self::$queryCache[$cacheKey])) {
                 self::$queryCacheHits++;
                 $cachedTemplate = self::$queryCache[$cacheKey];
-                // Reutilizar la plantilla SQL y generar nuevos parámetros
                 $params = self::buildWhere($where)['params'];
                 if (!empty($having)) {
                     $havingData = self::buildWhere($having);
@@ -216,53 +214,29 @@ class SQL
             self::$queryCacheMisses++;
         }
         
-        $parts = ['SELECT'];
-        $params = [];
-
-        // 1. SELECT FIELDS
-        if ($fields === '*') {
-            $parts[] = '*';
-        } else {
-            $fieldArray = is_array($fields) ? $fields : array_map('trim', explode(',', $fields));
-            $quotedFields = array_map(fn($f) => (str_contains($f, '(') || is_numeric($f)) ? $f : self::quoteField($f), $fieldArray);
-            $parts[] = implode(', ', $quotedFields);
-        }
-
-        // 2. FROM
-        $parts[] = self::buildFromWithMap($table);
-
-        // 3. WHERE
-        $whereData = self::buildWhere($where);
-        if ($whereData['sql'] !== '1') {
-            $parts[] = 'WHERE ' . $whereData['sql'];
-            $params = $whereData['params'];
-        }
-
-        // 4. GROUP BY
+        // Usar SelectBuilder para construir la consulta
+        $builder = new SelectBuilder($fields, '', $where, $sort, $page, $perPage);
+        
+        // Configurar FROM y JOINs
+        $builder->setFrom($table);
+        
+        // Configurar GROUP BY
         if (!empty($groupBy)) {
-            $parts[] = 'GROUP BY ' . implode(', ', array_map([self::class, 'quote'], (array) $groupBy));
+            $builder->groupBy = $groupBy;
         }
-
-        // 5. HAVING
+        
+        // Configurar HAVING
         if (!empty($having)) {
-            $havingData = self::buildWhere($having);
-            $parts[] = 'HAVING ' . $havingData['sql'];
-            $params = array_merge($params, $havingData['params']);
+            $builder->having = $having;
         }
-
-        // 6. ORDER, LIMIT, OFFSET
-        if ($orderSql = self::buildOrderBy($sort))
-            $parts[] = $orderSql;
-
-        $offset = ($page - 1) * $perPage;
-        $parts[] = "LIMIT $perPage OFFSET $offset";
-
-        $sql = implode(' ', $parts);
+        
+        // Construir SQL final
+        $sql = $builder->toSql();
+        $params = $builder->params;
         
         // Almacenar en caché la plantilla SQL
         if ($cacheKey !== null && count(self::$queryCache) < self::$queryCacheMaxSize) {
             self::$queryCache[$cacheKey] = $sql;
-            // LRU simple: si excede el tamaño, eliminar el 10% más antiguo
             if (count(self::$queryCache) > self::$queryCacheMaxSize) {
                 array_splice(self::$queryCache, 0, (int)(self::$queryCacheMaxSize * 0.1));
             }

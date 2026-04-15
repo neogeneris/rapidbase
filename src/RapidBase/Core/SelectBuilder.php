@@ -67,9 +67,14 @@ class SelectBuilder
     /**
      * Establece la tabla principal FROM
      */
-    public function setFrom(string $table): self
+    public function setFrom(string|array $table): self
     {
-        $this->from = $table;
+        if (is_array($table)) {
+            // Soporte para aliases: ['products' => 'p'] -> FROM products p
+            $this->from = key($table) . ' ' . current($table);
+        } else {
+            $this->from = $table;
+        }
         $this->cachedFromClause = null;
         return $this;
     }
@@ -246,6 +251,7 @@ class SelectBuilder
                     } else {
                         // Array asociativo con operador: ['column' => ['>' => 0]]
                         $conditions[] = "`$key` $operator ?";
+                        $this->params[] = $val;
                     }
                 }
             } elseif (is_numeric($key)) {
@@ -254,6 +260,7 @@ class SelectBuilder
             } else {
                 // Igualdad simple: ['active' => 1]
                 $conditions[] = "`$key` = ?";
+                $this->params[] = $value;
             }
         }
         
@@ -282,7 +289,25 @@ class SelectBuilder
             return '';
         }
         
-        return 'HAVING ' . implode(' AND ', $this->having);
+        // Manejar arrays anidados en HAVING (ej: ['total' => ['>' => 5]])
+        $conditions = [];
+        foreach ($this->having as $key => $value) {
+            if (is_array($value)) {
+                foreach ($value as $operator => $val) {
+                    if (is_numeric($operator)) {
+                        $conditions[] = $val;
+                    } else {
+                        $conditions[] = "`$key` $operator ?";
+                        $this->params[] = $val;
+                    }
+                }
+            } else {
+                $conditions[] = "`$key` = ?";
+                $this->params[] = $value;
+            }
+        }
+        
+        return 'HAVING ' . implode(' AND ', $conditions);
     }
     
     /**
@@ -359,6 +384,15 @@ class SelectBuilder
     public function build(): array
     {
         return [$this->buildSQL(), $this->getParams()];
+    }
+    
+    /**
+     * Alias de buildSQL() para compatibilidad con SQL::buildSelect
+     * Retorna solo el SQL construido
+     */
+    public function toSql(): string
+    {
+        return $this->buildSQL();
     }
     
     /**
