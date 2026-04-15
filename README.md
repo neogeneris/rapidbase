@@ -1,8 +1,8 @@
-# RapidBase 🚀
+# RapidBase 
 
 **RapidBase** is a minimalist PHP meta-framework designed for high-performance data interaction. It eliminates manual model configuration by treating your database schema as the single "source of truth."
 
-## 🏗 Architecture
+##  Architecture
 
 The project is split into two specialized layers that separate database intelligence from execution:
 
@@ -19,7 +19,7 @@ Located in `Core/`, this layer handles secure and efficient data interaction.
 - **ActiveRecord Model:** A base `Model` class designed to consume the metadata map, allowing fluid interaction with tables without manually defining properties.
 - **Minimal Overhead:** Built for environments where every millisecond of execution time matters.
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Generate the Metadata Map
 ```php
