@@ -10,6 +10,13 @@ class SQL
     private static string $quoteChar = '"';
     protected static int $parameterCount = 0;
     private static array $joinTreeCache = [];
+    
+    // ========== CACHÉ DE CONSULTAS SQL ==========
+    private static array $queryCache = [];
+    private static bool $queryCacheEnabled = false;
+    private static int $queryCacheMaxSize = 1000;
+    private static int $queryCacheHits = 0;
+    private static int $queryCacheMisses = 0;
 
     // ========== CONFIGURACIÓN DE DRIVER ==========
 
@@ -28,6 +35,53 @@ class SQL
     {
         $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
         self::setDriver($driver);
+    }
+
+    // ========== CONFIGURACIÓN DEL CACHÉ DE CONSULTAS ==========
+
+    /**
+     * Habilita o deshabilita el caché de consultas SQL generadas.
+     * Útil para reducir la CPU en consultas complejas con múltiples JOINs.
+     */
+    public static function setQueryCacheEnabled(bool $enabled): void
+    {
+        self::$queryCacheEnabled = $enabled;
+    }
+
+    /**
+     * Establece el tamaño máximo del caché de consultas.
+     * Cuando se alcanza el límite, se eliminan las entradas más antiguas (LRU).
+     */
+    public static function setQueryCacheMaxSize(int $size): void
+    {
+        self::$queryCacheMaxSize = max(100, $size);
+    }
+
+    /**
+     * Obtiene estadísticas del caché de consultas.
+     * @return array Con hits, misses, size y hitRate.
+     */
+    public static function getQueryCacheStats(): array
+    {
+        $total = self::$queryCacheHits + self::$queryCacheMisses;
+        return [
+            'hits' => self::$queryCacheHits,
+            'misses' => self::$queryCacheMisses,
+            'size' => count(self::$queryCache),
+            'max_size' => self::$queryCacheMaxSize,
+            'hit_rate' => $total > 0 ? round(self::$queryCacheHits / $total, 4) : 0.0,
+            'enabled' => self::$queryCacheEnabled
+        ];
+    }
+
+    /**
+     * Limpia completamente el caché de consultas.
+     */
+    public static function clearQueryCache(): void
+    {
+        self::$queryCache = [];
+        self::$queryCacheHits = 0;
+        self::$queryCacheMisses = 0;
     }
 
     // ========== CARGA DEL MAPA Y ESQUEMA ==========
@@ -103,6 +157,22 @@ class SQL
 
     // ========== CONSTRUCCIÓN DE SELECT ==========
 
+    /**
+     * Construye una consulta SELECT con caché opcional de la estructura SQL.
+     * 
+     * El caché almacena la plantilla SQL generada (sin los valores de parámetros),
+     * lo que reduce la CPU en consultas complejas con múltiples JOINs.
+     * 
+     * @param mixed $fields Columnas a seleccionar.
+     * @param mixed $table Tabla o array de tablas para JOINs.
+     * @param array $where Condiciones WHERE.
+     * @param array $groupBy Agrupamiento.
+     * @param array $having Condiciones HAVING.
+     * @param array $sort Ordenamiento.
+     * @param int $page Página actual.
+     * @param int $perPage Registros por página.
+     * @return array [sql, params]
+     */
     public static function buildSelect(
         $fields = '*',
         $table = '',
@@ -113,7 +183,39 @@ class SQL
         int $page = 1,
         int $perPage = 10
     ): array {
-        self::reset(); // Reiniciamos para que p0 empiece de nuevo en cada build
+        self::reset();
+        
+        // Generar clave de caché basada en la ESTRUCTURA de la consulta (no los valores)
+        $cacheKey = null;
+        if (self::$queryCacheEnabled) {
+            // La clave incluye la estructura pero NO los valores específicos de where/sort
+            $structureKey = json_encode([
+                'fields' => $fields,
+                'table' => $table,
+                'where_keys' => self::getWhereStructure($where),
+                'groupBy' => $groupBy,
+                'having_keys' => self::getWhereStructure($having),
+                'sort_keys' => array_keys($sort),
+                'page' => $page,
+                'perPage' => $perPage
+            ]);
+            $cacheKey = 'select_' . md5($structureKey);
+            
+            // Verificar caché
+            if (isset(self::$queryCache[$cacheKey])) {
+                self::$queryCacheHits++;
+                $cachedTemplate = self::$queryCache[$cacheKey];
+                // Reutilizar la plantilla SQL y generar nuevos parámetros
+                $params = self::buildWhere($where)['params'];
+                if (!empty($having)) {
+                    $havingData = self::buildWhere($having);
+                    $params = array_merge($params, $havingData['params']);
+                }
+                return [$cachedTemplate, $params];
+            }
+            self::$queryCacheMisses++;
+        }
+        
         $parts = ['SELECT'];
         $params = [];
 
@@ -129,7 +231,7 @@ class SQL
         // 2. FROM
         $parts[] = self::buildFromWithMap($table);
 
-        // 3. WHERE (Lógica de parámetros unificada)
+        // 3. WHERE
         $whereData = self::buildWhere($where);
         if ($whereData['sql'] !== '1') {
             $parts[] = 'WHERE ' . $whereData['sql'];
@@ -141,7 +243,7 @@ class SQL
             $parts[] = 'GROUP BY ' . implode(', ', array_map([self::class, 'quote'], (array) $groupBy));
         }
 
-        // 5. HAVING (Usa el mismo generador de tokens para evitar colisiones)
+        // 5. HAVING
         if (!empty($having)) {
             $havingData = self::buildWhere($having);
             $parts[] = 'HAVING ' . $havingData['sql'];
@@ -155,7 +257,36 @@ class SQL
         $offset = ($page - 1) * $perPage;
         $parts[] = "LIMIT $perPage OFFSET $offset";
 
-        return [implode(' ', $parts), $params];
+        $sql = implode(' ', $parts);
+        
+        // Almacenar en caché la plantilla SQL
+        if ($cacheKey !== null && count(self::$queryCache) < self::$queryCacheMaxSize) {
+            self::$queryCache[$cacheKey] = $sql;
+            // LRU simple: si excede el tamaño, eliminar el 10% más antiguo
+            if (count(self::$queryCache) > self::$queryCacheMaxSize) {
+                array_splice(self::$queryCache, 0, (int)(self::$queryCacheMaxSize * 0.1));
+            }
+        }
+        
+        return [$sql, $params];
+    }
+
+    /**
+     * Extrae la estructura de un array WHERE/HAVING para usar como clave de caché.
+     * Ignora los valores específicos, solo considera las claves y operadores.
+     */
+    private static function getWhereStructure(array $conditions): array
+    {
+        $structure = [];
+        foreach ($conditions as $key => $value) {
+            if (is_array($value)) {
+                // Operadores personalizados o arrays anidados
+                $structure[$key] = is_array($value) ? array_keys($value) : null;
+            } else {
+                $structure[$key] = null; // Solo nos importa la clave
+            }
+        }
+        return $structure;
     }
     // ========== CONSTRUCCIÓN DE FROM CON JOINS ==========
 
