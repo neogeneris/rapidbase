@@ -3,16 +3,16 @@
 namespace Tests\Unit\Core;
 
 // 1. Carga de dependencias
-require_once __DIR__ . '/../../../src/Core/SQL.php';
-require_once __DIR__ . '/../../../src/Core/Conn.php';
-require_once __DIR__ . '/../../../src/Core/Executor.php';
-require_once __DIR__ . '/../../../src/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/Core/DB.php'; // La fachada a probar
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php'; // La fachada a probar
 
-use Core\Conn;
-use Core\DB;
-use Core\Gateway;
-use Core\SQL;
+use RapidBase\Core\Conn;
+use RapidBase\Core\DB;
+use RapidBase\Core\Gateway;
+use RapidBase\Core\SQL;
 
 echo "--- Ejecutando: Core\DB::count Test (Fachada Estática) ---\n";
 

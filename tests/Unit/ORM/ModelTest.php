@@ -4,20 +4,20 @@
  * Valida el ciclo de vida de los objetos, Dirty Checking e Hidratación.
  */
 
-require_once __DIR__ . '/../../../src/Core/Conn.php';
-require_once __DIR__ . '/../../../src/Core/QueryResponse.php';
-require_once __DIR__ . '/../../../src/Core/SQL.php';
-require_once __DIR__ . '/../../../src/Core/Executor.php';
-require_once __DIR__ . '/../../../src/Core/Cache/CacheService.php';
-require_once __DIR__ . '/../../../src/Core/Cache/Adapters/DirectoryCacheAdapter.php'; 
-require_once __DIR__ . '/../../../src/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/Core/DB.php';
-require_once __DIR__ . '/../../../src/ORM/ActiveRecord/Model.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/QueryResponse.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php'; 
+require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
+require_once __DIR__ . '/../../../src/RapidBase/ORM/ActiveRecord/Model.php';
 
-use Core\DB;
-use Core\Conn;
-use Core\SQL;
-use ORM\ActiveRecord\Model;
+use RapidBase\Core\DB;
+use RapidBase\Core\Conn;
+use RapidBase\Core\SQL;
+use RapidBase\ORM\ActiveRecord\Model;
 
 // -------------------------------------------------------------------
 // CONFIGURACIÓN DE ENTORNO

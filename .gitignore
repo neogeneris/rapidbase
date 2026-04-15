@@ -1,32 +1,8 @@
 ```
-# Dependencies
-vendor/
-
-# Cache and temporary files
+# Logs and temp files
 *.log
-*.tmp
-*.swp
-*~
-.DS_Store
-Thumbs.db
+tests/tmp/
 
-# Environment
-.env
-.env.local
-.env.*
-
-# IDE
-.vscode/
-.idea/
-
-# PHP specific
-*.php~
-*.php.bak
-*.php.swp
-*.php.swo
-
-# Build and distribution
-dist/
-build/
-target/
+# Test-specific temporary files
+tests/Integration/temp_db_integ/
 ```

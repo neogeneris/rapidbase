@@ -1,7 +1,7 @@
 <?php
 return array (
   'key' => 'db_grid_products_3a092dc8282d62f95705d045ead02615',
-  'expires_at' => 1775271742,
+  'expires_at' => 1776227975,
   'data' => 
   array (
     'metadata' => 
@@ -11,7 +11,7 @@ return array (
       array (
         'page' => 2,
       ),
-      'generated_at' => '04:57:22',
+      'generated_at' => '04:34:35',
     ),
     'data' => 
     array (

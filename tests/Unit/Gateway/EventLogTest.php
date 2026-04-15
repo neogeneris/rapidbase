@@ -1,16 +1,16 @@
 <?php
 namespace Tests\Unit\Gateway;
 
-require_once __DIR__ . '/../../../src/Core/SQL.php';
-require_once __DIR__ . '/../../../src/Core/Conn.php';
-require_once __DIR__ . '/../../../src/Core/Executor.php';
-require_once __DIR__ . '/../../../src/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/Core/Event.php';
-require_once __DIR__ . '/../../../src/Core/Cache/CacheService.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Event.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
 
-use Core\Conn;
-use Core\Gateway;
-use Core\Event;
+use RapidBase\Core\Conn;
+use RapidBase\Core\Gateway;
+use RapidBase\Core\Event;
 
 // Crear directorio de logs si no existe
 $logDir = __DIR__ . '/../../tmp/log';

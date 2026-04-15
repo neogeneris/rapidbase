@@ -16,14 +16,14 @@ ini_set('display_errors', 1);
 require_once __DIR__ . '/configure.php';
 
 $rootDir = dirname(__DIR__, 3);
-require_once $rootDir . '/src/Core/SQL.php';
-require_once $rootDir . '/src/Core/Gateway.php';
-require_once $rootDir . '/src/Core/Executor.php';
-require_once $rootDir . '/src/Core/Conn.php';
+require_once $rootDir . '/src/RapidBase/Core/SQL.php';
+require_once $rootDir . '/src/RapidBase/Core/Gateway.php';
+require_once $rootDir . '/src/RapidBase/Core/Executor.php';
+require_once $rootDir . '/src/RapidBase/Core/Conn.php';
 
-use Core\Gateway;
-use Core\SQL;
-use Core\Conn;
+use RapidBase\Core\Gateway;
+use RapidBase\Core\SQL;
+use RapidBase\Core\Conn;
 
 $schemaPath = $rootDir . '/tests/tmp/schema/schema_map.php';
 if (!file_exists($schemaPath)) {

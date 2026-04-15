@@ -1,6 +1,7 @@
 <?php
 
-namespace Tests\Unit\SQL;
+
+
 
 /**
  * 1. Definimos la ruta raíz del proyecto de forma absoluta.
@@ -9,11 +10,11 @@ namespace Tests\Unit\SQL;
 $rootDir = realpath(__DIR__ . '/../../../');
 
 // 2. Incluimos las dependencias necesarias de la carpeta src
-require_once $rootDir . '/src/Core/Conn.php';
-require_once $rootDir . '/src/Core/SQL.php';
+require_once $rootDir . '/src/RapidBase/Core/Conn.php';
+require_once $rootDir . '/src/RapidBase/Core/SQL.php';
 
 // 3. Importamos para poder usar SQL:: directamente
-use Core\SQL;
+use RapidBase\Core\SQL;
 SQL::setDriver('mysql');
 class BuildCountTest 
 {

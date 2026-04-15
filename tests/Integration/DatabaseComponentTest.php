@@ -2,10 +2,10 @@
 namespace Tests\Integration;
 
 // 1. Carga manual de dependencias (Fundamentos)
-include_once __DIR__ . "/../../src/Core/Cache/CacheService.php";
-include_once __DIR__ . "/../../src/Core/Cache/Adapters/DirectoryCacheAdapter.php";
+include_once __DIR__ . "/../../src/RapidBase/Core/Cache/CacheService.php";
+include_once __DIR__ . "/../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php";
 
-use Core\Cache\CacheService;
+use RapidBase\Core\Cache\CacheService;
 
 /**
  * Simulacro de la clase DB para probar la integración con los cimientos de caché.
