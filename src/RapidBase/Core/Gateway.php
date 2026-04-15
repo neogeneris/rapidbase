@@ -1,10 +1,11 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Core;
 
 use \Exception;
 use \PDO;
 use \PDOStatement;
+use RapidBase\Core\Cache\CacheService;
 
 /**
  * Clase Gateway - El punto de control y despacho del Framework.
@@ -114,7 +115,7 @@ class Gateway {
 
         // Intentar recuperar de caché
         if (class_exists('Core\Cache\CacheService')) {
-            $cached = Cache\CacheService::get($cacheKey);
+            $cached = CacheService::get($cacheKey);
             if ($cached !== null) {
                 $cached['source'] = 'cache';
                 self::logStatus(true, "CACHE GET: $cacheKey", [], null, [], 'select', $tableName, 0.0);
@@ -128,7 +129,7 @@ class Gateway {
         
         // Guardar en caché
         if ($result && !empty($result['data']) && class_exists('Core\Cache\CacheService')) {
-            Cache\CacheService::set($cacheKey, $result, $ttl);
+            CacheService::set($cacheKey, $result, $ttl);
         }
         
         return $result;
@@ -216,7 +217,7 @@ class Gateway {
     protected static function clearCacheForTable(string $table): void {
         if (class_exists('Core\Cache\CacheService')) {
             $prefix = "db_select_{$table}_";
-            Cache\CacheService::clearByPrefix($prefix);
+            CacheService::clearByPrefix($prefix);
         }
     }
 

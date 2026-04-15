@@ -1,6 +1,6 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Core;
 
 /**
  * Interface SQLBuilderInterface

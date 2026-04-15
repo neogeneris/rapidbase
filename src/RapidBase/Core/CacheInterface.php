@@ -1,6 +1,6 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Core;
 
 interface CacheInterface {
     public function get(string $table, string $key): mixed;

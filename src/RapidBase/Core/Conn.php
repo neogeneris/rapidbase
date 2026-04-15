@@ -1,6 +1,6 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Core;
 
 /**
  * Clase Conn - Administra un pool de conexiones PDO.

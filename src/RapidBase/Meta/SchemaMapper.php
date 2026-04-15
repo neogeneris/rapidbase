@@ -1,10 +1,10 @@
 <?php
 
-namespace Meta;
+namespace RapidBase\Meta;
 
-use Meta\Discovery\DiscoveryFactory;
-use Meta\Discovery\DiscoveryInterface;
-use Meta\Discovery\MySQLDiscovery;
+use RapidBase\Meta\Discovery\DiscoveryFactory;
+use RapidBase\Meta\Discovery\DiscoveryInterface;
+use RapidBase\Meta\Discovery\MySQLDiscovery;
 use PDO;
 
 class SchemaMapper

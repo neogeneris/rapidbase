@@ -1,6 +1,6 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Core;
 
 class Event {
     /** @var array Almacena los callbacks agrupados por nombre de evento */

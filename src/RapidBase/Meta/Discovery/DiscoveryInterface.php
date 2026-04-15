@@ -1,7 +1,7 @@
 <?php
 // File: src/Meta/Discovery/DiscoveryInterface.php
 
-namespace Meta\Discovery;
+namespace RapidBase\Meta\Discovery;
 
 /**
  * Interface DiscoveryInterface

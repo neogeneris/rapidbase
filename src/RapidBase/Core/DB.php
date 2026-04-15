@@ -1,10 +1,10 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Core;
 
-use Core\Conn;
-use Core\SQL;
-
+use RapidBase\Core\Conn;
+use RapidBase\Core\SQL;
+use RapidBase\Core\Cache\CacheService;
 
 use \PDO;
 use \Generator;

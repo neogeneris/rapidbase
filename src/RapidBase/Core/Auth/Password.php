@@ -1,7 +1,7 @@
 <?php
 // File: Core/Auth/Password.php
 
-namespace Core\Auth;
+namespace RapidBase\Core\Auth;
 
 /**
  * Clase utilitaria para operaciones relacionadas con contraseñas.

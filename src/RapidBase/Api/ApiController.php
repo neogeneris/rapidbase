@@ -1,7 +1,9 @@
-namespace Api;
+<?php
 
-use Core\Gateway;
-use Core\SQL;
+namespace RapidBase\Api;
+
+use RapidBase\Core\Gateway;
+use RapidBase\Core\SQL;
 
 class ApiController {
 

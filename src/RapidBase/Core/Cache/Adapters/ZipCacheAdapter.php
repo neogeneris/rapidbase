@@ -1,6 +1,6 @@
 <?php
 
-namespace Core\Cache\Adapters;
+namespace RapidBase\Core\Cache\Adapters;
 
 use Core\CacheInterface;
 use ZipArchive;

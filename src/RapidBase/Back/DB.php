@@ -1,6 +1,6 @@
 <?php
 
-namespace Core;
+namespace RapidBase\Back;
 
 use \PDO;
 use \PDOException;
