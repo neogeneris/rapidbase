@@ -28,7 +28,7 @@ $gatewayTests = [
 
 foreach ($gatewayTests as $test) {
     echo "\n--- Ejecutando Gateway Unit: $test ---\n";
-    include "./". $test;
+    include __DIR__ . "/" . $test;
 }
 
 echo "\n\033[32mFelicidades, el Gateway de RapidBase es impenetrable y funcional.\033[0m\n";

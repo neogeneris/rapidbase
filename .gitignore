@@ -1,28 +1,8 @@
 ```
-# Test results and coverage
+# Logs and temp files
 *.log
-coverage/
-htmlcov/
-.coverage
-.phpunit.result.cache
+tests/tmp/
 
-# Dependencies
-vendor/
-composer.lock
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# OS
-.DS_Store
-Thumbs.db
+# Test-specific temporary files
+tests/Integration/temp_db_integ/
 ```

@@ -12,12 +12,12 @@ require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php'; 
 require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
-require_once __DIR__ . '/../../../src/ORM/ActiveRecord/Model.php';
+require_once __DIR__ . '/../../../src/RapidBase/ORM/ActiveRecord/Model.php';
 
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
 use RapidBase\Core\SQL;
-use ORM\ActiveRecord\Model;
+use RapidBase\ORM\ActiveRecord\Model;
 
 // -------------------------------------------------------------------
 // CONFIGURACIÓN DE ENTORNO

@@ -1,5 +1,6 @@
 <?php
-namespace Tests\Unit\SQL;
+
+
 
 use RapidBase\Core\SQL;
 include_once "../../../src/RapidBase/Core/SQL.php";

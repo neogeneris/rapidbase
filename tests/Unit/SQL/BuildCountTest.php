@@ -1,6 +1,7 @@
 <?php
 
-namespace Tests\Unit\SQL;
+
+
 
 /**
  * 1. Definimos la ruta raíz del proyecto de forma absoluta.

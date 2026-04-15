@@ -4,9 +4,10 @@
  * Ubicación: /tests/PoC/Api/configure.php
  */
 
-namespace Core;
 $rootDir = dirname(__DIR__, 3);
 require_once $rootDir . '/src/RapidBase/Core/Conn.php';
+
+use RapidBase\Core\Conn;
 
 // 2. Inicialización Automática para la PoC
 // Aquí pones tus credenciales de desarrollo
