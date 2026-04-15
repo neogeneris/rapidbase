@@ -5,19 +5,19 @@
  * Versión extendida que cubre los métodos más importantes.
  */
 
-require_once __DIR__ . '/../../../src/Core/Conn.php';
-require_once __DIR__ . '/../../../src/Core/QueryResponse.php';
-require_once __DIR__ . '/../../../src/Core/SQL.php';
-require_once __DIR__ . '/../../../src/Core/Executor.php';
-require_once __DIR__ . '/../../../src/Core/Cache/CacheService.php';
-require_once __DIR__ . '/../../../src/Core/Cache/Adapters/DirectoryCacheAdapter.php';
-require_once __DIR__ . '/../../../src/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/Core/DB.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/QueryResponse.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
 
-use Core\DB;
-use Core\Conn;
-use Core\Cache\CacheService;
-use Core\Gateway;
+use RapidBase\Core\DB;
+use RapidBase\Core\Conn;
+use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\Gateway;
 
 // Configuración de la base de datos en memoria
 Conn::setup('sqlite::memory:', '', '', 'main');

@@ -2,17 +2,17 @@
 
 /**
  * RapidBase - Stress Test Final
- * Estructura: src/Core/Cache/
+ * Estructura: src/RapidBase/Core/Cache/
  */
 
 
-include_once("../../src/Core/CacheInterface.php");
-include_once("../../src/Core/Cache/Adapters/DirectoryCacheAdapter.php");
-include_once("../../src/Core/Cache/Adapters/ZipCacheAdapter.php");
+include_once("../../src/RapidBase/Core/CacheInterface.php");
+include_once("../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php");
+include_once("../../src/RapidBase/Core/Cache/Adapters/ZipCacheAdapter.php");
 
 // 2. Importaciones con los Namespaces correctos según tu 'tree'
-use Core\Cache\Adapters\DirectoryCacheAdapter;
-use Core\Cache\Adapters\ZipCacheAdapter;
+use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
+use RapidBase\Core\Cache\Adapters\ZipCacheAdapter;
 
 // 3. Configuración de Rutas Temporales
 $tmpPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR;

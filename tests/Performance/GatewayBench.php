@@ -2,7 +2,7 @@
 namespace Tests\Performance;
 
 // 1. CARGA DE LA FUNDACIÓN
-$basePath = __DIR__ . "/../../src/Core";
+$basePath = __DIR__ . "/../../src/RapidBase/Core";
 include_once "$basePath/Cache/CacheService.php";
 include_once "$basePath/Cache/Adapters/DirectoryCacheAdapter.php";
 include_once "$basePath/SQL.php";
@@ -10,9 +10,9 @@ include_once "$basePath/Conn.php";
 include_once "$basePath/Executor.php";
 include_once "$basePath/Gateway.php";
 
-use Core\Gateway;
-use Core\Conn;
-use Core\Cache\CacheService;
+use RapidBase\Core\Gateway;
+use RapidBase\Core\Conn;
+use RapidBase\Core\Cache\CacheService;
 
 /**
  * CONFIGURACIÓN DE CONEXIÓN

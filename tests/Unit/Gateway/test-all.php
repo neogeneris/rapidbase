@@ -2,12 +2,12 @@
 // tests/Unit/Gateway/test-gateway-all.php
 
 // Cargamos las dependencias en el orden correcto
-require_once __DIR__ . '/../../../src/Core/SQL.php';
-require_once __DIR__ . '/../../../src/Core/Executor.php';
-require_once __DIR__ . '/../../../src/Core/DB.php';
-require_once __DIR__ . '/../../../src/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
 
-use Core\DB;
+use RapidBase\Core\DB;
 
 
 // Función global de ayuda para aserciones (estilo la que ya usas)

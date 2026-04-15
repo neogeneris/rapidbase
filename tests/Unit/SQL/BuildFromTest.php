@@ -1,8 +1,8 @@
 <?php
 namespace Tests\Unit\SQL;
 
-use Core\SQL;
-include_once "../../../src/Core/SQL.php";
+use RapidBase\Core\SQL;
+include_once "../../../src/RapidBase/Core/SQL.php";
 
 // Configuramos el mapa para la prueba (formato plano, sin 'relationships')
 SQL::setRelationsMap([

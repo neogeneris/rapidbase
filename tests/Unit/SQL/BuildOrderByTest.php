@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Unit\SQL;
-include_once "../../../src/Core/SQL.php";
-use Core\SQL;
+include_once "../../../src/RapidBase/Core/SQL.php";
+use RapidBase\Core\SQL;
 
 echo "--- Ejecutando: BuildOrderByTest.php (Sintaxis Compacta) ---\n";
 

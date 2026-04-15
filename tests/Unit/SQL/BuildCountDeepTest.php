@@ -2,9 +2,9 @@
 // tests/Unit/SQL/BuildCountDeepTest.php
 
 $rootDir = realpath(__DIR__ . '/../../../');
-require_once $rootDir . '/src/Core/SQL.php';
+require_once $rootDir . '/src/RapidBase/Core/SQL.php';
 
-use Core\SQL;
+use RapidBase\Core\SQL;
 
 class BuildCountDeepTest {
     

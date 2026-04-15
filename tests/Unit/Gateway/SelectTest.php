@@ -3,14 +3,14 @@
 namespace Tests\Unit\Gateway;
 
 // Aseguramos que las dependencias necesarias estén presentes
-require_once __DIR__ . '/../../../src/Core/SQL.php';
-require_once __DIR__ . '/../../../src/Core/Conn.php';
-require_once __DIR__ . '/../../../src/Core/Executor.php';
-require_once __DIR__ . '/../../../src/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
 
-use Core\Conn;
-use Core\Gateway;
-use Core\SQL;
+use RapidBase\Core\Conn;
+use RapidBase\Core\Gateway;
+use RapidBase\Core\SQL;
 
 echo "--- Ejecutando: Gateway SelectTest (Integración con GroupBy) ---\n";
 

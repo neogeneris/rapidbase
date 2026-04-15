@@ -1,9 +1,9 @@
 <?php
 // tests/Unit/SQL/BuildWhereDeepTest.php
 
-require_once __DIR__ . '/../../../src/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
 
-use Core\SQL;
+use RapidBase\Core\SQL;
 
 function assertEquals($expected, $actual, $label) {
     if ($expected === $actual) {

@@ -1,32 +1,28 @@
 ```
+# Test results and coverage
+*.log
+coverage/
+htmlcov/
+.coverage
+.phpunit.result.cache
+
 # Dependencies
 vendor/
-
-# Cache and temporary files
-*.log
-*.tmp
-*.swp
-*~
-.DS_Store
-Thumbs.db
+composer.lock
 
 # Environment
 .env
 .env.local
 .env.*
 
-# IDE
+# Editors
 .vscode/
 .idea/
+*.swp
+*.swo
+*.tmp
 
-# PHP specific
-*.php~
-*.php.bak
-*.php.swp
-*.php.swo
-
-# Build and distribution
-dist/
-build/
-target/
+# OS
+.DS_Store
+Thumbs.db
 ```

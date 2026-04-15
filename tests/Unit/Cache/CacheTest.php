@@ -1,14 +1,14 @@
 <?php
 namespace Tests\Unit\Cache;
 
-use Core\Cache\CacheService;
-use Core\Cache\Adapters\DirectoryCacheAdapter;
-use Core\Event;
+use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
+use RapidBase\Core\Event;
 
 // Autoload manual para el entorno de pruebas
-include_once "../../../src/Core/Cache/CacheService.php";
-include_once "../../../src/Core/Cache/Adapters/DirectoryCacheAdapter.php";
-include_once "../../../src/Core/Event.php";
+include_once "../../../src/RapidBase/Core/Cache/CacheService.php";
+include_once "../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php";
+include_once "../../../src/RapidBase/Core/Event.php";
 
 echo "--- Ejecutando: CacheTest.php (Motor de Persistencia L1/L2) ---\n";
 

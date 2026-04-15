@@ -1,6 +1,6 @@
 <?php
 // RapidBase/tests/test_all.php
-include_once "../../../src/Core/SQL.php";
+include_once "../../../src/RapidBase/Core/SQL.php";
 
 $tests = [
     'BuildFromTest.php',

@@ -1,11 +1,11 @@
 <?php
 namespace Tests\Unit\Executor;
 
-require_once __DIR__ . "/../../../src/Core/Conn.php";
-require_once __DIR__ . "/../../../src/Core/Executor.php";
+require_once __DIR__ . "/../../../src/RapidBase/Core/Conn.php";
+require_once __DIR__ . "/../../../src/RapidBase/Core/Executor.php";
 
-use Core\Conn;
-use Core\Executor;
+use RapidBase\Core\Conn;
+use RapidBase\Core\Executor;
 
 echo "--- Test: Executor::batch (Bulk Insert) ---\n";
 

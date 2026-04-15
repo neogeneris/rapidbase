@@ -10,19 +10,19 @@
  */
 
 // Cargar dependencias
-require_once __DIR__ . '/../../../src/Core/Conn.php';
-require_once __DIR__ . '/../../../src/Core/QueryResponse.php';
-require_once __DIR__ . '/../../../src/Core/SQL.php';
-require_once __DIR__ . '/../../../src/Core/Executor.php';
-require_once __DIR__ . '/../../../src/Core/Cache/CacheService.php';
-require_once __DIR__ . '/../../../src/Core/Cache/Adapters/DirectoryCacheAdapter.php';
-require_once __DIR__ . '/../../../src/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/Core/DB.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/QueryResponse.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
 
-use Core\DB;
-use Core\Conn;
-use Core\Gateway;
-use Core\Cache\CacheService;
+use RapidBase\Core\DB;
+use RapidBase\Core\Conn;
+use RapidBase\Core\Gateway;
+use RapidBase\Core\Cache\CacheService;
 
 // Configuración
 Conn::setup('sqlite::memory:', '', '', 'main');
