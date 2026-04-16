@@ -1,12 +1,10 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-
 # Dependencies
 vendor/
-composer.lock
 
-# Test-specific
-tests/Benchmark/BuildSelectBeforeRefactor.php
+# Performance test data
+tests/data/*.sqlite
+
+# Logs
+*.log
 ```

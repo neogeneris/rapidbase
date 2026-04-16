@@ -30,6 +30,10 @@ class SelectBuilder
     private ?string $cachedFromClause = null;
     private ?string $cachedWhereClause = null;
     
+    // Soporte para auto-join
+    private bool $autoJoinEnabled = false;
+    private array $tablesForAutoJoin = [];
+    
     /**
      * Constructor con inicialización fluida
      */
@@ -65,17 +69,32 @@ class SelectBuilder
     }
     
     /**
-     * Establece la tabla principal FROM
+     * Establece la tabla principal FROM con soporte para auto-join
      */
     public function setFrom(string|array $table): self
     {
-        if (is_array($table)) {
-            // Soporte para aliases: ['products' => 'p'] -> FROM products p
-            $this->from = key($table) . ' ' . current($table);
-        } else {
-            $this->from = $table;
-        }
         $this->cachedFromClause = null;
+        
+        if (is_array($table)) {
+            // Verificar si es un array de tablas para auto-join: ['products', 'categories']
+            if (isset($table[0]) && is_string($table[0])) {
+                // Array indexado de tablas para auto-join
+                $this->tablesForAutoJoin = $table;
+                $this->autoJoinEnabled = true;
+                $this->from = $table[0]; // La primera tabla será la raíz
+            } else {
+                // Array asociativo para aliases: ['products' => 'p'] -> FROM products p
+                $this->from = key($table) . ' ' . current($table);
+                $this->autoJoinEnabled = false;
+                $this->tablesForAutoJoin = [];
+            }
+        } else {
+            // String simple: 'products'
+            $this->from = $table;
+            $this->autoJoinEnabled = false;
+            $this->tablesForAutoJoin = [];
+        }
+        
         return $this;
     }
     
@@ -208,14 +227,22 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula FROM con JOINs
+     * Construye la cláusula FROM con JOINs (soporta auto-join)
      */
     public function buildFromClause(): string
     {
-        if ($this->cachedFromClause !== null) {
+        if ($this->cachedFromClause !== null && !$this->autoJoinEnabled) {
             return $this->cachedFromClause;
         }
         
+        // Si hay auto-join habilitado, construir JOINs automáticamente
+        if ($this->autoJoinEnabled && !empty($this->tablesForAutoJoin)) {
+            $sql = $this->buildAutoJoinClause();
+            $this->cachedFromClause = $sql;
+            return $sql;
+        }
+        
+        // Modo manual tradicional
         $sql = 'FROM ' . $this->from;
         
         foreach ($this->joins as $join) {
@@ -224,6 +251,43 @@ class SelectBuilder
         
         $this->cachedFromClause = $sql;
         return $sql;
+    }
+    
+    /**
+     * Construye cláusula FROM con auto-join usando el algoritmo de SQL.php
+     */
+    private function buildAutoJoinClause(): string
+    {
+        // Delegar a SQL::buildFromWithMap para usar el algoritmo optimizado
+        // Esto preserva la funcionalidad de orderTablesByWeakness y buildJoinTree
+        $tables = $this->tablesForAutoJoin;
+        
+        // Convertir formato: ['products', 'categories'] a formato esperado por buildFromWithMap
+        $formattedTables = [];
+        foreach ($tables as $t) {
+            if (is_array($t)) {
+                // ['products' => 'p'] -> 'products AS p'
+                $real = key($t);
+                $alias = current($t);
+                $formattedTables[] = "$real AS $alias";
+            } else {
+                // 'products'
+                $formattedTables[] = $t;
+            }
+        }
+        
+        try {
+            // Usar el método público de SQL que maneja auto-join
+            $fromClause = SQL::buildFromWithMap($formattedTables);
+            return $fromClause;
+        } catch (\Exception $e) {
+            // Fallback a modo manual si falla el auto-join
+            $sql = 'FROM ' . $this->from;
+            foreach ($this->joins as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} AS {$join['alias']} ON {$join['on']}";
+            }
+            return $sql;
+        }
     }
     
     /**
