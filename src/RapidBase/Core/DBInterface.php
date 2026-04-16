@@ -2,169 +2,272 @@
 
 namespace RapidBase\Core;
 
-/**
- * Interface SQLBuilderInterface
- * Contrato para la construcción de sentencias SQL.
- */
-interface SQLBuilderInterface {
-    public static function setDriver(string $driver): void;
-    public static function quote(string $identifier): string;
-    public static function buildWhere(array $conditions): array;
-    public static function buildSelect(string|array $table, array $options, array $relMap = []): array;
-    public static function buildInsert(string $table, array $rows): array;
-    public static function buildUpdate(string $table, array $data, array $where): array;
-    public static function buildDelete(string $table, array $where): array;
-}
-
-/**
- * Interface ExecutorInterface
- * Contrato para la ejecución atómica en la base de datos.
- */
-interface ExecutorInterface {
-    public static function query(\PDO $pdo, string $sql, array $params = []): \PDOStatement;
-    public static function write(\PDO $pdo, string $sql, array $params = []): array;
-    public static function transaction(\PDO $pdo, callable $callback): mixed;
-    public static function batch(\PDO $pdo, string $sql, array $params_list): int;
-}
-
-/**
- * Interface DispatcherInterface
- * El cerebro que coordina al Builder y al Executor.
- */
-interface DispatcherInterface {
-    public static function fetch(string|array $target, array $options = []): \PDOStatement;
-    public static function write(string $sql, array $params = []): array;
-    public static function batch(string $sql, array $params_list): bool;
-    public static function value(string $sql, array $params = []): mixed;
-}
-
-/**
- * Interface ConnectionPoolInterface
- * Para la gestión de múltiples conexiones (Multi-tenant o POS Local/Nube).
- */
-interface ConnectionPoolInterface {
-    public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void;
-    public static function get(string $name = null): \PDO;
-    public static function has(string $name): bool;
-    public static function select(string $name): void;
-	public static function getDatabaseName(string $name = 'main'): string;
-}
+use Generator;
 
 /**
  * Interface DBInterface
- * * Define el contrato estandarizado para el motor de base de datos de Veon/Modulus.
- * Centraliza la configuración, gestión de estado, operaciones CRUD y streaming.
+ * Contrato estandarizado para el motor de base de datos de RapidBase.
+ * Define los métodos disponibles en la clase DB para configuración, 
+ * gestión de estado, operaciones CRUD, consultas y streaming.
  */
 interface DBInterface {
 
     // ========== CONFIGURACIÓN Y CONEXIÓN ==========
     
-    /** Establece la conexión PDO activa. */
-    public static function setConnection(\PDO $pdo): void;
+    /** 
+     * Inicializa la conexión principal a la base de datos.
+     * @param string $dsn Data Source Name (ej: mysql:host=localhost;dbname=test)
+     * @param string $user Usuario de la base de datos
+     * @param string $pass Contraseña de la base de datos
+     * @param string $name Nombre de la conexión (por defecto 'main')
+     */
+    public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void;
 
-    /** Obtiene la instancia de la conexión PDO actual. */
+    /** 
+     * Obtiene la instancia de la conexión PDO actual.
+     * @return \PDO|null
+     */
     public static function getConnection(): ?\PDO;
 
-    /** Define el mapa de relaciones para JOINs automáticos entre tablas. */
+    /** 
+     * Establece el mapa de relaciones para JOINs automáticos entre tablas.
+     * @param array $map
+     */
     public static function setRelationsMap(array $map): void;
-
-    /** Obtiene el mapa de relaciones configurado. */
-    public static function getRelationsMap(): array;
-
-    /** Establece una nueva conexión PDO. */
-    public static function connect(string $dsn, string $user, string $pass): void;
-
-    /** Alias de inicialización para la conexión principal. */
-    public static function setup(string $dsn, string $user, string $pass): void;
 
     // ========== GESTIÓN DE ESTADO Y METADATOS ==========
     
-    /** Actualiza el estado global de la última operación realizada. */
-    public static function setLastStatus(array $status): void;
-
-    /** Retorna el estado detallado de la última ejecución. */
+    /** 
+     * Retorna el estado detallado de la última ejecución.
+     * @return array
+     */
     public static function status(): array;
 
-    /** Obtiene el último mensaje de error registrado, si existe. */
+    /** 
+     * Obtiene el último mensaje de error registrado, si existe.
+     * @return string|null
+     */
     public static function getLastError(): ?string;
 
-    /** Retorna la cantidad de filas afectadas en la última operación de escritura. */
+    /** 
+     * Retorna la cantidad de filas afectadas en la última operación de escritura.
+     * @return int
+     */
     public static function getAffectedRows(): int;
 
-    /** Obtiene el ID generado por la última inserción. */
+    /** 
+     * Obtiene el ID generado por la última inserción.
+     * @return string|int
+     */
     public static function lastInsertId(): string|int;
 
-    // ========== CONSULTAS EXPRESIVAS (LECTURA) ==========
+    // ========== CONSULTAS EXPRESIVAS (SQL DIRECTO) ==========
     
-    /** Ejecuta SQL y retorna una única fila. */
+    /** 
+     * Ejecuta una sentencia SQL directa (INSERT, UPDATE, DELETE, etc.).
+     * @param string $sql
+     * @param array $params
+     * @return array Resultado de la ejecución
+     */
+    public static function exec(string $sql, array $params = []): array;
+
+    /** 
+     * Ejecuta una consulta SQL de lectura y retorna el PDOStatement.
+     * @param string $sql
+     * @param array $params
+     * @return \PDOStatement|false
+     */
+    public static function query(string $sql, array $params = []): \PDOStatement|false;
+
+    /** 
+     * Obtiene una única fila como array asociativo.
+     * @param string $sql
+     * @param array $params
+     * @return array|false
+     */
     public static function one(string $sql, array $params = []): array|false;
 
-    /** Ejecuta SQL y retorna un conjunto de resultados. */
+    /** 
+     * Obtiene múltiples filas como array de arrays asociativos.
+     * @param string $sql
+     * @param array $params
+     * @return array
+     */
     public static function many(string $sql, array $params = []): array;
 
-    /** Ejecuta SQL y retorna un valor escalar (COUNT, SUM, etc.). */
+    /** 
+     * Obtiene un valor escalar (COUNT, SUM, una columna).
+     * @param string $sql
+     * @param array $params
+     * @return mixed
+     */
     public static function value(string $sql, array $params = []): mixed;
 
-    /** Busca el primer registro que coincida con las condiciones dadas. */
+    /** 
+     * Versión simplificada de SELECT para obtener arrays rápidos.
+     * @param string $sql
+     * @param array $params
+     * @return array
+     */
+    public static function fetch(string $sql, array $params = []): array;
+
+    // ========== ABSTRACCIÓN FLUIDA (LECTURA) ==========
+    
+    /** 
+     * Encuentra un único registro por condiciones.
+     * @param string $table
+     * @param array $conditions
+     * @return array|false
+     */
     public static function find(string $table, array $conditions): array|false;
 
-    /** Retorna todos los registros que cumplan las condiciones. */
-    public static function all(string|array $table, array $conditions = []): array;
-
-    /** Cuenta registros basándose en condiciones. */
+    /** 
+     * Cuenta registros de una tabla.
+     * @param string|array $table
+     * @param array $conditions
+     * @return int
+     */
     public static function count(string|array $table, array $conditions = []): int;
 
-    /** Verifica la existencia de registros mediante SELECT EXISTS. */
+    /** 
+     * Verifica si existe un registro que cumpla las condiciones.
+     * @param string $table
+     * @param array $conditions
+     * @return bool
+     */
     public static function exists(string $table, array $conditions): bool;
+
+    /** 
+     * Alias de find(). Lee un único registro.
+     * @param string|array $table
+     * @param array $where
+     * @param array $sort
+     * @return array|false
+     */
+    public static function read(string|array $table, array $where = [], array $sort = []): array|false;
+
+    /** 
+     * Lee un registro y lo mapea a una instancia de la clase dada.
+     * @param string $class
+     * @param array $where
+     * @param string|null $table
+     * @return object|false
+     */
+    public static function readAs(string $class, array $where, ?string $table = null): object|false;
+
+    /** 
+     * Obtiene todos los registros de una tabla (sin paginación).
+     * @param string|array $table
+     * @param array $conditions
+     * @param array $sort
+     * @return array
+     */
+    public static function all(string|array $table, array $conditions = [], array $sort = []): array;
+
+    /** 
+     * Versión paginada y cacheada. Retorna lista plana o pares llave-valor.
+     * @param string|array $table
+     * @param array $where
+     * @param array $sort
+     * @param int $page
+     * @param int $perPage
+     * @return array
+     */
+    public static function list(
+        string|array $table, 
+        array $where = [], 
+        array $sort = [], 
+        int $page = 1, 
+        int $perPage = 50
+    ): array;
 
     // ========== OPERACIONES CRUD (ESCRITURA) ==========
     
-    /** Inserta una o varias filas de datos en una tabla. */
-    public static function insert(string $table, array $rows): bool;
+    /** 
+     * Inserta un registro y retorna el último ID insertado (o 0 si falla).
+     * @param string $table
+     * @param array $data
+     * @return int|string
+     */
+    public static function insert(string $table, array $data): int|string;
 
-    /** Inserta un registro y devuelve su identificador o false. */
+    /** 
+     * Inserta un registro y retorna el último ID, o false si falla.
+     * @param string $table
+     * @param array $data
+     * @return string|int|false
+     */
     public static function create(string $table, array $data): string|int|false;
 
-    /** Actualiza registros existentes según condiciones específicas. */
+    /** 
+     * Actualiza registros que cumplan las condiciones.
+     * @param string $table
+     * @param array $data
+     * @param array $conditions
+     * @return bool
+     */
     public static function update(string $table, array $data, array $conditions): bool;
 
-    /** Elimina registros según condiciones específicas. */
+    /** 
+     * Elimina registros que cumplan las condiciones.
+     * @param string $table
+     * @param array $conditions
+     * @return bool
+     */
     public static function delete(string $table, array $conditions): bool;
 
-    /** Inserta o actualiza un registro basado en un identificador único. */
-    public static function upsert(string $table, array $data, array $identifier): int|bool;
+    /** 
+     * Lógica de "Insertar o Actualizar" (Upsert).
+     * @param string $table
+     * @param array $data
+     * @param array $identifier
+     * @return int|string|bool
+     */
+    public static function upsert(string $table, array $data, array $identifier): int|string|bool;
 
-    // ========== RESULTADOS ESTRUCTURADOS Y STREAMING ==========
+    // ========== RESULTADOS ESTRUCTURADOS Y GRID ==========
     
-	/** Ejecuta una lectura simple con la firma simétrica de RapidBase. */
-public static function read(string|array $table, array $where = [], array $sort = [], int $page = 1, array $options = []): ?array;
-/** Ejecuta una lectura y mapea los resultados a una clase específica. */
-public static function readAs(
-    string $class, 
-    $where = [], 
-    int $page = 1, 
-    array $sort = [], 
-    array $options = []
-): ?object; // Cambiado de array a ?object para ser semánticamente correcto
+    /** 
+     * Motor para DHTMLX que retorna un objeto QueryResponse con datos y total.
+     * @param string|array $table
+     * @param array $where
+     * @param array $sort
+     * @param int $page
+     * @param int $perPage
+     * @return QueryResponse
+     */
+    public static function grid(
+        string|array $table, 
+        array $where = [], 
+        array $sort = [], 
+        int $page = 1, 
+        int $perPage = 50
+    ): QueryResponse;
 
-/** Retorna una respuesta paginada estructurada. */
-public static function grid(
-    string|array $table, 
-    $where = [], 
-    int $page = 1, 
-    array $sort = [], 
-    array $options = []
-): QueryResponse;
-	
-	
-        /** Genera un volcado de datos mediante iteradores o hacia un archivo físico. */
-    public static function dump(string $table, array $where = [], ?string $filename = null): iterable|bool;
+    // ========== STREAMING ==========
+    
+    /** 
+     * Retorna un generador para iterar sobre filas de una consulta.
+     * @param string $sql
+     * @param array $params
+     * @return Generator
+     */
+    public static function stream(string $sql, array $params = []): Generator;
 
     // ========== TRANSACCIONES Y UTILIDADES ==========
     
-    /** Envuelve una serie de operaciones en una transacción atómica. */
+    /** 
+     * Envuelve una serie de operaciones en una transacción atómica.
+     * @param callable $callback
+     * @return mixed
+     */
     public static function transaction(callable $callback): mixed;
 
-    /** Crea un objeto de expresión SQL cruda para evitar el escape de caracteres. */
-    public static function raw(string $value): Raw;
+    /** 
+     * Crea un objeto de expresión SQL cruda para evitar el escape de caracteres.
+     * Útil para funciones SQL o nombres de columnas reservados.
+     * @param string $value
+     * @return mixed
+     */
+    public static function raw(string $value): mixed;
 }
