@@ -58,7 +58,11 @@ class Mapper {
                 $where = $this->convertCriteria($criteria);
                 
                 // Use RapidBase buildSelect for optimization
-                $sqlData = \RapidBase\Core\SQL::buildSelect('*', $this->tableName, $where, [], [], [], $options['order'] ?? null, 1);
+                $sort = $options['order'] ?? [];
+                $page = $options['page'] ?? 0; // 0 disables pagination
+                $perPage = $options['limit'] ?? 10;
+                
+                $sqlData = \RapidBase\Core\SQL::buildSelect('*', $this->tableName, $where, [], [], $sort, $page, $perPage);
                 $result = $this->rapidGateway->select($sqlData['sql'], $sqlData['params']);
                 
                 if (!empty($result)) {

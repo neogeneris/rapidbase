@@ -180,9 +180,11 @@ class SQL
         array $groupBy = [],
         array $having = [],
         array $sort = [],
-        int $page = 1,
+        $page = 0, // Changed from int $page = 1 to mixed $page = 0 to allow null/empty disabling pagination
         int $perPage = 10
     ): array {
+        // Normalize page: null, [], 0, or false -> 0 (No pagination)
+        $page = empty($page) ? 0 : (int)$page;
         self::reset();
         
         // Generar clave de caché basada en la ESTRUCTURA de la consulta (no los valores)
