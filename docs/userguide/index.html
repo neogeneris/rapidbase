@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RapidBase Framework - Manual de Usuario</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --light-bg: #ecf0f1;
+            --code-bg: #2d2d2d;
+            --text-color: #333;
+            --border-color: #bdc3c7;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #f9f9f9;
+        }
+        
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .sidebar h1 {
+            font-size: 1.5rem;
+            padding: 0 1.5rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 1rem;
+        }
+        
+        .sidebar nav ul {
+            list-style: none;
+        }
+        
+        .sidebar nav ul li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .sidebar nav ul li a {
+            display: block;
+            padding: 0.75rem 1.5rem;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar nav ul li a:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: white;
+            padding-left: 2rem;
+        }
+        
+        .sidebar nav ul li.section-title {
+            font-weight: bold;
+            color: var(--secondary-color);
+            padding: 1rem 1.5rem 0.5rem;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 2rem 3rem;
+            max-width: 1200px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            color: white;
+            padding: 3rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        section {
+            background: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        h2 {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid var(--secondary-color);
+        }
+        
+        h3 {
+            color: var(--secondary-color);
+            font-size: 1.4rem;
+            margin: 1.5rem 0 1rem;
+        }
+        
+        h4 {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            margin: 1rem 0 0.5rem;
+        }
+        
+        p {
+            margin-bottom: 1rem;
+        }
+        
+        ul, ol {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        li {
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Code Blocks */
+        pre {
+            background-color: var(--code-bg);
+            color: #f8f8f2;
+            padding: 1.5rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        code {
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        
+        p code, li code {
+            background-color: var(--light-bg);
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            color: var(--accent-color);
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: white;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+        
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background-color: var(--light-bg);
+        }
+        
+        /* Info Boxes */
+        .info-box {
+            padding: 1rem;
+            border-left: 4px solid var(--secondary-color);
+            background-color: rgba(52, 152, 219, 0.1);
+            margin: 1rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .warning-box {
+            padding: 1rem;
+            border-left: 4px solid var(--accent-color);
+            background-color: rgba(231, 76, 60, 0.1);
+            margin: 1rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .tip-box {
+            padding: 1rem;
+            border-left: 4px solid #27ae60;
+            background-color: rgba(39, 174, 96, 0.1);
+            margin: 1rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        /* Architecture Diagram */
+        .architecture {
+            background-color: var(--light-bg);
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .architecture-box {
+            display: inline-block;
+            padding: 1rem 2rem;
+            margin: 0.5rem;
+            background-color: var(--secondary-color);
+            color: white;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        
+        .architecture-arrow {
+            display: inline-block;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin: 0 0.5rem;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+            border-top: 1px solid var(--border-color);
+            margin-top: 2rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 1rem;
+            }
+        }
+        
+        /* Syntax Highlighting */
+        .php-keyword { color: #66d9ef; }
+        .php-string { color: #a6e22e; }
+        .php-comment { color: #75715e; }
+        .php-function { color: #f92672; }
+        .php-variable { color: #f8f8f2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <h1>🚀 RapidBase</h1>
+            <nav>
+                <ul>
+                    <li class="section-title">Introducción</li>
+                    <li><a href="#overview">Visión General</a></li>
+                    <li><a href="#architecture">Arquitectura</a></li>
+                    <li><a href="#installation">Instalación</a></li>
+                    
+                    <li class="section-title">Configuración</li>
+                    <li><a href="#database-setup">Conexión a BD</a></li>
+                    <li><a href="#cache-setup">Configurar Caché</a></li>
+                    <li><a href="#relations-map">Mapa de Relaciones</a></li>
+                    
+                    <li class="section-title">Clase DB (Fachada)</li>
+                    <li><a href="#db-initialization">Inicialización</a></li>
+                    <li><a href="#db-read">Lecturas</a></li>
+                    <li><a href="#db-write">Escrituras</a></li>
+                    <li><a href="#db-advanced">Métodos Avanzados</a></li>
+                    
+                    <li class="section-title">ORM ActiveRecord</li>
+                    <li><a href="#model-definition">Definir Modelo</a></li>
+                    <li><a href="#model-crud">Operaciones CRUD</a></li>
+                    <li><a href="#model-state">Gestión de Estado</a></li>
+                    
+                    <li class="section-title">Gateway y SQL</li>
+                    <li><a href="#gateway-select">Consultas SELECT</a></li>
+                    <li><a href="#gateway-joins">JOINs Automáticos</a></li>
+                    <li><a href="#gateway-cache">Caché de Consultas</a></li>
+                    
+                    <li class="section-title">Características</li>
+                    <li><a href="#transactions">Transacciones</a></li>
+                    <li><a href="#batch">Operaciones Batch</a></li>
+                    <li><a href="#streaming">Streaming</a></li>
+                    <li><a href="#events">Sistema de Eventos</a></li>
+                    
+                    <li class="section-title">API Reference</li>
+                    <li><a href="#db-methods">DB Methods</a></li>
+                    <li><a href="#model-methods">Model Methods</a></li>
+                </ul>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header>
+                <h1>RapidBase Framework</h1>
+                <p>Manual de Usuario - Guía Completa de Desarrollo</p>
+            </header>
+            
+            <!-- Overview Section -->
+            <section id="overview">
+                <h2>📖 Visión General</h2>
+                <p><strong>RapidBase</strong> es un framework PHP ligero y moderno diseñado para acelerar el desarrollo de aplicaciones web con base de datos. Proporciona una capa de abstracción potente sobre PDO con características avanzadas como:</p>
+                
+                <ul>
+                    <li><strong>ORM ActiveRecord</strong> - Patrón familiar para trabajar con entidades</li>
+                    <li><strong>Consultas Fluent</strong> - API intuitiva para operaciones CRUD</li>
+                    <li><strong>JOINs Automáticos</strong> - Relaciones configurables entre tablas</li>
+                    <li><strong>Caché Multi-nivel</strong> - Optimización automática de consultas</li>
+                    <li><strong>Streaming</strong> - Manejo eficiente de grandes volúmenes de datos</li>
+                    <li><strong>Eventos</strong> - Sistema de hooks para extensibilidad</li>
+                </ul>
+                
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> RapidBase está diseñado para ser utilizado tanto de forma procedural (clase <code>DB</code>) como orientada a objetos (clase <code>Model</code>).
+                </div>
+            </section>
+            
+            <!-- Architecture Section -->
+            <section id="architecture">
+                <h2>🏗️ Arquitectura</h2>
+                <p>RapidBase sigue una arquitectura en capas bien definida:</p>
+                
+                <div class="architecture">
+                    <div class="architecture-box">DB (Fachada)</div>
+                    <span class="architecture-arrow">↓</span>
+                    <div class="architecture-box">Gateway</div>
+                    <span class="architecture-arrow">↓</span>
+                    <div class="architecture-box">SQL Builder</div>
+                    <span class="architecture-arrow">↓</span>
+                    <div class="architecture-box">Executor</div>
+                    <span class="architecture-arrow">↓</span>
+                    <div class="architecture-box">Conn (PDO)</div>
+                </div>
+                
+                <h3>Componentes Principales</h3>
+                <table>
+                    <tr>
+                        <th>Clase</th>
+                        <th>Responsabilidad</th>
+                    </tr>
+                    <tr>
+                        <td><code>DB</code></td>
+                        <td>Fachada principal. Punto de entrada único para todas las operaciones.</td>
+                    </tr>
+                    <tr>
+                        <td><code>Gateway</code></td>
+                        <td>Orquestador. Combina SQL, Conn, Executor y Caché.</td>
+                    </tr>
+                    <tr>
+                        <td><code>SQL</code></td>
+                        <td>Constructor de consultas. Genera SQL seguro con soporte para JOINs.</td>
+                    </tr>
+                    <tr>
+                        <td><code>Executor</code></td>
+                        <td>Ejecutor atómico. Ejecuta sentencias y maneja errores.</td>
+                    </tr>
+                    <tr>
+                        <td><code>Conn</code></td>
+                        <td>Pool de conexiones. Administra instancias PDO.</td>
+                    </tr>
+                    <tr>
+                        <td><code>Model</code></td>
+                        <td>ORM ActiveRecord. Representa entidades de negocio.</td>
+                    </tr>
+                    <tr>
+                        <td><code>CacheService</code></td>
+                        <td>Gestión de caché. Soporta múltiples adapters.</td>
+                    </tr>
+                </table>
+            </section>
+            
+            <!-- Installation Section -->
+            <section id="installation">
+                <h2>📦 Instalación</h2>
+                <p>Requisitos mínimos:</p>
+                <ul>
+                    <li>PHP 8.0 o superior</li>
+                    <li>Extensión PDO habilitada</li>
+                    <li>Base de datos MySQL, PostgreSQL, SQLite o compatible</li>
+                </ul>
+                
+                <h3>Vía Composer</h3>
+                <pre><code class="language-php">composer require rapidbase/framework</code></pre>
+                
+                <h3>Estructura del Proyecto</h3>
+                <pre><code>tu-proyecto/
+├── vendor/
+│   └── rapidbase/
+│       └── src/
+├── config/
+│   └── database.php
+├── models/
+│   └── User.php
+└── index.php</code></pre>
+            </section>
+            
+            <!-- Database Setup Section -->
+            <section id="database-setup">
+                <h2>🔌 Conexión a Base de Datos</h2>
+                <p>La configuración inicial se realiza mediante el método <code>DB::setup()</code>:</p>
+                
+                <h3>Ejemplo MySQL</h3>
+                <pre><code class="language-php">&lt;?php
+use RapidBase\Core\DB;
+
+// Configuración de conexión
+DB::setup(
+    dsn: 'mysql:host=localhost;dbname=mi_base;charset=utf8mb4',
+    user: 'usuario',
+    pass: 'contraseña',
+    name: 'main'  // Nombre de la conexión (para múltiples conexiones)
+);</code></pre>
+                
+                <h3>Ejemplo SQLite</h3>
+                <pre><code class="language-php">DB::setup(
+    dsn: 'sqlite:/path/to/database.sqlite',
+    user: '',
+    pass: ''
+);</code></pre>
+                
+                <h3>Múltiples Conexiones</h3>
+                <pre><code class="language-php">// Conexión principal
+DB::setup('mysql:host=localhost;dbname=app', 'user', 'pass', 'main');
+
+// Conexión secundaria
+DB::setup('mysql:host=localhost;dbname=analytics', 'user', 'pass', 'analytics');
+
+// Seleccionar conexión
+DB::getConnection('analytics');</code></pre>
+                
+                <div class="warning-box">
+                    <strong>⚠️ Importante:</strong> La configuración debe realizarse antes de cualquier operación de base de datos.
+                </div>
+            </section>
+            
+            <!-- Cache Setup Section -->
+            <section id="cache-setup">
+                <h2>💾 Configurar Caché</h2>
+                <p>RapidBase incluye un sistema de caché multi-nivel que puede mejorar significativamente el rendimiento:</p>
+                
+                <pre><code class="language-php">use RapidBase\Core\Cache\CacheService;
+
+// Inicializar caché en directorio local
+CacheService::init('/path/to/cache/dir');
+
+// El caché se activa automáticamente para consultas frecuentes
+$result = DB::all('users');  // Primera vez: DB, siguientes: caché</code></pre>
+                
+                <h3>Adapters Disponibles</h3>
+                <ul>
+                    <li><code>DirectoryCacheAdapter</code> - Archivos locales (default)</li>
+                    <li><code>RedisCacheAdapter</code> - Redis server</li>
+                    <li><code>MemcachedCacheAdapter</code> - Memcached</li>
+                    <li><code>SQLiteMemoryCacheAdapter</code> - SQLite en memoria</li>
+                </ul>
+            </section>
+            
+            <!-- Relations Map Section -->
+            <section id="relations-map">
+                <h2>🔗 Mapa de Relaciones</h2>
+                <p>Para habilitar JOINs automáticos, define un mapa de relaciones:</p>
+                
+                <pre><code class="language-php">// config/relationships.php
+return [
+    'relationships' => [
+        'from' => [
+            'orders' => [
+                'users' => ['local_key' => 'user_id', 'foreign_key' => 'id']
+            ],
+            'order_items' => [
+                'products' => ['local_key' => 'product_id', 'foreign_key' => 'id']
+            ]
+        ],
+        'to' => [
+            'users' => [
+                'orders' => ['local_key' => 'id', 'foreign_key' => 'user_id']
+            ]
+        ]
+    ],
+    'tables' => [
+        'users' => ['id' => 'int', 'name' => 'string', 'email' => 'string'],
+        'orders' => ['id' => 'int', 'user_id' => 'int', 'total' => 'decimal']
+    ]
+];</code></pre>
+                
+                <h3>Cargar el Mapa</h3>
+                <pre><code class="language-php">DB::loadRelationsMap('config/relationships.php');
+
+// O programáticamente
+DB::setRelationsMap($mapArray);</code></pre>
+                
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> Usa <code>SchemaMapper::generate()</code> para generar automáticamente el mapa desde tu base de datos.
+                </div>
+            </section>
+            
+            <!-- DB Initialization Section -->
+            <section id="db-initialization">
+                <h2>🎯 Clase DB - Inicialización</h2>
+                <p>La clase <code>DB</code> es la fachada principal del framework. Todos los métodos son estáticos:</p>
+                
+                <pre><code class="language-php">use RapidBase\Core\DB;
+
+// Setup inicial
+DB::setup($dsn, $user, $pass);
+
+// Cargar relaciones
+DB::loadRelationsMap('schema.php');</code></pre>
+            </section>
+            
+            <!-- DB Read Section -->
+            <section id="db-read">
+                <h2>📖 DB - Operaciones de Lectura</h2>
+                
+                <h3>Obtener un registro</h3>
+                <pre><code class="language-php">// Buscar por condiciones
+$user = DB::find('users', ['email' => 'juan@example.com']);
+
+// Contar registros
+$count = DB::count('users', ['active' => 1]);
+
+// Verificar existencia
+$exists = DB::exists('users', ['email' => 'test@test.com']);</code></pre>
+                
+                <h3>Obtener múltiples registros</h3>
+                <pre><code class="language-php">// Todos los registros (con caché)
+$users = DB::all('users');
+
+// Con condiciones y ordenamiento
+$activeUsers = DB::all(
+    table: 'users',
+    conditions: ['active' => 1],
+    sort: ['name' => 'ASC']
+);
+
+// Paginado (retorna array llave=>valor si hay 2+ columnas)
+$userList = DB::list(
+    table: 'users',
+    where: ['active' => 1],
+    sort: ['created_at' => 'DESC'],
+    page: 1,
+    perPage: 20
+);</code></pre>
+                
+                <h3>Consultas SQL personalizadas</h3>
+                <pre><code class="language-php">// Una fila
+$row = DB::one('SELECT * FROM users WHERE id = ?', [1]);
+
+// Múltiples filas
+$rows = DB::many('SELECT * FROM users WHERE active = ?', [1]);
+
+// Valor escalar
+$count = DB::value('SELECT COUNT(*) FROM users');
+
+// Fetch simple
+$data = DB::fetch('SELECT * FROM orders WHERE total > ?', [100]);</code></pre>
+                
+                <h3>Grid para DHTMLX</h3>
+                <pre><code class="language-php">use RapidBase\Core\QueryResponse;
+
+$response = DB::grid(
+    table: 'products',
+    where: ['category_id' => 5],
+    sort: ['name' => 'ASC'],
+    page: 1,
+    perPage: 50
+);
+
+// Retorna QueryResponse con data, total, count, metadata
+echo json_encode($response->toDhtmlx());</code></pre>
+            </section>
+            
+            <!-- DB Write Section -->
+            <section id="db-write">
+                <h2>✏️ DB - Operaciones de Escritura</h2>
+                
+                <h3>Insertar registros</h3>
+                <pre><code class="language-php">// Insertar y obtener ID
+$id = DB::insert('users', [
+    'name' => 'Juan Pérez',
+    'email' => 'juan@example.com',
+    'password' => password_hash('secret', PASSWORD_DEFAULT)
+]);
+
+// Insertar o false si falla
+$result = DB::create('users', [
+    'name' => 'María García',
+    'email' => 'maria@example.com'
+]);</code></pre>
+                
+                <h3>Actualizar registros</h3>
+                <pre><code class="language-php">$success = DB::update(
+    table: 'users',
+    data: ['name' => 'Juan Carlos Pérez'],
+    conditions: ['id' => 1]
+);</code></pre>
+                
+                <h3>Eliminar registros</h3>
+                <pre><code class="language-php">$deleted = DB::delete('users', ['id' => 1]);</code></pre>
+                
+                <h3>Upsert (Insertar o Actualizar)</h3>
+                <pre><code class="language-php">// Si existe (por email), actualiza. Si no, inserta.
+$result = DB::upsert(
+    table: 'users',
+    data: ['name' => 'Nuevo Nombre'],
+    identifier: ['email' => 'juan@example.com']
+);
+
+// Retorna: lastId si insertó, true si actualizó, false si falló</code></pre>
+                
+                <h3>Lectura como Objeto</h3>
+                <pre><code class="language-php">// Leer y mapear a instancia de clase
+$user = DB::readAs(
+    class: User::class,
+    where: ['id' => 1],
+    table: 'users'  // opcional si User tiene getTable()
+);</code></pre>
+            </section>
+            
+            <!-- DB Advanced Section -->
+            <section id="db-advanced">
+                <h2>🚀 DB - Métodos Avanzados</h2>
+                
+                <h3>Estado de la última operación</h3>
+                <pre><code class="language-php">$status = DB::status();
+// ['sql' => '...', 'params' => [...], 'rows' => 5, 'id' => 123, 'error' => null]
+
+$error = DB::getLastError();
+$rows = DB::getAffectedRows();
+$lastId = DB::lastInsertId();</code></pre>
+                
+                <h3>SQL Crudo</h3>
+                <pre><code class="language-php">// Ejecutar sentencia directa
+DB::exec('DELETE FROM logs WHERE created_at < ?', [date('Y-m-d', strtotime('-30 days'))]);
+
+// Query directa
+$stmt = DB::query('SELECT * FROM large_table');
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    // procesar fila
+}
+
+// Expresión raw (evita escape)
+DB::insert('posts', [
+    'title' => 'Mi Post',
+    'created' => DB::raw('NOW()')
+]);</code></pre>
+                
+                <h3>Streaming para Grandes Volúmenes</h3>
+                <pre><code class="language-php">// Iterar sin cargar todo en memoria
+foreach (DB::stream('SELECT * FROM telemetry_data') as $row) {
+    process($row);
+}</code></pre>
+            </section>
+            
+            <!-- Model Definition Section -->
+            <section id="model-definition">
+                <h2>🏛️ ORM - Definición de Modelos</h2>
+                <p>Los modelos extienden <code>RapidBase\ORM\ActiveRecord\Model</code>:</p>
+                
+                <pre><code class="language-php">&lt;?php
+namespace App\Models;
+
+use RapidBase\ORM\ActiveRecord\Model;
+
+class User extends Model
+{
+    protected static string $table = 'users';
+    protected static string $primaryKey = 'id';
+    
+    // Propiedades adicionales (opcional)
+    public string $name = '';
+    public string $email = '';
+}</code></pre>
+                
+                <h3>Modelo con Métodos Personalizados</h3>
+                <pre><code class="language-php">class Product extends Model
+{
+    protected static string $table = 'products';
+    
+    public function getFormattedPrice(): string
+    {
+        return '$' . number_format($this->price, 2);
+    }
+    
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+}</code></pre>
+            </section>
+            
+            <!-- Model CRUD Section -->
+            <section id="model-crud">
+                <h2>🏛️ ORM - Operaciones CRUD</h2>
+                
+                <h3>Crear</h3>
+                <pre><code class="language-php">// Crear instancia y guardar
+$user = new User(['name' => 'Juan', 'email' => 'juan@test.com']);
+$user->save();
+
+// Creación estática
+$id = User::create([
+    'name' => 'María',
+    'email' => 'maria@test.com'
+]);</code></pre>
+                
+                <h3>Leer</h3>
+                <pre><code class="language-php">// Por ID
+$user = User::read(1);
+
+// Todos
+$users = User::all();
+
+// Acceder a propiedades
+echo $user->name;
+echo $user['email'];  // También funciona</code></pre>
+                
+                <h3>Actualizar</h3>
+                <pre><code class="language-php">$user = User::read(1);
+$user->name = 'Juan Carlos';
+$user->email = 'jc@test.com';
+$user->save();  // Solo actualiza campos modificados</code></pre>
+                
+                <h3>Eliminar</h3>
+                <pre><code class="language-php">// Por ID
+User::delete(1);
+
+// Desde instancia
+$user = User::read(1);
+$user->destroy();</code></pre>
+            </section>
+            
+            <!-- Model State Section -->
+            <section id="model-state">
+                <h2>🏛️ ORM - Gestión de Estado</h2>
+                
+                <pre><code class="language-php">$user = User::read(1);
+
+// Verificar si está "sucio" (modificado)
+if ($user->isDirty()) {
+    echo "El registro ha sido modificado";
+}
+
+// Verificar campo específico
+if ($user->isDirty('email')) {
+    echo "El email cambió";
+}
+
+// Obtener solo campos modificados
+$changes = $user->getDirty();
+// ['email' => 'nuevo@email.com']
+
+// Sincronizar estado original
+$user->syncOriginal();</code></pre>
+                
+                <div class="info-box">
+                    <strong>ℹ️ Nota:</strong> El ORM detecta automáticamente qué campos han cambiado y solo actualiza esos campos en la base de datos.
+                </div>
+            </section>
+            
+            <!-- Gateway Select Section -->
+            <section id="gateway-select">
+                <h2>🔧 Gateway - Consultas SELECT</h2>
+                <p>Gateway es la capa intermedia que puedes usar directamente para más control:</p>
+                
+                <pre><code class="language-php">use RapidBase\Core\Gateway;
+
+// Consulta básica
+$result = Gateway::select(
+    fields: '*',
+    table: 'users',
+    where: ['active' => 1],
+    sort: ['name' => 'ASC'],
+    page: 1,
+    perPage: 20
+);
+
+// Estructura de retorno
+/*
+[
+    'data' => [...],      // Array de resultados
+    'total' => 150,       // Total de registros
+    'page' => 1,          // Página actual
+    'limit' => 20,        // Registros por página
+    'source' => 'database',
+    'timestamp' => ...
+]
+*/</code></pre>
+                
+                <h3>Consulta con GROUP BY</h3>
+                <pre><code class="language-php">$result = Gateway::select(
+    fields: ['category', 'COUNT(*) as total', 'AVG(price) as avg_price'],
+    table: 'products',
+    where: ['active' => 1],
+    groupBy: ['category'],
+    having: ['total' => ['>' => 5]],
+    sort: ['total' => 'DESC']
+);</code></pre>
+            </section>
+            
+            <!-- Gateway Joins Section -->
+            <section id="gateway-joins">
+                <h2>🔧 Gateway - JOINs Automáticos</h2>
+                <p>Cuando pasas un array de tablas, Gateway construye los JOINs automáticamente usando el mapa de relaciones:</p>
+                
+                <pre><code class="language-php">// JOIN automático entre users y orders
+$result = Gateway::select(
+    fields: ['users.name', 'orders.total', 'orders.created_at'],
+    table: ['users', 'orders'],  // Array de tablas
+    where: ['users.active' => 1],
+    sort: ['orders.created_at' => 'DESC']
+);
+
+// SQL generado automáticamente:
+// SELECT `users`.`name`, `orders`.`total`, `orders`.`created_at`
+// FROM `users`
+// INNER JOIN `orders` ON `users`.`id` = `orders`.`user_id`
+// WHERE `users`.`active` = ?
+// ORDER BY `orders`.`created_at` DESC
+// LIMIT 10 OFFSET 0</code></pre>
+                
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> El algoritmo optimiza el orden de los JOINs basándose en las relaciones definidas.
+                </div>
+            </section>
+            
+            <!-- Gateway Cache Section -->
+            <section id="gateway-cache">
+                <h2>🔧 Gateway - Caché de Consultas</h2>
+                
+                <pre><code class="language-php">// selectCached usa caché automáticamente
+$result = Gateway::selectCached(
+    fields: '*',
+    table: 'products',
+    where: ['category' => 'electronics'],
+    ttl: 3600  // 1 hora
+);
+
+// La primera vez consulta la BD
+// Las siguientes veces (dentro del TTL) retorna de caché
+// source será 'cache' en lugar de 'database'</code></pre>
+                
+                <h3>Invalidación Automática</h3>
+                <p>Cuando ejecutas INSERT, UPDATE o DELETE, Gateway invalida automáticamente el caché de esa tabla.</p>
+                
+                <h3>Control Manual del Caché SQL</h3>
+                <pre><code class="language-php">// Habilitar/deshabilitar caché de consultas SQL
+Gateway::setSqlQueryCacheEnabled(true);
+
+// Ver estadísticas
+$stats = Gateway::getCacheStats();
+/*
+[
+    'sql_query_cache' => ['hits' => 100, 'misses' => 20, 'hit_rate' => 0.83],
+    'result_cache' => [...]
+]
+*/</code></pre>
+            </section>
+            
+            <!-- Transactions Section -->
+            <section id="transactions">
+                <h2>💫 Transacciones</h2>
+                
+                <pre><code class="language-php">use RapidBase\Core\DB;
+
+DB::transaction(function() {
+    // Todas estas operaciones son atómicas
+    DB::insert('orders', ['user_id' => 1, 'total' => 100]);
+    DB::insert('order_items', ['order_id' => 1, 'product_id' => 5, 'qty' => 2]);
+    DB::update('products', ['stock' => DB::raw('stock - 2')], ['id' => 5]);
+    
+    // Si alguna falla, todo se revierte
+});</code></pre>
+                
+                <div class="warning-box">
+                    <strong>⚠️ Importante:</strong> Si se lanza una excepción dentro del callback, la transacción se revierte automáticamente.
+                </div>
+            </section>
+            
+            <!-- Batch Section -->
+            <section id="batch">
+                <h2>📦 Operaciones Batch</h2>
+                
+                <pre><code class="language-php">use RapidBase\Core\Gateway;
+
+// Inserción masiva
+$data = [
+    ['name' => 'Producto 1', 'price' => 10.00],
+    ['name' => 'Producto 2', 'price' => 20.00],
+    ['name' => 'Producto 3', 'price' => 30.00],
+];
+
+Gateway::batch('products', $data);
+
+// Todas las inserciones en una sola transacción</code></pre>
+            </section>
+            
+            <!-- Streaming Section -->
+            <section id="streaming">
+                <h2>🌊 Streaming</h2>
+                <p>Para procesar grandes volúmenes de datos sin agotar la memoria:</p>
+                
+                <pre><code class="language-php">use RapidBase\Core\DB;
+
+// Generador que itera fila por fila
+foreach (DB::stream('SELECT * FROM massive_telemetry_table') as $row) {
+    processRow($row);
+    // Solo una fila en memoria a la vez
+}
+
+// También disponible en Executor
+use RapidBase\Core\Executor;
+foreach (Executor::stream($sql, $params) as $row) {
+    // procesar
+}</code></pre>
+            </section>
+            
+            <!-- Events Section -->
+            <section id="events">
+                <h2>📢 Sistema de Eventos</h2>
+                <p>RapidBase dispara eventos que puedes escuchar:</p>
+                
+                <pre><code class="language-php">use RapidBase\Core\Event;
+
+// Escuchar evento específico
+Event::listen('db.success', function($data) {
+    error_log("Query exitosa: " . $data['sql']);
+});
+
+// Escuchar errores
+Event::listen('db.error', function($data) {
+    error_log("Error DB: " . $data['error']);
+});
+
+// Escuchar todos los eventos
+Event::listen('*', function($eventName, $data) {
+    logEvent($eventName, $data);
+});
+
+// Disparar evento manualmente
+Event::fire('custom.event', ['message' => 'Hola']);</code></pre>
+                
+                <h3>Eventos Disponibles</h3>
+                <ul>
+                    <li><code>db.success</code> - Consulta exitosa</li>
+                    <li><code>db.error</code> - Error en consulta</li>
+                    <li><code>db.log</code> - Log de toda operación</li>
+                    <li><code>*</code> - Comodín para todos los eventos</li>
+                </ul>
+            </section>
+            
+            <!-- DB Methods Reference -->
+            <section id="db-methods">
+                <h2>📚 Referencia - Clase DB</h2>
+                
+                <h3>Inicialización</h3>
+                <table>
+                    <tr>
+                        <th>Método</th>
+                        <th>Descripción</th>
+                    </tr>
+                    <tr>
+                        <td><code>setup(dsn, user, pass, name)</code></td>
+                        <td>Configurar conexión PDO</td>
+                    </tr>
+                    <tr>
+                        <td><code>getConnection()</code></td>
+                        <td>Obtener instancia PDO</td>
+                    </tr>
+                    <tr>
+                        <td><code>setRelationsMap(map)</code></td>
+                        <td>Establecer mapa de relaciones</td>
+                    </tr>
+                    <tr>
+                        <td><code>loadRelationsMap(file)</code></td>
+                        <td>Cargar mapa desde archivo PHP</td>
+                    </tr>
+                </table>
+                
+                <h3>Lectura</h3>
+                <table>
+                    <tr>
+                        <th>Método</th>
+                        <th>Retorna</th>
+                    </tr>
+                    <tr>
+                        <td><code>find(table, conditions)</code></td>
+                        <td>array|false</td>
+                    </tr>
+                    <tr>
+                        <td><code>all(table, conditions, sort)</code></td>
+                        <td>array</td>
+                    </tr>
+                    <tr>
+                        <td><code>list(table, where, sort, page, perPage)</code></td>
+                        <td>array (llave=>valor)</td>
+                    </tr>
+                    <tr>
+                        <td><code>count(table, conditions)</code></td>
+                        <td>int</td>
+                    </tr>
+                    <tr>
+                        <td><code>exists(table, conditions)</code></td>
+                        <td>bool</td>
+                    </tr>
+                    <tr>
+                        <td><code>one(sql, params)</code></td>
+                        <td>array|false</td>
+                    </tr>
+                    <tr>
+                        <td><code>many(sql, params)</code></td>
+                        <td>array</td>
+                    </tr>
+                    <tr>
+                        <td><code>value(sql, params)</code></td>
+                        <td>mixed</td>
+                    </tr>
+                    <tr>
+                        <td><code>grid(table, where, sort, page, perPage)</code></td>
+                        <td>QueryResponse</td>
+                    </tr>
+                </table>
+                
+                <h3>Escritura</h3>
+                <table>
+                    <tr>
+                        <th>Método</th>
+                        <th>Retorna</th>
+                    </tr>
+                    <tr>
+                        <td><code>insert(table, data)</code></td>
+                        <td>int|string (lastId)</td>
+                    </tr>
+                    <tr>
+                        <td><code>create(table, data)</code></td>
+                        <td>int|string|false</td>
+                    </tr>
+                    <tr>
+                        <td><code>update(table, data, conditions)</code></td>
+                        <td>bool</td>
+                    </tr>
+                    <tr>
+                        <td><code>delete(table, conditions)</code></td>
+                        <td>bool</td>
+                    </tr>
+                    <tr>
+                        <td><code>upsert(table, data, identifier)</code></td>
+                        <td>int|string|bool</td>
+                    </tr>
+                </table>
+                
+                <h3>Avanzados</h3>
+                <table>
+                    <tr>
+                        <th>Método</th>
+                        <th>Descripción</th>
+                    </tr>
+                    <tr>
+                        <td><code>exec(sql, params)</code></td>
+                        <td>Ejecutar SQL directo</td>
+                    </tr>
+                    <tr>
+                        <td><code>query(sql, params)</code></td>
+                        <td>PDOStatement</td>
+                    </tr>
+                    <tr>
+                        <td><code>stream(sql, params)</code></td>
+                        <td>Generator</td>
+                    </tr>
+                    <tr>
+                        <td><code>transaction(callback)</code></td>
+                        <td>mixed</td>
+                    </tr>
+                    <tr>
+                        <td><code>status()</code></td>
+                        <td>array (estado último operation)</td>
+                    </tr>
+                    <tr>
+                        <td><code>raw(value)</code></td>
+                        <td>string (expresión SQL cruda)</td>
+                    </tr>
+                </table>
+            </section>
+            
+            <!-- Model Methods Reference -->
+            <section id="model-methods">
+                <h2>📚 Referencia - Clase Model</h2>
+                
+                <h3>Propiedades Estáticas</h3>
+                <pre><code class="language-php">protected static string $table = 'nombre_tabla';
+protected static string $primaryKey = 'id';</code></pre>
+                
+                <h3>Métodos Estáticos</h3>
+                <table>
+                    <tr>
+                        <th>Método</th>
+                        <th>Retorna</th>
+                    </tr>
+                    <tr>
+                        <td><code>getTable()</code></td>
+                        <td>string</td>
+                    </tr>
+                    <tr>
+                        <td><code>getPrimaryKey()</code></td>
+                        <td>string</td>
+                    </tr>
+                    <tr>
+                        <td><code>create(attributes)</code></td>
+                        <td>int|string|bool</td>
+                    </tr>
+                    <tr>
+                        <td><code>read(id)</code></td>
+                        <td>?static</td>
+                    </tr>
+                    <tr>
+                        <td><code>all()</code></td>
+                        <td>array</td>
+                    </tr>
+                    <tr>
+                        <td><code>delete(id)</code></td>
+                        <td>bool</td>
+                    </tr>
+                </table>
+                
+                <h3>Métodos de Instancia</h3>
+                <table>
+                    <tr>
+                        <th>Método</th>
+                        <th>Descripción</th>
+                    </tr>
+                    <tr>
+                        <td><code>__construct(attributes)</code></td>
+                        <td>Crear instancia con datos</td>
+                    </tr>
+                    <tr>
+                        <td><code>fill(attributes)</code></td>
+                        <td>Llenar atributos</td>
+                    </tr>
+                    <tr>
+                        <td><code>save()</code></td>
+                        <td>Guardar (insert/update)</td>
+                    </tr>
+                    <tr>
+                        <td><code>persist()</code></td>
+                        <td>Alias de save()</td>
+                    </tr>
+                    <tr>
+                        <td><code>destroy()</code></td>
+                        <td>Eliminar instancia</td>
+                    </tr>
+                    <tr>
+                        <td><code>isDirty(key)</code></td>
+                        <td>Verificar cambios</td>
+                    </tr>
+                    <tr>
+                        <td><code>getDirty()</code></td>
+                        <td>Obtener campos modificados</td>
+                    </tr>
+                    <tr>
+                        <td><code>syncOriginal()</code></td>
+                        <td>Sincronizar estado original</td>
+                    </tr>
+                </table>
+            </section>
+            
+            <footer>
+                <p>RapidBase Framework - Documentación generada automáticamente</p>
+                <p>&copy; 2024 - Licencia MIT</p>
+            </footer>
+        </main>
+    </div>
+    
+    <script>
+        // Smooth scrolling para navegación
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // Resaltar sección activa
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.sidebar nav ul li a');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+            
+            navLinks.forEach(link => {
+                link.style.background = '';
+                if (link.getAttribute('href') === '#' + current) {
+                    link.style.background = 'rgba(255,255,255,0.2)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
