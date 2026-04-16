@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'rapidbase/rapidbase',
-        'pretty_version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
-        'version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
-        'reference' => 'f56c9b61cbd708ba1152af43668b6e61334d9f66',
+        'pretty_version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
+        'version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
+        'reference' => 'a34d893e37747cea5d575502fa952f583ca5f114',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -110,9 +110,9 @@
             'dev_requirement' => true,
         ),
         'rapidbase/rapidbase' => array(
-            'pretty_version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
-            'version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
-            'reference' => 'f56c9b61cbd708ba1152af43668b6e61334d9f66',
+            'pretty_version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
+            'version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
+            'reference' => 'a34d893e37747cea5d575502fa952f583ca5f114',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
