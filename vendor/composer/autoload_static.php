@@ -14,6 +14,7 @@ class ComposerStaticInitaf6db5d437aef6dceff115beb5a16da4
     public static $prefixLengthsPsr4 = array (
         'R' =>
         array (
+            'RedBeanPHP\\' => 11,
             'RapidBase\\Tests\\' => 16,
             'RapidBase\\' => 10,
         ),
@@ -28,6 +29,10 @@ class ComposerStaticInitaf6db5d437aef6dceff115beb5a16da4
     );
 
     public static $prefixDirsPsr4 = array (
+        'RedBeanPHP\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/gabordemooij/redbean/RedBeanPHP',
+        ),
         'RapidBase\\Tests\\' =>
         array (
             0 => __DIR__ . '/../..' . '/tests/phpUnit',

@@ -1,6 +1,6 @@
 <?php
 // RapidBase/tests/test_all.php
-include_once "../../../src/RapidBase/Core/SQL.php";
+include_once __DIR__."/../../../src/RapidBase/Core/SQL.php";
 
 $tests = [
     'BuildFromTest.php',
@@ -13,12 +13,12 @@ $tests = [
     'BuildInsertTest.php',
     'BuildUpdateTest.php',
     'BuildDeleteTest.php',
-	
+    
 ];
 
 foreach ($tests as $test) {
     echo "\n--- Ejecutando: $test ---\n";
-	Core\SQL::reset();
+	\RapidBase\Core\SQL::reset();
     include __DIR__ . '/' . $test;
 	
 }

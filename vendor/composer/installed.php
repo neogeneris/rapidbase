@@ -1,15 +1,24 @@
 <?php return array(
     'root' => array(
         'name' => 'rapidbase/rapidbase',
-        'pretty_version' => 'dev-main',
-        'version' => 'dev-main',
-        'reference' => '27a7dee63e895d7c8b5c2769bc44b041d41d4046',
+        'pretty_version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
+        'version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
+        'reference' => 'f56c9b61cbd708ba1152af43668b6e61334d9f66',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
+        'gabordemooij/redbean' => array(
+            'pretty_version' => 'v5.7.5',
+            'version' => '5.7.5.0',
+            'reference' => 'fc08c2f9bc5a4f5074721b0d9039881be244f842',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../gabordemooij/redbean',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'myclabs/deep-copy' => array(
             'pretty_version' => '1.13.4',
             'version' => '1.13.4.0',
@@ -101,9 +110,9 @@
             'dev_requirement' => true,
         ),
         'rapidbase/rapidbase' => array(
-            'pretty_version' => 'dev-main',
-            'version' => 'dev-main',
-            'reference' => '27a7dee63e895d7c8b5c2769bc44b041d41d4046',
+            'pretty_version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
+            'version' => 'dev-qwen-code-213f5a6e-2ea0-49bb-98a3-22b07df58d21',
+            'reference' => 'f56c9b61cbd708ba1152af43668b6e61334d9f66',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

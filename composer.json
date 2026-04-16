@@ -16,5 +16,7 @@
             "email": "dev@rapidbase.com"
         }
     ],
-    "require": {}
+    "require": {
+        "gabordemooij/redbean": "^5.7"
+    }
 }
