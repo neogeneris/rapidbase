@@ -6,6 +6,7 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'RedBeanPHP\\' => array($vendorDir . '/gabordemooij/redbean/RedBeanPHP'),
     'RapidBase\\Tests\\' => array($baseDir . '/tests/phpUnit'),
     'RapidBase\\' => array($baseDir . '/src/RapidBase'),
     'PhpParser\\' => array($vendorDir . '/nikic/php-parser/lib/PhpParser'),

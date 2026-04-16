@@ -219,6 +219,48 @@ class Gateway {
             $prefix = "db_select_{$table}_";
             CacheService::clearByPrefix($prefix);
         }
+        // También limpiar el caché de consultas SQL si existe
+        if (class_exists('RapidBase\Core\SQL')) {
+            \RapidBase\Core\SQL::clearQueryCache();
+        }
+    }
+
+    /**
+     * Habilita o deshabilita el caché de consultas SQL en la capa SQL.
+     * Útil para reducir la CPU en consultas complejas con múltiples JOINs.
+     * 
+     * @param bool $enabled
+     */
+    public static function setSqlQueryCacheEnabled(bool $enabled): void {
+        if (class_exists('RapidBase\Core\SQL')) {
+            \RapidBase\Core\SQL::setQueryCacheEnabled($enabled);
+        }
+    }
+
+    /**
+     * Obtiene estadísticas combinadas de los cachés (L1, L2 y caché de consultas SQL).
+     * 
+     * @return array Con estadísticas de todos los niveles de caché.
+     */
+    public static function getCacheStats(): array {
+        $stats = [
+            'sql_query_cache' => null,
+            'result_cache' => null
+        ];
+        
+        if (class_exists('RapidBase\Core\SQL')) {
+            $stats['sql_query_cache'] = \RapidBase\Core\SQL::getQueryCacheStats();
+        }
+        
+        // Aquí podríamos agregar estadísticas del caché de resultados si están disponibles
+        if (class_exists('Core\Cache\CacheService')) {
+            $stats['result_cache'] = [
+                'available' => true,
+                'note' => 'Use CacheService::getStats() si está disponible'
+            ];
+        }
+        
+        return $stats;
     }
 
     /**

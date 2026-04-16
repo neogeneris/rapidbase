@@ -10,6 +10,13 @@ class SQL
     private static string $quoteChar = '"';
     protected static int $parameterCount = 0;
     private static array $joinTreeCache = [];
+    
+    // ========== CACHÉ DE CONSULTAS SQL ==========
+    private static array $queryCache = [];
+    private static bool $queryCacheEnabled = false;
+    private static int $queryCacheMaxSize = 1000;
+    private static int $queryCacheHits = 0;
+    private static int $queryCacheMisses = 0;
 
     // ========== CONFIGURACIÓN DE DRIVER ==========
 
@@ -28,6 +35,53 @@ class SQL
     {
         $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
         self::setDriver($driver);
+    }
+
+    // ========== CONFIGURACIÓN DEL CACHÉ DE CONSULTAS ==========
+
+    /**
+     * Habilita o deshabilita el caché de consultas SQL generadas.
+     * Útil para reducir la CPU en consultas complejas con múltiples JOINs.
+     */
+    public static function setQueryCacheEnabled(bool $enabled): void
+    {
+        self::$queryCacheEnabled = $enabled;
+    }
+
+    /**
+     * Establece el tamaño máximo del caché de consultas.
+     * Cuando se alcanza el límite, se eliminan las entradas más antiguas (LRU).
+     */
+    public static function setQueryCacheMaxSize(int $size): void
+    {
+        self::$queryCacheMaxSize = max(100, $size);
+    }
+
+    /**
+     * Obtiene estadísticas del caché de consultas.
+     * @return array Con hits, misses, size y hitRate.
+     */
+    public static function getQueryCacheStats(): array
+    {
+        $total = self::$queryCacheHits + self::$queryCacheMisses;
+        return [
+            'hits' => self::$queryCacheHits,
+            'misses' => self::$queryCacheMisses,
+            'size' => count(self::$queryCache),
+            'max_size' => self::$queryCacheMaxSize,
+            'hit_rate' => $total > 0 ? round(self::$queryCacheHits / $total, 4) : 0.0,
+            'enabled' => self::$queryCacheEnabled
+        ];
+    }
+
+    /**
+     * Limpia completamente el caché de consultas.
+     */
+    public static function clearQueryCache(): void
+    {
+        self::$queryCache = [];
+        self::$queryCacheHits = 0;
+        self::$queryCacheMisses = 0;
     }
 
     // ========== CARGA DEL MAPA Y ESQUEMA ==========
@@ -103,6 +157,22 @@ class SQL
 
     // ========== CONSTRUCCIÓN DE SELECT ==========
 
+    /**
+     * Construye una consulta SELECT utilizando SelectBuilder internamente.
+     * 
+     * Esta versión usa un objeto SelectBuilder en lugar de arrays para mejor
+     * rendimiento y mantenibilidad. El caché almacena la plantilla SQL generada.
+     * 
+     * @param mixed $fields Columnas a seleccionar.
+     * @param mixed $table Tabla o array de tablas para JOINs.
+     * @param array $where Condiciones WHERE.
+     * @param array $groupBy Agrupamiento.
+     * @param array $having Condiciones HAVING.
+     * @param array $sort Ordenamiento.
+     * @param int $page Página actual.
+     * @param int $perPage Registros por página.
+     * @return array [sql, params]
+     */
     public static function buildSelect(
         $fields = '*',
         $table = '',
@@ -113,49 +183,162 @@ class SQL
         int $page = 1,
         int $perPage = 10
     ): array {
-        self::reset(); // Reiniciamos para que p0 empiece de nuevo en cada build
-        $parts = ['SELECT'];
-        $params = [];
-
-        // 1. SELECT FIELDS
-        if ($fields === '*') {
-            $parts[] = '*';
-        } else {
-            $fieldArray = is_array($fields) ? $fields : array_map('trim', explode(',', $fields));
-            $quotedFields = array_map(fn($f) => (str_contains($f, '(') || is_numeric($f)) ? $f : self::quoteField($f), $fieldArray);
-            $parts[] = implode(', ', $quotedFields);
+        self::reset();
+        
+        // Generar clave de caché basada en la ESTRUCTURA de la consulta (no los valores)
+        $cacheKey = null;
+        if (self::$queryCacheEnabled) {
+            $structureKey = json_encode([
+                'fields' => $fields,
+                'table' => $table,
+                'where_keys' => self::getWhereStructure($where),
+                'groupBy' => $groupBy,
+                'having_keys' => self::getWhereStructure($having),
+                'sort_keys' => array_keys($sort),
+                'page' => $page,
+                'perPage' => $perPage
+            ]);
+            $cacheKey = 'select_' . md5($structureKey);
+            
+            // Verificar caché
+            if (isset(self::$queryCache[$cacheKey])) {
+                self::$queryCacheHits++;
+                $cachedTemplate = self::$queryCache[$cacheKey];
+                $params = self::buildWhere($where)['params'];
+                if (!empty($having)) {
+                    $havingData = self::buildWhere($having);
+                    $params = array_merge($params, $havingData['params']);
+                }
+                return [$cachedTemplate, $params];
+            }
+            self::$queryCacheMisses++;
         }
-
-        // 2. FROM
-        $parts[] = self::buildFromWithMap($table);
-
-        // 3. WHERE (Lógica de parámetros unificada)
-        $whereData = self::buildWhere($where);
-        if ($whereData['sql'] !== '1') {
-            $parts[] = 'WHERE ' . $whereData['sql'];
-            $params = $whereData['params'];
-        }
-
-        // 4. GROUP BY
+        
+        // Construir FROM con JOINs usando la lógica existente
+        $fromClause = self::buildFromWithMap($table);
+        
+        // Construir WHERE
+        $whereData = empty($where) ? ['sql' => '', 'params' => []] : self::buildWhere($where);
+        $whereClause = empty($whereData['sql']) ? '' : 'WHERE ' . $whereData['sql'];
+        
+        // Construir GROUP BY
+        $groupByClause = '';
         if (!empty($groupBy)) {
-            $parts[] = 'GROUP BY ' . implode(', ', array_map([self::class, 'quote'], (array) $groupBy));
+            $groupByFields = [];
+            foreach ($groupBy as $field) {
+                // Si ya tiene comillas o es una función, no quoteear
+                if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
+                    $groupByFields[] = $field;
+                } else {
+                    // Quoteear cada parte del campo (ej: 'd.category' -> '`d`.`category`')
+                    $parts = explode('.', $field);
+                    $quotedParts = array_map(function($part) {
+                        return self::quote($part);
+                    }, $parts);
+                    $groupByFields[] = implode('.', $quotedParts);
+                }
+            }
+            $groupByClause = 'GROUP BY ' . implode(', ', $groupByFields);
         }
-
-        // 5. HAVING (Usa el mismo generador de tokens para evitar colisiones)
+        
+        // Construir HAVING
+        $havingClause = '';
         if (!empty($having)) {
             $havingData = self::buildWhere($having);
-            $parts[] = 'HAVING ' . $havingData['sql'];
-            $params = array_merge($params, $havingData['params']);
+            if (!empty($havingData['sql'])) {
+                $havingClause = 'HAVING ' . $havingData['sql'];
+                $whereData['params'] = array_merge($whereData['params'], $havingData['params']);
+            }
         }
-
-        // 6. ORDER, LIMIT, OFFSET
-        if ($orderSql = self::buildOrderBy($sort))
-            $parts[] = $orderSql;
-
+        
+        // Construir ORDER BY
+        $orderByClause = '';
+        if (!empty($sort)) {
+            // Soportar tanto formato numérico ['field1', '-field2'] como asociativo ['field' => 'ASC']
+            $sortFields = [];
+            $isAssociative = !empty($sort) && !is_numeric(key($sort));
+            
+            if ($isAssociative) {
+                // Formato asociativo: ['field' => 'ASC/DESC']
+                foreach ($sort as $field => $dir) {
+                    $dirUpper = strtoupper($dir);
+                    if ($dirUpper === 'DESC') {
+                        $sortFields[] = '-' . ltrim($field, '-');
+                    } else {
+                        $sortFields[] = ltrim($field, '-');
+                    }
+                }
+            } else {
+                // Formato numérico: ['field1', '-field2']
+                $sortFields = $sort;
+            }
+            $orderByClause = self::buildOrderBy($sortFields);
+        }
+        
+        // Construir LIMIT/OFFSET
+        $limit = $perPage;
         $offset = ($page - 1) * $perPage;
-        $parts[] = "LIMIT $perPage OFFSET $offset";
+        $limitClause = "LIMIT $limit OFFSET $offset";
+        
+        // Construir SELECT
+        $selectFields = '*';
+        if (is_array($fields)) {
+            $quotedFields = [];
+            foreach ($fields as $field) {
+                // Si ya tiene comillas o es una función, no quoteear
+                if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
+                    $quotedFields[] = $field;
+                } else {
+                    // Quoteear cada parte del campo (ej: 'u.name' -> '`u`.`name`')
+                    $parts = explode('.', $field);
+                    $quotedParts = array_map(function($part) {
+                        return self::quote($part);
+                    }, $parts);
+                    $quotedFields[] = implode('.', $quotedParts);
+                }
+            }
+            $selectFields = implode(', ', $quotedFields);
+        } elseif ($fields !== '*') {
+            $selectFields = $fields;
+        }
+        
+        // Ensamblar SQL final
+        $sqlParts = ["SELECT $selectFields", $fromClause];
+        if ($whereClause !== '') $sqlParts[] = $whereClause;
+        if ($groupByClause !== '') $sqlParts[] = $groupByClause;
+        if ($havingClause !== '') $sqlParts[] = $havingClause;
+        if ($orderByClause !== '') $sqlParts[] = $orderByClause;
+        $sqlParts[] = $limitClause;
+        
+        $sql = implode(' ', $sqlParts);
+        
+        // Almacenar en caché la plantilla SQL
+        if ($cacheKey !== null && count(self::$queryCache) < self::$queryCacheMaxSize) {
+            self::$queryCache[$cacheKey] = $sql;
+            if (count(self::$queryCache) > self::$queryCacheMaxSize) {
+                array_splice(self::$queryCache, 0, (int)(self::$queryCacheMaxSize * 0.1));
+            }
+        }
+        
+        return [$sql, $whereData['params']];
+    }
 
-        return [implode(' ', $parts), $params];
+    /**
+     * Extrae la estructura de un array WHERE/HAVING para usar como clave de caché.
+     * Ignora los valores específicos, solo considera las claves y operadores.
+     */
+    private static function getWhereStructure(array $conditions): array
+    {
+        $structure = [];
+        foreach ($conditions as $key => $value) {
+            if (is_array($value)) {
+                // Operadores personalizados o arrays anidados
+                $structure[$key] = is_array($value) ? array_keys($value) : null;
+            } else {
+                $structure[$key] = null; // Solo nos importa la clave
+            }
+        }
+        return $structure;
     }
     // ========== CONSTRUCCIÓN DE FROM CON JOINS ==========
 
@@ -414,11 +597,16 @@ class SQL
             return self::buildFromLinear($table);
         }
         if (!self::hasSchema() && !self::hasRelations()) {
-            $first = array_shift($table);
-            $from = "FROM " . self::quote($first);
-            foreach ($table as $next)
-                $from .= " LEFT JOIN " . self::quote($next);
-            return $from;
+            // Simple mode: no schema, no relations - just use first table
+            if (!empty($realNames)) {
+                $first = $realNames[0];
+                $from = "FROM " . self::quote($first);
+                foreach (array_slice($realNames, 1) as $next) {
+                    $from .= " LEFT JOIN " . self::quote($next);
+                }
+                return $from;
+            }
+            return "";
         }
 
         if (self::hasRelations()) {
