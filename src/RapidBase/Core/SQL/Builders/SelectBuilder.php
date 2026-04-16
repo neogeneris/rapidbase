@@ -1,297 +1,47 @@
 <?php
 
-namespace RapidBase\Core;
+namespace RapidBase\Core\SQL\Builders;
 
-use RapidBase\Core\SQL\Builders\Field;
-use RapidBase\Core\SQL\Builders\Table;
-use RapidBase\Core\SQL\Builders\Join;
+use RapidBase\Core\SQL;
 
 /**
- * Clase dinámica para construir consultas SELECT.
+ * Clase que reemplaza el array $parts tradicional en buildSelect().
  * 
- * Esta clase reemplaza el enfoque basado en arrays ($sql['SELECT'] = '*')
- * con un objeto cuyas propiedades representan cada parte de la sintaxis SQL.
+ * Esta clase actúa como un esqueleto estructurado con las mismas propiedades
+ * que tenía el array $parts, pero con acceso tipado y potencialmente más rápido.
  * 
- * Objetivo: Mejorar la legibilidad, mantenibilidad y potencialmente el rendimiento
- * al evitar operaciones de array repetitivas.
+ * Objetivo: Reemplazar $parts['select'] = '*' por $this->select = '*'
+ * manteniendo la misma lógica de ensamblaje pero con mejor performance.
  */
 class SelectBuilder
 {
-    // Propiedades públicas para acceso directo
-    public string|array|Field $select = '*';
-    public string|Table $from = '';
-    public array $joins = [];
-    public array $where = [];
-    public array $params = [];
-    public array $groupBy = [];
-    public array $having = [];
-    public array $orderBy = [];
-    public int $limit = 10;
-    public int $offset = 0;
+    // Propiedades públicas que reemplazan los índices del array $parts
+    public mixed $select = '*';      // reemplaza $parts['select']
+    public mixed $from = '';         // reemplaza $parts['from']
+    public array $join = [];         // reemplaza $parts['join']
+    public array $where = [];        // reemplaza $parts['where']
+    public array $params = [];       // reemplaza $parts['params']
+    public array $groupBy = [];      // reemplaza $parts['groupBy']
+    public array $having = [];       // reemplaza $parts['having']
+    public array $orderBy = [];      // reemplaza $parts['orderBy']
+    public int $limit = 10;          // reemplaza $parts['limit']
+    public int $offset = 0;          // reemplaza $parts['offset']
+    public bool $count = false;      // reemplaza $parts['count']
+    public array $map = [];          // reemplaza $parts['map']
+    public bool $noQuote = false;    // reemplaza $parts['noQuote']
     
-    // Cache interna para partes construidas
+    // Cache interna opcional para cláusulas construidas
     private ?string $cachedSelectClause = null;
     private ?string $cachedFromClause = null;
     private ?string $cachedWhereClause = null;
     
-    // Soporte para auto-join
-    private bool $autoJoinEnabled = false;
-    private array $tablesForAutoJoin = [];
-    
     /**
-     * Constructor con inicialización fluida
+     * Constructor vacío - la clase actúa como contenedor de propiedades
+     * Los valores se asignan directamente: $builder->select = '*', $builder->from = 'users'
      */
-    public function __construct(
-        string|array $select = '*',
-        string $from = '',
-        array $where = [],
-        array $orderBy = [],
-        int $page = 1,
-        int $perPage = 10
-    ) {
-        $this->setSelect($select);
-        $this->setFrom($from);
-        $this->setWhere($where);
-        $this->setOrderBy($orderBy);
-        $this->setPagination($page, $perPage);
-    }
-    
-    /**
-     * Establece las columnas del SELECT
-     * 
-     * Soporta:
-     * - String: '*', 'name', 'COUNT(*)'
-     * - Array de strings: ['name', 'email']
-     * - Array de objetos Field: [new Field('name', 'n'), new Field('email', 'e')]
-     * - Objeto Field: new Field('name', 'n')
-     */
-    public function setSelect(string|array|Field $fields): self
+    public function __construct()
     {
-        if ($fields instanceof Field) {
-            // Single Field object
-            $this->select = $fields;
-        } elseif ($fields === '*') {
-            $this->select = '*';
-        } elseif (is_array($fields)) {
-            // Check if it's an array of Field objects
-            $hasFieldObjects = false;
-            foreach ($fields as $f) {
-                if ($f instanceof Field) {
-                    $hasFieldObjects = true;
-                    break;
-                }
-            }
-            
-            if ($hasFieldObjects) {
-                $this->select = $fields;
-            } else {
-                // Array of strings
-                $this->select = implode(', ', $fields);
-            }
-        } else {
-            $this->select = $fields;
-        }
-        $this->cachedSelectClause = null;
-        return $this;
-    }
-    
-    /**
-     * Agrega un campo al SELECT
-     * 
-     * @param string|Field $field Nombre del campo o objeto Field
-     * @return self
-     */
-    public function addField(string|Field $field): self
-    {
-        if ($this->select === '*') {
-            $this->select = [$field];
-        } elseif (is_string($this->select)) {
-            $this->select = [$this->select, $field];
-        } elseif (is_array($this->select)) {
-            $this->select[] = $field;
-        }
-        $this->cachedSelectClause = null;
-        return $this;
-    }
-    
-    /**
-     * Establece la tabla principal FROM con soporte para auto-join
-     * 
-     * Soporta:
-     * - String: 'users'
-     * - Array de strings: ['users', 'posts'] (para auto-join)
-     * - Objeto Table: new Table('users', 'u')
-     * - Array asociativo: ['users' => 'u'] (alias)
-     */
-    public function setFrom(string|array|Table $table): self
-    {
-        $this->cachedFromClause = null;
-        
-        if ($table instanceof Table) {
-            // Table object
-            $this->from = $table;
-            $this->autoJoinEnabled = false;
-            $this->tablesForAutoJoin = [];
-        } elseif (is_array($table)) {
-            // Verificar si es un array de tablas para auto-join: ['products', 'categories']
-            if (isset($table[0]) && is_string($table[0])) {
-                // Array indexado de tablas para auto-join
-                $this->tablesForAutoJoin = $table;
-                $this->autoJoinEnabled = true;
-                $this->from = $table[0]; // La primera tabla será la raíz
-            } else {
-                // Array asociativo para aliases: ['products' => 'u'] -> FROM products u
-                $tableName = key($table);
-                $alias = current($table);
-                $this->from = new Table($tableName, $alias);
-                $this->autoJoinEnabled = false;
-                $this->tablesForAutoJoin = [];
-            }
-        } else {
-            // String simple: 'users'
-            $this->from = $table;
-            $this->autoJoinEnabled = false;
-            $this->tablesForAutoJoin = [];
-        }
-        
-        return $this;
-    }
-    
-    /**
-     * Agrega una tabla al FROM (para auto-join)
-     * 
-     * @param string|Table $table Nombre de la tabla o objeto Table
-     * @return self
-     */
-    public function addTable(string|Table $table): self
-    {
-        if (!is_array($this->from)) {
-            $this->from = [$this->from];
-        }
-        
-        if ($table instanceof Table) {
-            $this->from[] = $table->name . ' AS ' . $table->alias;
-        } else {
-            $this->from[] = $table;
-        }
-        
-        $this->cachedFromClause = null;
-        return $this;
-    }
-    
-    /**
-     * Agrega un JOIN
-     * 
-     * Soporta:
-     * - Parámetros individuales: addJoin('INNER', 'posts', 'p', 'u.id = p.user_id')
-     * - Objeto Join: addJoin(new Join('INNER', 'posts', 'p', 'u.id = p.user_id'))
-     */
-    public function addJoin(string|Join $type, string $table = '', string $alias = '', string $on = '', array $params = []): self
-    {
-        if ($type instanceof Join) {
-            // Join object
-            $this->joins[] = $type;
-        } else {
-            // Traditional parameters
-            $this->joins[] = [
-                'type' => $type,
-                'table' => $table,
-                'alias' => $alias,
-                'on' => $on,
-                'params' => $params
-            ];
-        }
-        $this->cachedFromClause = null;
-        return $this;
-    }
-    
-    /**
-     * Establece las condiciones WHERE
-     */
-    public function setWhere(array $conditions, array $params = []): self
-    {
-        $this->where = $conditions;
-        $this->params = $params;
-        $this->cachedWhereClause = null;
-        return $this;
-    }
-    
-    /**
-     * Agrega una condición WHERE adicional
-     */
-    public function addWhere(string $condition, mixed $value = null): self
-    {
-        $this->where[] = $condition;
-        if ($value !== null) {
-            $this->params[] = $value;
-        }
-        $this->cachedWhereClause = null;
-        return $this;
-    }
-    
-    /**
-     * Establece GROUP BY
-     */
-    public function setGroupBy(array $columns): self
-    {
-        $this->groupBy = $columns;
-        return $this;
-    }
-    
-    /**
-     * Establece HAVING
-     */
-    public function setHaving(array $conditions, array $params = []): self
-    {
-        $this->having = $conditions;
-        $this->params = array_merge($this->params, $params);
-        return $this;
-    }
-    
-    /**
-     * Establece ORDER BY
-     */
-    public function setOrderBy(array $sort): self
-    {
-        $this->orderBy = $sort;
-        return $this;
-    }
-    
-    /**
-     * Agrega una columna al ORDER BY
-     */
-    public function addOrderBy(string $column, string $direction = 'ASC'): self
-    {
-        $this->orderBy[$column] = $direction;
-        return $this;
-    }
-    
-    /**
-     * Establece paginación
-     */
-    public function setPagination(int $page, int $perPage): self
-    {
-        $this->limit = $perPage;
-        $this->offset = ($page - 1) * $perPage;
-        return $this;
-    }
-    
-    /**
-     * Establece LIMIT directamente
-     */
-    public function setLimit(int $limit): self
-    {
-        $this->limit = $limit;
-        return $this;
-    }
-    
-    /**
-     * Establece OFFSET directamente
-     */
-    public function setOffset(int $offset): self
-    {
-        $this->offset = $offset;
-        return $this;
+        // Inicialización por defecto ya está en las propiedades
     }
     
     /**
@@ -305,23 +55,22 @@ class SelectBuilder
         
         if ($this->select === '*') {
             $this->cachedSelectClause = 'SELECT *';
-        } elseif ($this->select instanceof Field) {
-            // Single Field object
-            $this->cachedSelectClause = 'SELECT ' . $this->select->toSql([SQL::class, 'quote']);
         } elseif (is_array($this->select)) {
-            // Array of fields
+            // Array de campos o Field objects
             $fields = [];
             foreach ($this->select as $field) {
                 if ($field instanceof Field) {
                     $fields[] = $field->toSql([SQL::class, 'quote']);
+                } elseif (is_array($field)) {
+                    // Formato antiguo: ['campo', 'alias']
+                    $fields[] = SQL::quoteField($field[0]) . ' AS ' . SQL::quoteField($field[1]);
                 } else {
-                    // String field
                     $fields[] = SQL::quoteField($field);
                 }
             }
             $this->cachedSelectClause = 'SELECT ' . implode(', ', $fields);
         } else {
-            // String select
+            // String o expresión
             $this->cachedSelectClause = 'SELECT ' . $this->select;
         }
         
@@ -329,84 +78,58 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula FROM con JOINs (soporta auto-join)
+     * Construye la cláusula FROM con JOINs
      */
     public function buildFromClause(): string
     {
-        if ($this->cachedFromClause !== null && !$this->autoJoinEnabled) {
+        if ($this->cachedFromClause !== null) {
             return $this->cachedFromClause;
         }
         
-        // Si hay auto-join habilitado, construir JOINs automáticamente
-        if ($this->autoJoinEnabled && !empty($this->tablesForAutoJoin)) {
-            $sql = $this->buildAutoJoinClause();
-            $this->cachedFromClause = $sql;
-            return $sql;
-        }
-        
-        // Modo manual tradicional o con objetos
         $sql = 'FROM ';
         
         if ($this->from instanceof Table) {
-            // Table object
             $sql .= $this->from->toSql([SQL::class, 'quote']);
         } elseif (is_string($this->from)) {
-            // String
-            $sql .= $this->from;
-        } else {
-            // Array (fallback)
-            $sql .= is_array($this->from) ? implode(', ', $this->from) : '';
+            // Soporte para formato antiguo: tabla como string simple
+            $sql .= SQL::quoteField($this->from);
+        } elseif (is_array($this->from)) {
+            // Formato antiguo: [['tabla', 'alias']] o ['tabla']
+            if (isset($this->from[0]) && is_array($this->from[0])) {
+                // Array de tablas con alias: [['users', 'u'], ['orders', 'o']]
+                $tables = [];
+                foreach ($this->from as $t) {
+                    if (is_array($t) && isset($t[1])) {
+                        $tables[] = SQL::quoteField($t[0]) . ' AS ' . SQL::quoteField($t[1]);
+                    } else {
+                        $tables[] = SQL::quoteField($t);
+                    }
+                }
+                $sql .= implode(', ', $tables);
+            } elseif (isset($this->from[1])) {
+                // Una sola tabla con alias: ['users', 'u']
+                $sql .= SQL::quoteField($this->from[0]) . ' AS ' . SQL::quoteField($this->from[1]);
+            } else {
+                $sql .= SQL::quoteField($this->from[0]);
+            }
         }
         
-        foreach ($this->joins as $join) {
-            if ($join instanceof Join) {
-                // Join object
-                $sql .= ' ' . $join->toSql([SQL::class, 'quote']);
-            } else {
-                // Traditional array format
-                $sql .= " {$join['type']} JOIN {$join['table']} AS {$join['alias']} ON {$join['on']}";
+        // Procesar joins
+        foreach ($this->join as $j) {
+            if ($j instanceof Join) {
+                $sql .= ' ' . $j->toSql([SQL::class, 'quote']);
+            } elseif (is_array($j)) {
+                // Formato antiguo de join: ['type' => 'LEFT', 'table' => 'users', 'alias' => 'u', 'on' => '...']
+                $type = strtoupper($j['type'] ?? 'LEFT');
+                $table = is_array($j['table']) ? SQL::quoteField($j['table'][0]) . ' AS ' . SQL::quoteField($j['table'][1]) : SQL::quoteField($j['table']);
+                $alias = isset($j['alias']) ? ' AS ' . SQL::quoteField($j['alias']) : '';
+                $on = isset($j['on']) ? " ON {$j['on']}" : '';
+                $sql .= " {$type} JOIN {$table}{$alias}{$on}";
             }
         }
         
         $this->cachedFromClause = $sql;
         return $sql;
-    }
-    
-    /**
-     * Construye cláusula FROM con auto-join usando el algoritmo de SQL.php
-     */
-    private function buildAutoJoinClause(): string
-    {
-        // Delegar a SQL::buildFromWithMap para usar el algoritmo optimizado
-        // Esto preserva la funcionalidad de orderTablesByWeakness y buildJoinTree
-        $tables = $this->tablesForAutoJoin;
-        
-        // Convertir formato: ['products', 'categories'] a formato esperado por buildFromWithMap
-        $formattedTables = [];
-        foreach ($tables as $t) {
-            if (is_array($t)) {
-                // ['products' => 'p'] -> 'products AS p'
-                $real = key($t);
-                $alias = current($t);
-                $formattedTables[] = "$real AS $alias";
-            } else {
-                // 'products'
-                $formattedTables[] = $t;
-            }
-        }
-        
-        try {
-            // Usar el método público de SQL que maneja auto-join
-            $fromClause = SQL::buildFromWithMap($formattedTables);
-            return $fromClause;
-        } catch (\Exception $e) {
-            // Fallback a modo manual si falla el auto-join
-            $sql = 'FROM ' . $this->from;
-            foreach ($this->joins as $join) {
-                $sql .= " {$join['type']} JOIN {$join['table']} AS {$join['alias']} ON {$join['on']}";
-            }
-            return $sql;
-        }
     }
     
     /**
@@ -419,36 +142,39 @@ class SelectBuilder
         }
         
         if (empty($this->where)) {
+            $this->cachedWhereClause = '';
             return '';
         }
         
-        // Manejar arrays anidados en WHERE (ej: ['column' => ['>' => 0]])
-        $conditions = [];
-        foreach ($this->where as $key => $value) {
-            if (is_array($value)) {
-                // Manejar operadores: ['column' => ['>' => 0, '<' => 100]]
-                foreach ($value as $operator => $val) {
-                    if (is_numeric($operator)) {
-                        // Array indexado: ['column > ?', 0]
-                        $conditions[] = $val;
-                    } else {
-                        // Array asociativo con operador: ['column' => ['>' => 0]]
-                        $conditions[] = "`$key` $operator ?";
-                        $this->params[] = $val;
-                    }
-                }
-            } elseif (is_numeric($key)) {
-                // Condición directa: ['active = 1']
-                $conditions[] = $value;
-            } else {
-                // Igualdad simple: ['active' => 1]
-                $conditions[] = "`$key` = ?";
-                $this->params[] = $value;
-            }
+        // Delegar a SQL::buildWhere para mantener compatibilidad
+        $whereData = SQL::buildWhere($this->where, $this->params, $this->noQuote);
+        $whereClause = is_array($whereData) ? ($whereData['sql'] ?? '') : $whereData;
+        $this->cachedWhereClause = $whereClause;
+        return $whereClause;
+    }
+    
+    /**
+     * Método mágico para acceso dinámico (opcional, para compatibilidad)
+     */
+    public function __get(string $name): mixed
+    {
+        return $this->$name ?? null;
+    }
+    
+    /**
+     * Método mágico para asignación dinámica (opcional, para compatibilidad)
+     */
+    public function __set(string $name, mixed $value): void
+    {
+        $this->$name = $value;
+        // Invalidar caches cuando cambian las propiedades
+        if (in_array($name, ['select', 'from', 'join'])) {
+            $this->cachedSelectClause = null;
+            $this->cachedFromClause = null;
         }
-        
-        $this->cachedWhereClause = 'WHERE ' . implode(' AND ', $conditions);
-        return $this->cachedWhereClause;
+        if ($name === 'where') {
+            $this->cachedWhereClause = null;
+        }
     }
     
     /**

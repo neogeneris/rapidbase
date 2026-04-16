@@ -3,6 +3,9 @@
 vendor/
 composer.lock
 
+# Database
+test.db
+
 # Logs and temp files
 *.log
 *.tmp
@@ -16,7 +19,7 @@ composer.lock
 .vscode/
 .idea/
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
 ```

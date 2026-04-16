@@ -2,6 +2,8 @@
 
 namespace RapidBase\Core\SQL\Builders;
 
+use RapidBase\Core\SQL;
+
 /**
  * Clase para representar un JOIN en consultas SQL.
  * 
@@ -9,16 +11,16 @@ namespace RapidBase\Core\SQL\Builders;
  * 
  * @example
  * // JOIN simple
- * new Join('INNER', 'posts', 'p', 'u.id = p.user_id')
- * // -> INNER JOIN `posts` AS `p` ON `u`.`id` = `p`.`user_id`
+ * new Join('users', 'u.id = p.user_id')
+ * // -> LEFT JOIN `users` AS `u` ON `u`.`id` = `p`.`user_id`
  * 
- * // Con parámetros
- * new Join('LEFT', 'categories', 'c', 'p.cat_id = c.id', ['status' => 'active'])
+ * // Con tipo específico
+ * new Join('posts', 'p.cat_id = c.id', 'INNER')
  */
 class Join
 {
     public string $type;
-    public string $table;
+    public mixed $table;  // string o Table object
     public ?string $alias;
     public string $on;
     public array $params;
@@ -26,22 +28,27 @@ class Join
     /**
      * Constructor
      * 
-     * @param string $type Tipo de JOIN: INNER, LEFT, RIGHT, FULL, etc.
-     * @param string $table Nombre real de la tabla
-     * @param string|null $alias Alias opcional para la tabla
+     * @param string|Table $table Nombre de la tabla o objeto Table
      * @param string $on Condición ON del JOIN
+     * @param string $type Tipo de JOIN: INNER, LEFT, RIGHT, FULL, etc. (default: LEFT)
      * @param array $params Parámetros para la condición ON
      */
     public function __construct(
-        string $type = 'LEFT',
-        string $table,
-        ?string $alias = null,
+        mixed $table,
         string $on = '',
+        string $type = 'LEFT',
         array $params = []
     ) {
         $this->type = strtoupper($type);
-        $this->table = $table;
-        $this->alias = $alias;
+        
+        if ($table instanceof Table) {
+            $this->table = $table->name;
+            $this->alias = $table->alias;
+        } else {
+            $this->table = (string)$table;
+            $this->alias = null;
+        }
+        
         $this->on = $on;
         $this->params = $params;
     }
@@ -56,7 +63,7 @@ class Join
     {
         $sql = "{$this->type} JOIN ";
         
-        if ($this->alias !== null && $this->alias !== $this->table) {
+        if ($this->alias !== null) {
             $sql .= $quoteFunc($this->table) . ' AS ' . $quoteFunc($this->alias);
         } else {
             $sql .= $quoteFunc($this->table);
@@ -78,10 +85,9 @@ class Join
     public static function fromArray(array $config): self
     {
         return new self(
-            $config['type'] ?? 'LEFT',
             $config['table'],
-            $config['alias'] ?? null,
             $config['on'] ?? '',
+            $config['type'] ?? 'LEFT',
             $config['params'] ?? []
         );
     }
