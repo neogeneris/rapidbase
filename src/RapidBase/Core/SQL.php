@@ -152,7 +152,7 @@ class SQL
         return implode('.', $quotedParts);
     }
 
-    private static function quoteField(string $field): string
+    public static function quoteField(string $field): string
     {
         $field = trim($field);
         if (preg_match('/^(.*?)\s+AS\s+(.*)$/i', $field, $matches)) {
@@ -188,12 +188,31 @@ class SQL
         array $groupBy = [],
         array $having = [],
         array $sort = [],
-        $page = 0, // Changed from int $page = 1 to mixed $page = 0 to allow null/empty disabling pagination
+        $page = 0,
         int $perPage = 10
     ): array {
         // Normalize page: null, [], 0, or false -> 0 (No pagination)
         $page = empty($page) ? 0 : (int)$page;
         self::reset();
+        
+        // Crear instancia de SelectBuilder como contenedor estructurado
+        $builder = new SQL\Builders\SelectBuilder();
+        
+        // Asignar propiedades directamente (reemplaza $parts['select'] = $fields)
+        $builder->select = $fields;
+        $builder->from = $table;
+        $builder->where = $where;
+        $builder->groupBy = $groupBy;
+        $builder->having = $having;
+        $builder->orderBy = $sort;
+        $builder->limit = $perPage;
+        $builder->offset = $page > 0 ? ($page - 1) * $perPage : 0;
+        $builder->params = [];
+        
+        // Manejar joins si se proporcionan
+        if (isset($joins) && !empty($joins)) {
+            $builder->join = $joins;
+        }
         
         // Generar clave de caché basada en la ESTRUCTURA de la consulta (no los valores)
         $cacheKey = null;
@@ -224,12 +243,11 @@ class SQL
             self::$queryCacheMisses++;
         }
         
-        // Construir FROM con JOINs usando la lógica existente
-        $fromClause = self::buildFromWithMap($table);
-        
-        // Construir WHERE
+        // Usar el builder para construir las cláusulas
+        $fromClause = $builder->buildFromClause();
         $whereData = empty($where) ? ['sql' => '', 'params' => []] : self::buildWhere($where);
         $whereClause = empty($whereData['sql']) ? '' : 'WHERE ' . $whereData['sql'];
+        $builder->params = $whereData['params'];
         
         // Construir GROUP BY
         $groupByClause = '';
@@ -285,40 +303,16 @@ class SQL
             $orderByClause = self::buildOrderBy($sortFields);
         }
         
-        // Construir LIMIT/OFFSET
-        $limit = $perPage;
-        $offset = ($page - 1) * $perPage;
-        $limitClause = "LIMIT $limit OFFSET $offset";
+        // Usar el builder para construir SELECT
+        $selectClause = $builder->buildSelectClause();
         
-        // Construir SELECT
-        $selectFields = '*';
-        if (is_array($fields)) {
-            $quotedFields = [];
-            foreach ($fields as $field) {
-                // Si ya tiene comillas o es una función, no quoteear
-                if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
-                    $quotedFields[] = $field;
-                } else {
-                    // Quoteear cada parte del campo (ej: 'u.name' -> '`u`.`name`')
-                    $parts = explode('.', $field);
-                    $quotedParts = array_map(function($part) {
-                        return self::quote($part);
-                    }, $parts);
-                    $quotedFields[] = implode('.', $quotedParts);
-                }
-            }
-            $selectFields = implode(', ', $quotedFields);
-        } elseif ($fields !== '*') {
-            $selectFields = $fields;
-        }
-        
-        // Ensamblar SQL final
-        $sqlParts = ["SELECT $selectFields", $fromClause];
+        // Ensamblar SQL final usando las cláusulas del builder
+        $sqlParts = [$selectClause, $fromClause];
         if ($whereClause !== '') $sqlParts[] = $whereClause;
         if ($groupByClause !== '') $sqlParts[] = $groupByClause;
         if ($havingClause !== '') $sqlParts[] = $havingClause;
         if ($orderByClause !== '') $sqlParts[] = $orderByClause;
-        $sqlParts[] = $limitClause;
+        $sqlParts[] = "LIMIT {$builder->limit} OFFSET {$builder->offset}";
         
         $sql = implode(' ', $sqlParts);
         
@@ -559,6 +553,9 @@ class SQL
      * @throws \RuntimeException Si no se pueden conectar todas las tablas del grafo.
      */
 
+    /**
+     * Construye la cláusula FROM con JOINs automáticos usando SchemaMap
+     */
     public static function buildFromWithMap(mixed $table): string
     {
         if (is_string($table)) {
