@@ -9,12 +9,21 @@ use RapidBase\Core\Cache\CacheService;
 use \PDO;
 use \Generator;
 
-class DB {
+class DB implements DBInterface {
 	
 	public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void {
 		 Conn::setup($dsn, $user,$pass, $name);
 		 SQL::detectDriverFromPDO(Conn::get());
-	 }
+	}
+	
+	/**
+     * Obtiene la instancia de la conexión PDO actual.
+     * @return \PDO|null
+     */
+    public static function getConnection(): ?\PDO
+    {
+        return Conn::get();
+    }
 	/**
 	 * Ejecuta una sentencia SQL directa y devuelve el resultado de Executor::action.
 	 * @param string $sql
@@ -388,5 +397,26 @@ class DB {
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             yield $row;
         }
+    }
+
+    // ========== TRANSACCIONES Y UTILIDADES ==========
+
+    /**
+     * Envuelve una serie de operaciones en una transacción atómica.
+     * @param callable $callback
+     * @return mixed
+     */
+    public static function transaction(callable $callback): mixed {
+        return Executor::transaction($callback, Conn::get());
+    }
+
+    /**
+     * Crea un objeto de expresión SQL cruda para evitar el escape de caracteres.
+     * Útil para funciones SQL o nombres de columnas reservados.
+     * @param string $value
+     * @return string
+     */
+    public static function raw(string $value): string {
+        return $value;
     }
 }
