@@ -226,9 +226,17 @@ class SQL
         if (!empty($groupBy)) {
             $groupByFields = [];
             foreach ($groupBy as $field) {
-                $groupByFields[] = strpos($field, '.') !== false || preg_match('/\(/', $field) 
-                    ? $field 
-                    : self::quote($field);
+                // Si ya tiene comillas o es una función, no quoteear
+                if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
+                    $groupByFields[] = $field;
+                } else {
+                    // Quoteear cada parte del campo (ej: 'd.category' -> '`d`.`category`')
+                    $parts = explode('.', $field);
+                    $quotedParts = array_map(function($part) {
+                        return self::quote($part);
+                    }, $parts);
+                    $groupByFields[] = implode('.', $quotedParts);
+                }
             }
             $groupByClause = 'GROUP BY ' . implode(', ', $groupByFields);
         }
@@ -246,15 +254,25 @@ class SQL
         // Construir ORDER BY
         $orderByClause = '';
         if (!empty($sort)) {
-            $sortParts = [];
-            foreach ($sort as $field => $dir) {
-                $dirUpper = strtoupper($dir);
-                if (!in_array($dirUpper, ['ASC', 'DESC'])) {
-                    $dirUpper = 'ASC';
+            // Soportar tanto formato numérico ['field1', '-field2'] como asociativo ['field' => 'ASC']
+            $sortFields = [];
+            $isAssociative = !empty($sort) && !is_numeric(key($sort));
+            
+            if ($isAssociative) {
+                // Formato asociativo: ['field' => 'ASC/DESC']
+                foreach ($sort as $field => $dir) {
+                    $dirUpper = strtoupper($dir);
+                    if ($dirUpper === 'DESC') {
+                        $sortFields[] = '-' . ltrim($field, '-');
+                    } else {
+                        $sortFields[] = ltrim($field, '-');
+                    }
                 }
-                $sortParts[] = "$field $dirUpper";
+            } else {
+                // Formato numérico: ['field1', '-field2']
+                $sortFields = $sort;
             }
-            $orderByClause = 'ORDER BY ' . implode(', ', $sortParts);
+            $orderByClause = self::buildOrderBy($sortFields);
         }
         
         // Construir LIMIT/OFFSET
@@ -265,7 +283,21 @@ class SQL
         // Construir SELECT
         $selectFields = '*';
         if (is_array($fields)) {
-            $selectFields = implode(', ', $fields);
+            $quotedFields = [];
+            foreach ($fields as $field) {
+                // Si ya tiene comillas o es una función, no quoteear
+                if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
+                    $quotedFields[] = $field;
+                } else {
+                    // Quoteear cada parte del campo (ej: 'u.name' -> '`u`.`name`')
+                    $parts = explode('.', $field);
+                    $quotedParts = array_map(function($part) {
+                        return self::quote($part);
+                    }, $parts);
+                    $quotedFields[] = implode('.', $quotedParts);
+                }
+            }
+            $selectFields = implode(', ', $quotedFields);
         } elseif ($fields !== '*') {
             $selectFields = $fields;
         }
