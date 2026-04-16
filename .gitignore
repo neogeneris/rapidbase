@@ -4,12 +4,9 @@
 __pycache__/
 *.o
 *.obj
-*.so
-*.dll
-*.exe
-*.class
-*.out
-*.a
+dist/
+build/
+target/
 
 # Dependencies
 .venv/
@@ -17,9 +14,6 @@ venv/
 node_modules/
 .mypy_cache/
 .pytest_cache/
-dist/
-build/
-target/
 .gradle/
 
 # Logs and temp files
@@ -27,21 +21,17 @@ target/
 *.tmp
 *.swp
 *.swo
-*.bak
-*.~
-*.py.swp
-*.lock
 
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
+
+# System files
 .DS_Store
 Thumbs.db
 
