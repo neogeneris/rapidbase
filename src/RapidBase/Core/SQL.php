@@ -128,6 +128,14 @@ class SQL
         return "p" . (self::$parameterCount++);
     }
 
+    /**
+     * Versión pública de nextToken para uso en Builders
+     */
+    public static function nextTokenPublic(): string
+    {
+        return self::nextToken();
+    }
+
     public static function quote(string $identifier): string
     {
         $q = self::$quoteChar;
