@@ -2,6 +2,10 @@
 
 namespace RapidBase\Core;
 
+use RapidBase\Core\SQL\Builders\Field;
+use RapidBase\Core\SQL\Builders\Table;
+use RapidBase\Core\SQL\Builders\Join;
+
 /**
  * Clase dinámica para construir consultas SELECT.
  * 
@@ -14,8 +18,8 @@ namespace RapidBase\Core;
 class SelectBuilder
 {
     // Propiedades públicas para acceso directo
-    public string $select = '*';
-    public string $from = '';
+    public string|array|Field $select = '*';
+    public string|Table $from = '';
     public array $joins = [];
     public array $where = [];
     public array $params = [];
@@ -54,13 +58,36 @@ class SelectBuilder
     
     /**
      * Establece las columnas del SELECT
+     * 
+     * Soporta:
+     * - String: '*', 'name', 'COUNT(*)'
+     * - Array de strings: ['name', 'email']
+     * - Array de objetos Field: [new Field('name', 'n'), new Field('email', 'e')]
+     * - Objeto Field: new Field('name', 'n')
      */
-    public function setSelect(string|array $fields): self
+    public function setSelect(string|array|Field $fields): self
     {
-        if ($fields === '*') {
+        if ($fields instanceof Field) {
+            // Single Field object
+            $this->select = $fields;
+        } elseif ($fields === '*') {
             $this->select = '*';
         } elseif (is_array($fields)) {
-            $this->select = implode(', ', $fields);
+            // Check if it's an array of Field objects
+            $hasFieldObjects = false;
+            foreach ($fields as $f) {
+                if ($f instanceof Field) {
+                    $hasFieldObjects = true;
+                    break;
+                }
+            }
+            
+            if ($hasFieldObjects) {
+                $this->select = $fields;
+            } else {
+                // Array of strings
+                $this->select = implode(', ', $fields);
+            }
         } else {
             $this->select = $fields;
         }
@@ -69,13 +96,43 @@ class SelectBuilder
     }
     
     /**
-     * Establece la tabla principal FROM con soporte para auto-join
+     * Agrega un campo al SELECT
+     * 
+     * @param string|Field $field Nombre del campo o objeto Field
+     * @return self
      */
-    public function setFrom(string|array $table): self
+    public function addField(string|Field $field): self
+    {
+        if ($this->select === '*') {
+            $this->select = [$field];
+        } elseif (is_string($this->select)) {
+            $this->select = [$this->select, $field];
+        } elseif (is_array($this->select)) {
+            $this->select[] = $field;
+        }
+        $this->cachedSelectClause = null;
+        return $this;
+    }
+    
+    /**
+     * Establece la tabla principal FROM con soporte para auto-join
+     * 
+     * Soporta:
+     * - String: 'users'
+     * - Array de strings: ['users', 'posts'] (para auto-join)
+     * - Objeto Table: new Table('users', 'u')
+     * - Array asociativo: ['users' => 'u'] (alias)
+     */
+    public function setFrom(string|array|Table $table): self
     {
         $this->cachedFromClause = null;
         
-        if (is_array($table)) {
+        if ($table instanceof Table) {
+            // Table object
+            $this->from = $table;
+            $this->autoJoinEnabled = false;
+            $this->tablesForAutoJoin = [];
+        } elseif (is_array($table)) {
             // Verificar si es un array de tablas para auto-join: ['products', 'categories']
             if (isset($table[0]) && is_string($table[0])) {
                 // Array indexado de tablas para auto-join
@@ -83,13 +140,15 @@ class SelectBuilder
                 $this->autoJoinEnabled = true;
                 $this->from = $table[0]; // La primera tabla será la raíz
             } else {
-                // Array asociativo para aliases: ['products' => 'p'] -> FROM products p
-                $this->from = key($table) . ' ' . current($table);
+                // Array asociativo para aliases: ['products' => 'u'] -> FROM products u
+                $tableName = key($table);
+                $alias = current($table);
+                $this->from = new Table($tableName, $alias);
                 $this->autoJoinEnabled = false;
                 $this->tablesForAutoJoin = [];
             }
         } else {
-            // String simple: 'products'
+            // String simple: 'users'
             $this->from = $table;
             $this->autoJoinEnabled = false;
             $this->tablesForAutoJoin = [];
@@ -99,22 +158,49 @@ class SelectBuilder
     }
     
     /**
-     * Agrega un JOIN
+     * Agrega una tabla al FROM (para auto-join)
+     * 
+     * @param string|Table $table Nombre de la tabla o objeto Table
+     * @return self
      */
-    public function addJoin(
-        string $type,
-        string $table,
-        string $alias,
-        string $on,
-        array $params = []
-    ): self {
-        $this->joins[] = [
-            'type' => $type,
-            'table' => $table,
-            'alias' => $alias,
-            'on' => $on,
-            'params' => $params
-        ];
+    public function addTable(string|Table $table): self
+    {
+        if (!is_array($this->from)) {
+            $this->from = [$this->from];
+        }
+        
+        if ($table instanceof Table) {
+            $this->from[] = $table->name . ' AS ' . $table->alias;
+        } else {
+            $this->from[] = $table;
+        }
+        
+        $this->cachedFromClause = null;
+        return $this;
+    }
+    
+    /**
+     * Agrega un JOIN
+     * 
+     * Soporta:
+     * - Parámetros individuales: addJoin('INNER', 'posts', 'p', 'u.id = p.user_id')
+     * - Objeto Join: addJoin(new Join('INNER', 'posts', 'p', 'u.id = p.user_id'))
+     */
+    public function addJoin(string|Join $type, string $table = '', string $alias = '', string $on = '', array $params = []): self
+    {
+        if ($type instanceof Join) {
+            // Join object
+            $this->joins[] = $type;
+        } else {
+            // Traditional parameters
+            $this->joins[] = [
+                'type' => $type,
+                'table' => $table,
+                'alias' => $alias,
+                'on' => $on,
+                'params' => $params
+            ];
+        }
         $this->cachedFromClause = null;
         return $this;
     }
@@ -219,7 +305,23 @@ class SelectBuilder
         
         if ($this->select === '*') {
             $this->cachedSelectClause = 'SELECT *';
+        } elseif ($this->select instanceof Field) {
+            // Single Field object
+            $this->cachedSelectClause = 'SELECT ' . $this->select->toSql([SQL::class, 'quote']);
+        } elseif (is_array($this->select)) {
+            // Array of fields
+            $fields = [];
+            foreach ($this->select as $field) {
+                if ($field instanceof Field) {
+                    $fields[] = $field->toSql([SQL::class, 'quote']);
+                } else {
+                    // String field
+                    $fields[] = SQL::quoteField($field);
+                }
+            }
+            $this->cachedSelectClause = 'SELECT ' . implode(', ', $fields);
         } else {
+            // String select
             $this->cachedSelectClause = 'SELECT ' . $this->select;
         }
         
@@ -242,11 +344,28 @@ class SelectBuilder
             return $sql;
         }
         
-        // Modo manual tradicional
-        $sql = 'FROM ' . $this->from;
+        // Modo manual tradicional o con objetos
+        $sql = 'FROM ';
+        
+        if ($this->from instanceof Table) {
+            // Table object
+            $sql .= $this->from->toSql([SQL::class, 'quote']);
+        } elseif (is_string($this->from)) {
+            // String
+            $sql .= $this->from;
+        } else {
+            // Array (fallback)
+            $sql .= is_array($this->from) ? implode(', ', $this->from) : '';
+        }
         
         foreach ($this->joins as $join) {
-            $sql .= " {$join['type']} JOIN {$join['table']} AS {$join['alias']} ON {$join['on']}";
+            if ($join instanceof Join) {
+                // Join object
+                $sql .= ' ' . $join->toSql([SQL::class, 'quote']);
+            } else {
+                // Traditional array format
+                $sql .= " {$join['type']} JOIN {$join['table']} AS {$join['alias']} ON {$join['on']}";
+            }
         }
         
         $this->cachedFromClause = $sql;
