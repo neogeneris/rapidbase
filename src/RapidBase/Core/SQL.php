@@ -597,11 +597,16 @@ class SQL
             return self::buildFromLinear($table);
         }
         if (!self::hasSchema() && !self::hasRelations()) {
-            $first = array_shift($table);
-            $from = "FROM " . self::quote($first);
-            foreach ($table as $next)
-                $from .= " LEFT JOIN " . self::quote($next);
-            return $from;
+            // Simple mode: no schema, no relations - just use first table
+            if (!empty($realNames)) {
+                $first = $realNames[0];
+                $from = "FROM " . self::quote($first);
+                foreach (array_slice($realNames, 1) as $next) {
+                    $from .= " LEFT JOIN " . self::quote($next);
+                }
+                return $from;
+            }
+            return "";
         }
 
         if (self::hasRelations()) {
