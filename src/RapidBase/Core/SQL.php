@@ -614,6 +614,12 @@ class SQL
      * 
      * OPTIMIZACIÓN: Solo activa el motor de grafos si $table es un array.
      * Si es un string, asume tabla simple y retorna inmediatamente sin overhead.
+     * 
+     * SOPORTA:
+     * 1. String simple: 'users' → FROM users
+     * 2. Array plano: ['users', 'orders'] → Automático (grafo completo)
+     * 3. Pivote fijo: ['users', ['orders', 'products']] → users es FROM, resto se conecta auto
+     * 4. Determinista: ['users' => 'JOIN orders ON ...'] → Respeta orden exacto
      */
     public static function buildFromWithMap(mixed $table): string
     {
@@ -630,6 +636,17 @@ class SQL
         }
         if (count($table) === 1 && is_string($table[0])) {
             return "FROM " . self::quote($table[0]);
+        }
+
+        // DETECTAR FORMATO PIVOTE: [t1, [t2, t3, ...]]
+        // El primer elemento es la tabla base, el segundo es un array de tablas a conectar
+        if (count($table) >= 2 && 
+            is_string($table[0]) && 
+            is_array($table[1]) && 
+            array_is_list($table[1])) 
+        {
+            // Formato pivote detectado: t1 es FROM, [t2, t3, ...] se conectan automáticamente
+            return self::buildFromPivot($table[0], $table[1]);
         }
 
         $hasComplex = false;
@@ -826,6 +843,118 @@ class SQL
             $currentReal = $nextReal;
             $currentAlias = $nextAlias;
         }
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Construye FROM con pivote fijo: [t1, [t2, t3, ...]]
+     * 
+     * t1 es la tabla principal (FROM), las demás se conectan automáticamente usando el grafo.
+     * Esto permite al programador especificar qué tabla es la base sin definir manualmente todos los joins.
+     * 
+     * @param string $pivot Tabla pivote (será el FROM)
+     * @param array $connectedTables Array de tablas a conectar automáticamente
+     * @return string Cláusula FROM completa
+     */
+    private static function buildFromPivot(string $pivot, array $connectedTables): string
+    {
+        // Extraer nombre real y alias del pivote
+        $pivotReal = $pivot;
+        $pivotAlias = $pivot;
+        if (preg_match('/^\s*(\S+)\s+as\s+(\S+)\s*$/i', $pivot, $matches)) {
+            $pivotReal = $matches[1];
+            $pivotAlias = $matches[2];
+        }
+
+        // Iniciar cláusula FROM con el pivote
+        $parts = [];
+        $parts[] = "FROM " . self::quote($pivotReal);
+        if ($pivotAlias !== $pivotReal) {
+            $parts[] = "AS " . self::quote($pivotAlias);
+        }
+
+        // Si no hay tablas que conectar, retornar solo el FROM
+        if (empty($connectedTables)) {
+            return implode(' ', $parts);
+        }
+
+        // Construir lista completa: [pivot, t2, t3, ...] para usar el motor de grafos
+        // pero forzando que pivot sea siempre la primera tabla
+        $allTables = array_merge([$pivotReal], $connectedTables);
+        
+        // Extraer nombres reales y aliases de todas las tablas conectadas
+        $realNames = [$pivotReal];
+        $aliases = [$pivotReal => $pivotAlias];
+        
+        foreach ($connectedTables as $t) {
+            if (preg_match('/^\s*(\S+)\s+as\s+(\S+)\s*$/i', $t, $matches)) {
+                $real = $matches[1];
+                $alias = $matches[2];
+            } else {
+                $real = $t;
+                $alias = $t;
+            }
+            $realNames[] = $real;
+            $aliases[$real] = $alias;
+        }
+
+        // El pivote ya está en la posición 0, ahora conectar el resto usando el grafo
+        // pero SIN reordenar (orderTablesByWeakness) para mantener el pivote primero
+        $currentReal = $pivotReal;
+        $currentAlias = $pivotAlias;
+        $usedTables = [$pivotReal => true];
+
+        // Conectar cada tabla restante buscando la mejor ruta desde el pivote o tablas ya conectadas
+        $tablesToConnect = array_slice($realNames, 1);
+        
+        foreach ($tablesToConnect as $nextReal) {
+            if (isset($usedTables[$nextReal])) {
+                continue; // Ya conectada
+            }
+
+            $nextAlias = $aliases[$nextReal];
+            
+            // Buscar relación desde la tabla actual o cualquier tabla ya conectada
+            $foundRelation = false;
+            $sourceTable = $currentReal;
+            $sourceAlias = $currentAlias;
+            
+            // Intentar encontrar relación desde el pivote primero
+            $relationDef = self::$relMap['from'][$currentReal][$nextReal] ?? self::$relMap['to'][$currentReal][$nextReal] ?? null;
+            
+            // Si no hay relación directa desde la tabla actual, buscar desde cualquier tabla conectada
+            if (!$relationDef) {
+                foreach (array_keys($usedTables) as $connectedTable) {
+                    $relationDef = self::$relMap['from'][$connectedTable][$nextReal] ?? self::$relMap['to'][$connectedTable][$nextReal] ?? null;
+                    if ($relationDef) {
+                        $sourceTable = $connectedTable;
+                        $sourceAlias = $aliases[$connectedTable];
+                        break;
+                    }
+                }
+            }
+
+            $joinPart = "LEFT JOIN " . self::quote($nextReal);
+            if ($nextAlias !== $nextReal) {
+                $joinPart .= " AS " . self::quote($nextAlias);
+            }
+
+            if ($relationDef) {
+                $onClause = self::buildJoinConditionFromDef($sourceTable, $sourceAlias, $nextReal, $nextAlias, $relationDef);
+                $joinPart .= " " . $onClause;
+                $foundRelation = true;
+            }
+
+            $parts[] = $joinPart;
+            $usedTables[$nextReal] = true;
+            
+            // Actualizar tabla actual para la siguiente iteración
+            if ($foundRelation) {
+                $currentReal = $nextReal;
+                $currentAlias = $nextAlias;
+            }
+        }
+
         return implode(' ', $parts);
     }
 

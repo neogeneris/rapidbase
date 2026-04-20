@@ -86,48 +86,8 @@ class SelectBuilder
             return $this->cachedFromClause;
         }
         
-        $sql = 'FROM ';
-        
-        if ($this->from instanceof Table) {
-            $sql .= $this->from->toSql([SQL::class, 'quote']);
-        } elseif (is_string($this->from)) {
-            // Soporte para formato antiguo: tabla como string simple
-            $sql .= SQL::quoteField($this->from);
-        } elseif (is_array($this->from)) {
-            // Formato antiguo: [['tabla', 'alias']] o ['tabla']
-            if (isset($this->from[0]) && is_array($this->from[0])) {
-                // Array de tablas con alias: [['users', 'u'], ['orders', 'o']]
-                $tables = [];
-                foreach ($this->from as $t) {
-                    if (is_array($t) && isset($t[1])) {
-                        $tables[] = SQL::quoteField($t[0]) . ' AS ' . SQL::quoteField($t[1]);
-                    } else {
-                        $tables[] = SQL::quoteField($t);
-                    }
-                }
-                $sql .= implode(', ', $tables);
-            } elseif (isset($this->from[1])) {
-                // Una sola tabla con alias: ['users', 'u']
-                $sql .= SQL::quoteField($this->from[0]) . ' AS ' . SQL::quoteField($this->from[1]);
-            } elseif (isset($this->from[0])) {
-                // Una sola tabla sin alias: ['users']
-                $sql .= SQL::quoteField($this->from[0]);
-            }
-        }
-        
-        // Procesar joins
-        foreach ($this->join as $j) {
-            if ($j instanceof Join) {
-                $sql .= ' ' . $j->toSql([SQL::class, 'quote']);
-            } elseif (is_array($j)) {
-                // Formato antiguo de join: ['type' => 'LEFT', 'table' => 'users', 'alias' => 'u', 'on' => '...']
-                $type = strtoupper($j['type'] ?? 'LEFT');
-                $table = is_array($j['table']) ? SQL::quoteField($j['table'][0]) . ' AS ' . SQL::quoteField($j['table'][1]) : SQL::quoteField($j['table']);
-                $alias = isset($j['alias']) ? ' AS ' . SQL::quoteField($j['alias']) : '';
-                $on = isset($j['on']) ? " ON {$j['on']}" : '';
-                $sql .= " {$type} JOIN {$table}{$alias}{$on}";
-            }
-        }
+        // Delegar a SQL::buildFromWithMap para manejar todos los casos (incluyendo pivote)
+        $sql = SQL::buildFromWithMap($this->from);
         
         $this->cachedFromClause = $sql;
         return $sql;

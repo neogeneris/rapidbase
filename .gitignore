@@ -1,6 +1,6 @@
-# Compiled and build artifacts
-*.pyc
-__pycache__/
+# Build artifacts
+dist/
+build/
 *.o
 *.obj
 *.class
@@ -10,10 +10,18 @@ __pycache__/
 *.a
 *.out
 
+# Compiled and build artifacts (Python, Java, etc.)
+*.pyc
+__pycache__/
+target/
+.gradle/
+
 # Dependencies
 node_modules/
 venv/
 .venv/
+
+# Environment variables
 .env
 .env.local
 *.env.*
@@ -32,12 +40,6 @@ venv/
 .coverage
 coverage/
 htmlcov/
-
-# Build directories
-dist/
-build/
-target/
-.gradle/
 
 # Python specific
 .mypy_cache/
