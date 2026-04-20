@@ -598,14 +598,26 @@ class SQL
 
     /**
      * Construye la cláusula FROM con JOINs automáticos usando SchemaMap
+     * 
+     * OPTIMIZACIÓN: Solo activa el motor de grafos si $table es un array.
+     * Si es un string, asume tabla simple y retorna inmediatamente sin overhead.
      */
     public static function buildFromWithMap(mixed $table): string
     {
+        // OPTIMIZACIÓN: Tabla simple como string - evitar completamente el motor de grafos
         if (is_string($table)) {
             return "FROM " . self::quote($table);
         }
         if (!is_array($table))
             return "";
+
+        // OPTIMIZACIÓN: Array vacío o con un solo elemento - no necesita grafo
+        if (count($table) === 0) {
+            return "";
+        }
+        if (count($table) === 1 && is_string($table[0])) {
+            return "FROM " . self::quote($table[0]);
+        }
 
         $hasComplex = false;
         foreach ($table as $item) {
@@ -643,23 +655,31 @@ class SQL
         }
 
         $hasDuplicates = count($realNames) !== count(array_unique($realNames));
-        if ($hasDuplicates || (!self::hasSchema() && self::hasRelations())) {
-            return self::buildFromLinear($table);
-        }
-        if (!self::hasSchema() && !self::hasRelations()) {
-            // Simple mode: no schema, no relations - just use first table
+        
+        // OPTIMIZACIÓN: Si no hay relaciones definidas, evitar el motor de grafos completamente
+        if (!self::hasRelations()) {
+            // Tablas múltiples sin relaciones: JOINs lineales simples
+            if (count($realNames) > 1) {
+                return self::buildFromLinear($table);
+            }
+            // Una sola tabla sin relaciones: FROM simple
             if (!empty($realNames)) {
                 $first = $realNames[0];
                 $from = "FROM " . self::quote($first);
-                foreach (array_slice($realNames, 1) as $next) {
-                    $from .= " LEFT JOIN " . self::quote($next);
+                if ($aliases[$first] !== $first) {
+                    $from .= " AS " . self::quote($aliases[$first]);
                 }
                 return $from;
             }
             return "";
         }
+        
+        // Solo ejecutar motor de grafos si hay relaciones Y múltiples tablas
+        if ($hasDuplicates) {
+            return self::buildFromLinear($table);
+        }
 
-        if (self::hasRelations()) {
+        if (count($realNames) > 1) {
             $realNames = self::orderTablesByWeakness($realNames);
             $aliasesOrdered = [];
             foreach ($realNames as $real) {
