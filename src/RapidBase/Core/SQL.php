@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace RapidBase\Core;
 
 class SQL
@@ -10,6 +12,21 @@ class SQL
     private static string $quoteChar = '"';
     protected static int $parameterCount = 0;
     private static array $joinTreeCache = [];
+    private static int $joinTreeCacheSize = 0;
+    private static int $joinTreeCacheMaxSize = 500;
+    
+    // ========== FAST PATH SLOTS (para consultas simples) ==========
+    // Slots reutilizables para evitar asignaciones de memoria (GC pressure)
+    // Índices: 1=Select, 2=From, 3=Where, 4=Group, 5=Order, 6=Limit
+    private static array $fastSlots = [1 => '*', 2 => '', 3 => '1', 4 => '', 5 => '', 6 => ''];
+    
+    // Plantillas optimizadas para ensamblaje rápido
+    private const SELECT_TPL = "SELECT %s FROM %s WHERE %s %s %s %s";
+    private const INSERT_TPL = "INSERT INTO %s (%s) VALUES (%s)";
+    private const UPDATE_TPL = "UPDATE %s SET %s WHERE %s";
+    private const DELETE_TPL = "DELETE FROM %s WHERE %s";
+    private const COUNT_TPL = "SELECT COUNT(*) FROM %s WHERE %s";
+    private const EXISTS_TPL = "SELECT EXISTS(SELECT 1 FROM %s WHERE %s)";
     
     // ========== CACHÉ DE CONSULTAS SQL ==========
     private static array $queryCache = [];
@@ -17,6 +34,7 @@ class SQL
     private static int $queryCacheMaxSize = 1000;
     private static int $queryCacheHits = 0;
     private static int $queryCacheMisses = 0;
+    private static ?string $lastSchemaHash = null;
 
     // ========== CONFIGURACIÓN DE DRIVER ==========
 
@@ -139,12 +157,14 @@ class SQL
     public static function quote(string $identifier): string
     {
         $q = self::$quoteChar;
-        if (is_object($identifier) && isset($identifier->raw)) {
+        // Optimización: verificar solo si es objeto una vez al inicio
+        if (isset($identifier) && is_object($identifier) && isset($identifier->raw)) {
             return $identifier->raw;
         }
         $identifier = trim($identifier);
-        if ($identifier === '*' || str_starts_with($identifier, $q))
+        if ($identifier === '*' || str_starts_with($identifier, $q)) {
             return $identifier;
+        }
         $parts = explode('.', $identifier);
         $quotedParts = array_map(function ($part) use ($q) {
             return $part === '*' ? '*' : $q . trim($part, $q) . $q;
@@ -152,7 +172,7 @@ class SQL
         return implode('.', $quotedParts);
     }
 
-    private static function quoteField(string $field): string
+    public static function quoteField(string $field): string
     {
         $field = trim($field);
         if (preg_match('/^(.*?)\s+AS\s+(.*)$/i', $field, $matches)) {
@@ -188,27 +208,46 @@ class SQL
         array $groupBy = [],
         array $having = [],
         array $sort = [],
-        $page = 0, // Changed from int $page = 1 to mixed $page = 0 to allow null/empty disabling pagination
+        $page = 0,
         int $perPage = 10
     ): array {
         // Normalize page: null, [], 0, or false -> 0 (No pagination)
         $page = empty($page) ? 0 : (int)$page;
         self::reset();
         
+        // Crear instancia de SelectBuilder como contenedor estructurado
+        $builder = new SQL\Builders\SelectBuilder();
+        
+        // Asignar propiedades directamente (reemplaza $parts['select'] = $fields)
+        $builder->select = $fields;
+        $builder->from = $table;
+        $builder->where = $where;
+        $builder->groupBy = $groupBy;
+        $builder->having = $having;
+        $builder->orderBy = $sort;
+        $builder->limit = $perPage;
+        $builder->offset = $page > 0 ? ($page - 1) * $perPage : 0;
+        $builder->params = [];
+        
+        // Manejar joins si se proporcionan (bug fix: $joins no estaba definido)
+        // Los joins ahora deben venir en el parámetro $table como array
+        
         // Generar clave de caché basada en la ESTRUCTURA de la consulta (no los valores)
         $cacheKey = null;
         if (self::$queryCacheEnabled) {
-            $structureKey = json_encode([
-                'fields' => $fields,
-                'table' => $table,
-                'where_keys' => self::getWhereStructure($where),
-                'groupBy' => $groupBy,
-                'having_keys' => self::getWhereStructure($having),
-                'sort_keys' => array_keys($sort),
-                'page' => $page,
-                'perPage' => $perPage
-            ]);
-            $cacheKey = 'select_' . md5($structureKey);
+            // Optimización: usar implode con separador único en lugar de json_encode/serialize
+            // Es más rápido y genera claves consistentes
+            $tableStr = is_array($table) ? implode(',', self::flattenTables($table)) : (string)$table;
+            $fieldsStr = is_array($fields) ? (is_string(key($fields)) ? implode(',', array_keys($fields)) : implode(',', $fields)) : (string)$fields;
+            
+            $structureKey = $fieldsStr . '|' . $tableStr . '|' 
+                . self::getWhereKeysString($where) . '|' 
+                . implode(',', $groupBy) . '|' 
+                . self::getWhereKeysString($having) . '|' 
+                . implode(',', array_keys($sort)) . '|' 
+                . ($page > 0 ? '1' : '0') . '|' . $perPage;
+            
+            $cacheKey = 'select_' . crc32($structureKey);
             
             // Verificar caché
             if (isset(self::$queryCache[$cacheKey])) {
@@ -224,12 +263,11 @@ class SQL
             self::$queryCacheMisses++;
         }
         
-        // Construir FROM con JOINs usando la lógica existente
-        $fromClause = self::buildFromWithMap($table);
-        
-        // Construir WHERE
+        // Usar el builder para construir las cláusulas
+        $fromClause = $builder->buildFromClause();
         $whereData = empty($where) ? ['sql' => '', 'params' => []] : self::buildWhere($where);
         $whereClause = empty($whereData['sql']) ? '' : 'WHERE ' . $whereData['sql'];
+        $builder->params = $whereData['params'];
         
         // Construir GROUP BY
         $groupByClause = '';
@@ -285,67 +323,73 @@ class SQL
             $orderByClause = self::buildOrderBy($sortFields);
         }
         
-        // Construir LIMIT/OFFSET
-        $limit = $perPage;
-        $offset = ($page - 1) * $perPage;
-        $limitClause = "LIMIT $limit OFFSET $offset";
+        // Usar el builder para construir SELECT
+        $selectClause = $builder->buildSelectClause();
         
-        // Construir SELECT
-        $selectFields = '*';
-        if (is_array($fields)) {
-            $quotedFields = [];
-            foreach ($fields as $field) {
-                // Si ya tiene comillas o es una función, no quoteear
-                if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
-                    $quotedFields[] = $field;
-                } else {
-                    // Quoteear cada parte del campo (ej: 'u.name' -> '`u`.`name`')
-                    $parts = explode('.', $field);
-                    $quotedParts = array_map(function($part) {
-                        return self::quote($part);
-                    }, $parts);
-                    $quotedFields[] = implode('.', $quotedParts);
-                }
-            }
-            $selectFields = implode(', ', $quotedFields);
-        } elseif ($fields !== '*') {
-            $selectFields = $fields;
-        }
-        
-        // Ensamblar SQL final
-        $sqlParts = ["SELECT $selectFields", $fromClause];
+        // Ensamblar SQL final usando las cláusulas del builder
+        $sqlParts = [$selectClause, $fromClause];
         if ($whereClause !== '') $sqlParts[] = $whereClause;
         if ($groupByClause !== '') $sqlParts[] = $groupByClause;
         if ($havingClause !== '') $sqlParts[] = $havingClause;
         if ($orderByClause !== '') $sqlParts[] = $orderByClause;
-        $sqlParts[] = $limitClause;
+        $sqlParts[] = "LIMIT {$builder->limit} OFFSET {$builder->offset}";
         
         $sql = implode(' ', $sqlParts);
         
         // Almacenar en caché la plantilla SQL
         if ($cacheKey !== null && count(self::$queryCache) < self::$queryCacheMaxSize) {
             self::$queryCache[$cacheKey] = $sql;
-            if (count(self::$queryCache) > self::$queryCacheMaxSize) {
-                array_splice(self::$queryCache, 0, (int)(self::$queryCacheMaxSize * 0.1));
-            }
         }
         
         return [$sql, $whereData['params']];
     }
 
     /**
+     * Extrae las claves de un array WHERE/HAVING como string para usar en clave de caché.
+     */
+    private static function getWhereKeysString(array $conditions): string
+    {
+        $keys = [];
+        foreach ($conditions as $key => $value) {
+            if (is_array($value)) {
+                $keys[] = $key . '(' . implode(',', array_keys($value)) . ')';
+            } else {
+                $keys[] = $key;
+            }
+        }
+        sort($keys);
+        return implode(',', $keys);
+    }
+
+    /**
+     * Aplana un array de tablas para generar clave de caché.
+     */
+    private static function flattenTables(array $tables): array
+    {
+        $result = [];
+        foreach ($tables as $table) {
+            if (is_array($table)) {
+                $result = array_merge($result, self::flattenTables($table));
+            } else {
+                $result[] = $table;
+            }
+        }
+        return $result;
+    }
+
+    /**
      * Extrae la estructura de un array WHERE/HAVING para usar como clave de caché.
      * Ignora los valores específicos, solo considera las claves y operadores.
+     * @deprecated Usar getWhereKeysString() que es más eficiente
      */
     private static function getWhereStructure(array $conditions): array
     {
         $structure = [];
         foreach ($conditions as $key => $value) {
             if (is_array($value)) {
-                // Operadores personalizados o arrays anidados
-                $structure[$key] = is_array($value) ? array_keys($value) : null;
+                $structure[$key] = array_keys($value);
             } else {
-                $structure[$key] = null; // Solo nos importa la clave
+                $structure[$key] = null;
             }
         }
         return $structure;
@@ -368,24 +412,30 @@ class SQL
      */
     private static function orderTablesByWeakness(array $tableNames): array
     {
-
-        if (!self::hasRelations())
+        if (!self::hasRelations()) {
             return $tableNames;
+        }
 
         $degrees = [];
+        $relMapFrom = self::$relMap['from'];
+        $relMapTo = self::$relMap['to'];
 
         foreach ($tableNames as $t) {
-            $out = count(self::$relMap['from'][$t] ?? []);
-            $in = count(self::$relMap['to'][$t] ?? []);
+            $out = isset($relMapFrom[$t]) ? count($relMapFrom[$t]) : 0;
+            $in = isset($relMapTo[$t]) ? count($relMapTo[$t]) : 0;
             $degrees[$t] = ['out' => $out, 'in' => $in];
         }
-        uasort($degrees, function ($a, $b) {
-            if ($a['out'] != $b['out'])
+        
+        uasort($degrees, static function ($a, $b) {
+            if ($a['out'] !== $b['out']) {
                 return $b['out'] <=> $a['out'];
-            if ($a['in'] != $b['in'])
+            }
+            if ($a['in'] !== $b['in']) {
                 return $a['in'] <=> $b['in'];
+            }
             return 0;
         });
+        
         return array_keys($degrees);
     }
 
@@ -559,13 +609,28 @@ class SQL
      * @throws \RuntimeException Si no se pueden conectar todas las tablas del grafo.
      */
 
+    /**
+     * Construye la cláusula FROM con JOINs automáticos usando SchemaMap
+     * 
+     * OPTIMIZACIÓN: Solo activa el motor de grafos si $table es un array.
+     * Si es un string, asume tabla simple y retorna inmediatamente sin overhead.
+     */
     public static function buildFromWithMap(mixed $table): string
     {
+        // OPTIMIZACIÓN: Tabla simple como string - evitar completamente el motor de grafos
         if (is_string($table)) {
             return "FROM " . self::quote($table);
         }
         if (!is_array($table))
             return "";
+
+        // OPTIMIZACIÓN: Array vacío o con un solo elemento - no necesita grafo
+        if (count($table) === 0) {
+            return "";
+        }
+        if (count($table) === 1 && is_string($table[0])) {
+            return "FROM " . self::quote($table[0]);
+        }
 
         $hasComplex = false;
         foreach ($table as $item) {
@@ -603,40 +668,63 @@ class SQL
         }
 
         $hasDuplicates = count($realNames) !== count(array_unique($realNames));
-        if ($hasDuplicates || (!self::hasSchema() && self::hasRelations())) {
-            return self::buildFromLinear($table);
-        }
-        if (!self::hasSchema() && !self::hasRelations()) {
-            // Simple mode: no schema, no relations - just use first table
+        
+        // OPTIMIZACIÓN: Si no hay relaciones definidas, evitar el motor de grafos completamente
+        if (!self::hasRelations()) {
+            // Tablas múltiples sin relaciones: JOINs lineales simples
+            if (count($realNames) > 1) {
+                return self::buildFromLinear($table);
+            }
+            // Una sola tabla sin relaciones: FROM simple
             if (!empty($realNames)) {
                 $first = $realNames[0];
                 $from = "FROM " . self::quote($first);
-                foreach (array_slice($realNames, 1) as $next) {
-                    $from .= " LEFT JOIN " . self::quote($next);
+                if ($aliases[$first] !== $first) {
+                    $from .= " AS " . self::quote($aliases[$first]);
                 }
                 return $from;
             }
             return "";
         }
+        
+        // Solo ejecutar motor de grafos si hay relaciones Y múltiples tablas
+        if ($hasDuplicates) {
+            return self::buildFromLinear($table);
+        }
 
-        if (self::hasRelations()) {
+        if (count($realNames) > 1) {
             $realNames = self::orderTablesByWeakness($realNames);
             $aliasesOrdered = [];
-            foreach ($realNames as $real)
+            foreach ($realNames as $real) {
                 $aliasesOrdered[$real] = $aliases[$real];
+            }
             $aliases = $aliasesOrdered;
         }
 
-        $cacheKey = implode('|', $realNames);
+        // Optimización: usar serialize + crc32 para clave de caché de joinTree
+        $cacheKey = 'join_' . crc32(serialize($realNames));
+        
+        // Limitar tamaño del joinTreeCache
+        if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
+            // Eliminar el 10% más antiguo
+            $keysToRemove = array_slice(array_keys(self::$joinTreeCache), 0, (int)(self::$joinTreeCacheMaxSize * 0.1));
+            foreach ($keysToRemove as $key) {
+                unset(self::$joinTreeCache[$key]);
+                self::$joinTreeCacheSize--;
+            }
+        }
+        
         if (!isset(self::$joinTreeCache[$cacheKey])) {
             self::$joinTreeCache[$cacheKey] = self::buildJoinTree($realNames);
+            self::$joinTreeCacheSize++;
         }
         $tree = self::$joinTreeCache[$cacheKey];
         $rootReal = $tree['root'];
         $rootAlias = $aliases[$rootReal];
         $parts = ["FROM " . self::quote($rootReal)];
-        if ($rootAlias !== $rootReal)
+        if ($rootAlias !== $rootReal) {
             $parts[] = "AS " . self::quote($rootAlias);
+        }
 
         foreach ($tree['edges'] as $edge) {
             $parentReal = $edge['parent'];
@@ -646,8 +734,9 @@ class SQL
             $childAlias = $aliases[$childReal];
             $onClause = self::buildJoinCondition($parentReal, $parentAlias, $childReal, $childAlias, $rel);
             $joinPart = "LEFT JOIN " . self::quote($childReal);
-            if ($childAlias !== $childReal)
+            if ($childAlias !== $childReal) {
                 $joinPart .= " AS " . self::quote($childAlias);
+            }
             $joinPart .= " " . $onClause;
             $parts[] = $joinPart;
         }
@@ -816,35 +905,35 @@ class SQL
         }
 
         // --- Detección de grupos OR (array indexado) ---
-        $isIndexed = array_keys($where) === range(0, count($where) - 1);
+        $isIndexed = array_is_list($where);
         if ($isIndexed) {
             $groupSql = [];
             $allParams = [];
             foreach ($where as $group) {
                 if (!is_array($group)) {
-                    // Si no es array, tratarlo como condición simple (columna = valor)
                     $group = [$group];
                 }
                 $sub = self::buildWhere($group, $context, $defaultAlias);
                 $groupSql[] = '(' . $sub['sql'] . ')';
                 $allParams = array_merge($allParams, $sub['params']);
             }
-            // Si solo hay un grupo, no añadimos "OR" superfluo
-            $sql = implode(' OR ', $groupSql);
+            $sql = count($groupSql) > 1 ? implode(' OR ', $groupSql) : $groupSql[0];
             return ['sql' => $sql, 'params' => $allParams];
         }
 
         // --- Modo normal: AND entre condiciones (array asociativo) ---
         $sqlParts = [];
         $params = [];
+        $hasSchema = self::hasSchema();
+        $schema = self::$schema;
 
         foreach ($where as $column => $value) {
             $rawColumn = trim($column);
             if (!str_contains($rawColumn, '.') && !preg_match('/[^\w\.]/', $rawColumn)) {
                 $foundAlias = null;
-                if (self::hasSchema() && !empty($context)) {
+                if ($hasSchema && !empty($context)) {
                     foreach ($context as $alias => $realTable) {
-                        if (isset(self::$schema[$realTable][$rawColumn])) {
+                        if (isset($schema[$realTable][$rawColumn])) {
                             if ($foundAlias === null) {
                                 $foundAlias = $alias;
                             } else {
@@ -860,11 +949,10 @@ class SQL
             }
             $safeColumn = self::quote($rawColumn);
 
-            if (is_null($value)) {
+            if ($value === null) {
                 $sqlParts[] = "$safeColumn IS NULL";
             } elseif (is_array($value)) {
-                // Si el array es indexado (sin operadores) -> se trata como lista para IN (...)
-                $isList = array_keys($value) === range(0, count($value) - 1);
+                $isList = array_is_list($value);
                 if ($isList) {
                     $placeholders = [];
                     foreach ($value as $val) {
@@ -874,7 +962,6 @@ class SQL
                     }
                     $sqlParts[] = "$safeColumn IN (" . implode(', ', $placeholders) . ")";
                 } else {
-                    // Es un array asociativo [operador => valor]
                     foreach ($value as $op => $val) {
                         $token = self::nextToken();
                         $sqlParts[] = "$safeColumn $op :$token";

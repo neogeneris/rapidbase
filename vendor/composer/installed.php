@@ -3,7 +3,7 @@
         'name' => 'rapidbase/rapidbase',
         'pretty_version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
         'version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
-        'reference' => 'a34d893e37747cea5d575502fa952f583ca5f114',
+        'reference' => '336c05909ce4a810b47de246481b1ab122364191',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -112,7 +112,7 @@
         'rapidbase/rapidbase' => array(
             'pretty_version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
             'version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
-            'reference' => 'a34d893e37747cea5d575502fa952f583ca5f114',
+            'reference' => '336c05909ce4a810b47de246481b1ab122364191',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
