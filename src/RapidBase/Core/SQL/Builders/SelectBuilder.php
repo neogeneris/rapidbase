@@ -109,7 +109,8 @@ class SelectBuilder
             } elseif (isset($this->from[1])) {
                 // Una sola tabla con alias: ['users', 'u']
                 $sql .= SQL::quoteField($this->from[0]) . ' AS ' . SQL::quoteField($this->from[1]);
-            } else {
+            } elseif (isset($this->from[0])) {
+                // Una sola tabla sin alias: ['users']
                 $sql .= SQL::quoteField($this->from[0]);
             }
         }

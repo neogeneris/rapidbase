@@ -1,1 +1,5 @@
-(src/RapidBase/Core/Gateway.php)
+```
+# Logs and temp files
+*.log
+tmp/
+```
