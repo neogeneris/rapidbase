@@ -15,6 +15,19 @@ class SQL
     private static int $joinTreeCacheSize = 0;
     private static int $joinTreeCacheMaxSize = 500;
     
+    // ========== FAST PATH SLOTS (para consultas simples) ==========
+    // Slots reutilizables para evitar asignaciones de memoria (GC pressure)
+    // Índices: 1=Select, 2=From, 3=Where, 4=Group, 5=Order, 6=Limit
+    private static array $fastSlots = [1 => '*', 2 => '', 3 => '1', 4 => '', 5 => '', 6 => ''];
+    
+    // Plantillas optimizadas para ensamblaje rápido
+    private const SELECT_TPL = "SELECT %s FROM %s WHERE %s %s %s %s";
+    private const INSERT_TPL = "INSERT INTO %s (%s) VALUES (%s)";
+    private const UPDATE_TPL = "UPDATE %s SET %s WHERE %s";
+    private const DELETE_TPL = "DELETE FROM %s WHERE %s";
+    private const COUNT_TPL = "SELECT COUNT(*) FROM %s WHERE %s";
+    private const EXISTS_TPL = "SELECT EXISTS(SELECT 1 FROM %s WHERE %s)";
+    
     // ========== CACHÉ DE CONSULTAS SQL ==========
     private static array $queryCache = [];
     private static bool $queryCacheEnabled = false;
