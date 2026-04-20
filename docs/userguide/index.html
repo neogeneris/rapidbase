@@ -837,7 +837,10 @@ $result = Gateway::select(
             <!-- Gateway Joins Section -->
             <section id="gateway-joins">
                 <h2>🔧 Gateway - JOINs Automáticos</h2>
-                <p>Cuando pasas un array de tablas, Gateway construye los JOINs automáticamente usando el mapa de relaciones:</p>
+                <p>RapidBase ofrece múltiples formas de construir JOINs, desde completamente automáticos hasta totalmente manuales, pasando por un modo híbrido con tabla pivote.</p>
+                
+                <h3>1. JOIN Automático Completo</h3>
+                <p>Cuando pasas un array simple de tablas, Gateway construye los JOINs automáticamente usando el mapa de relaciones:</p>
                 
                 <pre><code class="language-php">// JOIN automático entre users y orders
 $result = Gateway::select(
@@ -856,7 +859,105 @@ $result = Gateway::select(
 // LIMIT 10 OFFSET 0</code></pre>
                 
                 <div class="tip-box">
-                    <strong>💡 Tip:</strong> El algoritmo optimiza el orden de los JOINs basándose en las relaciones definidas.
+                    <strong>💡 Tip:</strong> El algoritmo optimiza el orden de los JOINs basándose en las relaciones definidas en el mapa.
+                </div>
+
+                <h3>2. Modo Pivote (Tabla Base Fija)</h3>
+                <p>Usa la sintaxis <code>[t1, [t2, t3, ...]]</code> para fijar <code>t1</code> como tabla principal (FROM) y conectar automáticamente las demás alrededor de ella:</p>
+                
+                <pre><code class="language-php">// 'users' es la tabla FROM principal, 'orders' y 'products' se conectan automáticamente
+$result = Gateway::select(
+    fields: ['users.name', 'orders.total', 'products.price'],
+    table: ['users', ['orders', 'products']],  // Pivote + tablas secundarias
+    where: ['users.id' => 5]
+);
+
+// SQL generado:
+// SELECT `users`.`name`, `orders`.`total`, `products`.`price`
+// FROM `users`
+// LEFT JOIN `orders` ON `users`.`id` = `orders`.`user_id`
+// LEFT JOIN `products` ON `orders`.`product_id` = `products`.`id`
+// WHERE `users`.`id` = ?</code></pre>
+
+                <h4>Pivote con Alias</h4>
+                <p>Puedes usar alias en la tabla pivote y en las secundarias:</p>
+                
+                <pre><code class="language-php">$result = Gateway::select(
+    fields: ['u.name', 'o.total'],
+    table: ['users as u', ['orders as o', 'products as p']],
+    where: ['u.id' => 5]
+);
+
+// SQL generado:
+// SELECT `u`.`name`, `o`.`total`
+// FROM `users` AS `u`
+// LEFT JOIN `orders` AS `o` ON `u`.`id` = `o`.`user_id`
+// LEFT JOIN `products` AS `p` ON `o`.`product_id` = `p`.`id`
+// WHERE `u`.`id` = ?</code></pre>
+
+                <h4>Pivote con Condiciones Manuales</h4>
+                <p>Si necesitas controlar manualmente alguna condición ON, usa un array dentro del segundo nivel:</p>
+                
+                <pre><code class="language-php">// Mezcla automático y manual
+$result = Gateway::select(
+    fields: '*',
+    table: [
+        'users as u', 
+        [
+            'orders as o',              // Automático (usa el mapa)
+            ['profiles', 'u.id = profiles.user_id']  // Manual (ON explícito)
+        ]
+    ],
+    where: ['u.active' => 1]
+);
+
+// SQL generado:
+// SELECT *
+// FROM `users` AS `u`
+// LEFT JOIN `orders` AS `o` ON `u`.`id` = `o`.`user_id`  (automático)
+// LEFT JOIN `profiles` ON u.id = profiles.user_id  (manual)
+// WHERE `u`.`active` = ?</code></pre>
+
+                <h3>3. JOIN Determinista Explícito</h3>
+                <p>Para control total, define manualmente cada JOIN con su condición ON:</p>
+                
+                <pre><code class="language-php">$result = Gateway::select(
+    fields: ['u.name', 'o.total'],
+    table: [
+        'users' => [
+            'JOIN orders ON users.id = orders.user_id' => [
+                'LEFT JOIN products ON orders.product_id = products.id'
+            ]
+        ]
+    ],
+    where: ['users.active' => 1]
+);
+
+// SQL generado (orden exacto especificado):
+// SELECT `u`.`name`, `o`.`total`
+// FROM `users`
+// JOIN `orders` ON `users`.`id` = `orders`.`user_id`
+// LEFT JOIN `products` ON `orders`.`product_id` = `products`.`id`
+// WHERE `users`.`active` = ?</code></pre>
+
+                <h3>4. Fast Path (Una Sola Tabla)</h3>
+                <p>Para consultas simples sin joins, usa string o array unitario para máximo rendimiento:</p>
+                
+                <pre><code class="language-php">// Estas formas usan el "Fast Path" (~40% más rápido)
+Gateway::select('*', 'users', ['id' => 1]);
+Gateway::select('*', ['users'], ['id' => 1]);
+Gateway::select('*', ['users as u'], ['u.id' => 1]);
+
+// SQL: SELECT * FROM `users` WHERE `id` = ?</code></pre>
+
+                <div class="info-box">
+                    <strong>📊 Resumen de Sintaxis:</strong>
+                    <ul>
+                        <li><code>'users'</code> → Fast Path (máxima velocidad)</li>
+                        <li><code>['users', 'orders']</code> → Automático completo (grafo optimizado)</li>
+                        <li><code>['users', ['orders', 'products']]</code> → Pivote fijo + resto automático</li>
+                        <li><code>['users' => 'JOIN...']</code> → Determinista (control total)</li>
+                    </ul>
                 </div>
             </section>
             
