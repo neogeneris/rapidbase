@@ -4,6 +4,7 @@
 // Cargamos las dependencias en el orden correcto
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
 
