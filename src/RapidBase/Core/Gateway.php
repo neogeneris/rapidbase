@@ -20,7 +20,13 @@ class Gateway {
 
     /** @var array Rastro de la última operación */
     private static array $lastStatus = [];
-	
+    
+    // ========== OPTIMIZACIÓN: Cachear existencia de clases ==========
+    // Evita llamar a class_exists() repetidamente en cada llamada
+    private static ?bool $hasEvents = null;
+    private static ?bool $hasCacheService = null;
+    private static ?bool $hasSQL = null;
+    
 	private static function setStatus(string $sql, array $params, int $rows = 0, $id = null, ?string $error = null): void {
         self::$lastStatus = [
             'sql'    => $sql,
@@ -114,7 +120,7 @@ class Gateway {
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         // Intentar recuperar de caché
-        if (class_exists('Core\Cache\CacheService')) {
+        if (self::$hasCacheService ??= class_exists('Core\Cache\CacheService')) {
             $cached = CacheService::get($cacheKey);
             if ($cached !== null) {
                 $cached['source'] = 'cache';
@@ -128,7 +134,7 @@ class Gateway {
         $result = self::select($fields, $table, $where, $groupBy,$having, $sort, $page, $perPage, $withTotal);
         
         // Guardar en caché
-        if ($result && !empty($result['data']) && class_exists('Core\Cache\CacheService')) {
+        if ($result && !empty($result['data']) && (self::$hasCacheService ?? true)) {
             CacheService::set($cacheKey, $result, $ttl);
         }
         
@@ -215,12 +221,12 @@ class Gateway {
      * @param string $table
      */
     protected static function clearCacheForTable(string $table): void {
-        if (class_exists('Core\Cache\CacheService')) {
+        if (self::$hasCacheService ??= class_exists('Core\Cache\CacheService')) {
             $prefix = "db_select_{$table}_";
             CacheService::clearByPrefix($prefix);
         }
         // También limpiar el caché de consultas SQL si existe
-        if (class_exists('RapidBase\Core\SQL')) {
+        if (self::$hasSQL ??= class_exists('RapidBase\Core\SQL')) {
             \RapidBase\Core\SQL::clearQueryCache();
         }
     }
@@ -232,7 +238,7 @@ class Gateway {
      * @param bool $enabled
      */
     public static function setSqlQueryCacheEnabled(bool $enabled): void {
-        if (class_exists('RapidBase\Core\SQL')) {
+        if (self::$hasSQL ??= class_exists('RapidBase\Core\SQL')) {
             \RapidBase\Core\SQL::setQueryCacheEnabled($enabled);
         }
     }
@@ -248,12 +254,12 @@ class Gateway {
             'result_cache' => null
         ];
         
-        if (class_exists('RapidBase\Core\SQL')) {
+        if (self::$hasSQL ??= class_exists('RapidBase\Core\SQL')) {
             $stats['sql_query_cache'] = \RapidBase\Core\SQL::getQueryCacheStats();
         }
         
         // Aquí podríamos agregar estadísticas del caché de resultados si están disponibles
-        if (class_exists('Core\Cache\CacheService')) {
+        if (self::$hasCacheService ??= class_exists('Core\Cache\CacheService')) {
             $stats['result_cache'] = [
                 'available' => true,
                 'note' => 'Use CacheService::getStats() si está disponible'
@@ -358,20 +364,20 @@ class Gateway {
 		?string $table = null,
 		?float $duration = null
 	): void {
-		// Ponemos $extra PRIMERO. 
-		// Las claves en el segundo array (los datos reales) ganarán por prioridad.
-		self::$lastStatus = array_merge($extra, [
-			'success'   => $success,
-			'sql'       => $sql,
-			'params'    => $params, // Ahora este valor es intocable
-			'error'     => $error,
-			'timestamp' => microtime(true),
-			'type'      => $type,
-			'table'     => $table,
-			'duration'  => $duration,
-		]);
+		// OPTIMIZACIÓN 1: Evitar array_merge que duplica memoria
+		// Asignación directa es mucho más rápida
+		self::$lastStatus = $extra;
+		self::$lastStatus['success']   = $success;
+		self::$lastStatus['sql']       = $sql;
+		self::$lastStatus['params']    = $params;
+		self::$lastStatus['error']     = $error;
+		self::$lastStatus['timestamp'] = microtime(true);
+		self::$lastStatus['type']      = $type;
+		self::$lastStatus['table']     = $table;
+		self::$lastStatus['duration']  = $duration;
 
-		if (class_exists(__NAMESPACE__ . '\Event')) {
+		// OPTIMIZACIÓN 2: Cachear la existencia de la clase Event
+		if (self::$hasEvents ??= class_exists(__NAMESPACE__ . '\Event')) {
 			$eventName = $success ? 'db.success' : 'db.error';
 			Event::fire($eventName, self::$lastStatus);
 			Event::fire('db.log', self::$lastStatus);
