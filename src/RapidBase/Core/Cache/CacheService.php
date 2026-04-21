@@ -7,7 +7,7 @@ use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
 class CacheService
 {
     private static ?DirectoryCacheAdapter $adapter = null;
-    private static bool $enabled = false;
+    private static bool $enabled = true;
 
     public static function init(string $path): void
     {
@@ -17,6 +17,16 @@ class CacheService
         } catch (\Exception $e) {
             self::$enabled = false;
         }
+    }
+
+    public static function enable(): void
+    {
+        self::$enabled = true;
+    }
+
+    public static function disable(): void
+    {
+        self::$enabled = false;
     }
 
     /**
