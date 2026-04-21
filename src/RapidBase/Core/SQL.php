@@ -568,14 +568,16 @@ class SQL
         }
         
         // Process 'to' relationships: to => from (inverse direction)
-        foreach ($relMapTo as $to => $rels) {
-            foreach ($rels as $from => $rel) {
-                if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
+        foreach ($relMapTo as $definingTable => $rels) {
+            foreach ($rels as $referencedTable => $rel) {
+                if (in_array($definingTable, $tableNames) && in_array($referencedTable, $tableNames)) {
                     // For 'to' relationships, we need to mark them specially
                     // so buildJoinCondition knows the original direction
                     $rel['_direction'] = 'to'; // Mark as coming from 'to' map
-                    $graph[$to][$from] = $rel;
-                    $graph[$from][$to] = $rel;
+                    $rel['_defining_table'] = $definingTable; // Store which table defines this relation
+                    $rel['_referenced_table'] = $referencedTable; // Store which table is referenced
+                    $graph[$definingTable][$referencedTable] = $rel;
+                    $graph[$referencedTable][$definingTable] = $rel;
                 }
             }
         }
@@ -641,30 +643,49 @@ class SQL
      */
 
 
-    private static function buildJoinCondition(string $parentTabla, string $parentAlias, string $childTabla, string $childAlias, array $relation): string
+            private static function buildJoinCondition(string $parentTabla, string $parentAlias, string $childTabla, string $childAlias, array $relation): string
     {
         $localKey = $relation['local_key'] ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
-        $type = $relation['type'] ?? 'hasMany';
         
-        // Check if this relationship came from the 'to' map (inverse direction)
+        // Check if this relationship definition comes from the 'to' map (inverse direction)
         $fromToMap = isset($relation['_direction']) && $relation['_direction'] === 'to';
         
         if ($fromToMap) {
-            // Relationship from 'to' map (belongsTo semantics):
-            // The relation is defined as: child_table -> parent_table
-            // local_key is in the child table, foreign_key is in the parent table
-            // Example: posts.user_id = users.id
+            // For 'to' map relationships, we now have explicit info about which table defines the relation
+            // _defining_table: the table that has the local_key (FK column)
+            // _referenced_table: the table that has the foreign_key (PK column)
+            $definingTable = $relation['_defining_table'] ?? '';
+            $referencedTable = $relation['_referenced_table'] ?? '';
+            
+            // The join condition is always: defining_table.local_key = referenced_table.foreign_key
+            // We need to match parent/child aliases to defining/referenced tables
+            
+            if ($parentTabla === $definingTable) {
+                // parent is the defining table, child is the referenced table
+                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
+                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
+            } else {
+                // parent is the referenced table, child is the defining table
+                return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
+                    . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
+            }
+        }
+        
+        // For 'from' map relationships (normal direction)
+        $type = $relation['type'] ?? 'hasMany';
+        
+        // For belongsTo relationships (from 'from' map):
+        // child.local_key = parent.foreign_key
+        if ($type === 'belongsTo') {
             return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
                 . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
-        } else {
-            // Relationship from 'from' map (hasMany/hasOne semantics):
-            // The relation is defined as: parent_table -> child_table
-            // local_key is in the parent table, foreign_key is in the child table
-            // Example: users.id = posts.user_id
-            return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
         }
+        
+        // For hasMany/hasOne relationships (from 'from' map):
+        // parent.local_key = child.foreign_key
+        return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
+            . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
     }
 
 
