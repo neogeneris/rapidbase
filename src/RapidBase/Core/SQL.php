@@ -645,17 +645,22 @@ class SQL
     {
         $localKey = $relation['local_key'] ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
+        $type = $relation['type'] ?? 'hasMany';
         
         // Check if this relationship came from the 'to' map (inverse direction)
         $fromToMap = isset($relation['_direction']) && $relation['_direction'] === 'to';
         
         if ($fromToMap) {
-            // Relationship from 'to' map (belongsTo): child.local_key = parent.foreign_key
+            // Relationship from 'to' map (belongsTo semantics):
+            // The relation is defined as: child_table -> parent_table
+            // local_key is in the child table, foreign_key is in the parent table
             // Example: posts.user_id = users.id
             return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
                 . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
         } else {
-            // Relationship from 'from' map (hasMany/hasOne): parent.local_key = child.foreign_key
+            // Relationship from 'from' map (hasMany/hasOne semantics):
+            // The relation is defined as: parent_table -> child_table
+            // local_key is in the parent table, foreign_key is in the child table
             // Example: users.id = posts.user_id
             return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
                 . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
