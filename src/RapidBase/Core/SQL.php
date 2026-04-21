@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace RapidBase\Core;
 
+use RapidBase\Core\SQL\Builders\SelectBuilder;
+use RapidBase\Core\SQL\Builders\InsertBuilder;
+use RapidBase\Core\SQL\Builders\UpdateBuilder;
+use RapidBase\Core\SQL\Builders\DeleteBuilder;
+
 class SQL
 {
     private static array $relMap = [];
