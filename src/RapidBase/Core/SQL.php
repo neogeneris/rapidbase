@@ -15,12 +15,12 @@ class SQL
     private static int $joinTreeCacheSize = 0;
     private static int $joinTreeCacheMaxSize = 500;
     
-    // ========== FAST PATH SLOTS (para consultas simples) ==========
-    // Slots reutilizables para evitar asignaciones de memoria (GC pressure)
-    // Índices: 1=Select, 2=From, 3=Where, 4=Group, 5=Order, 6=Limit
+    // ========== FAST PATH SLOTS (for simple queries) ==========
+    // Reusable slots to avoid memory allocations (GC pressure)
+    // Indices: 1=Select, 2=From, 3=Where, 4=Group, 5=Order, 6=Limit
     private static array $fastSlots = [1 => '*', 2 => '', 3 => '1', 4 => '', 5 => '', 6 => ''];
     
-    // Plantillas optimizadas para ensamblaje rápido
+    // Optimized templates for fast assembly
     private const SELECT_TPL = "SELECT %s FROM %s WHERE %s %s %s %s";
     private const INSERT_TPL = "INSERT INTO %s (%s) VALUES (%s)";
     private const UPDATE_TPL = "UPDATE %s SET %s WHERE %s";
@@ -28,7 +28,7 @@ class SQL
     private const COUNT_TPL = "SELECT COUNT(*) FROM %s WHERE %s";
     private const EXISTS_TPL = "SELECT EXISTS(SELECT 1 FROM %s WHERE %s)";
     
-    // ========== CACHÉ DE CONSULTAS SQL ==========
+    // ========== SQL QUERY CACHE ==========
     private static array $queryCache = [];
     private static bool $queryCacheEnabled = false;
     private static int $queryCacheMaxSize = 1000;
@@ -36,7 +36,7 @@ class SQL
     private static int $queryCacheMisses = 0;
     private static ?string $lastSchemaHash = null;
 
-    // ========== CONFIGURACIÓN DE DRIVER ==========
+    // ========== DRIVER CONFIGURATION ==========
 
     public static function setDriver(string $driver): void
     {
@@ -55,11 +55,11 @@ class SQL
         self::setDriver($driver);
     }
 
-    // ========== CONFIGURACIÓN DEL CACHÉ DE CONSULTAS ==========
+    // ========== QUERY CACHE CONFIGURATION ==========
 
     /**
-     * Habilita o deshabilita el caché de consultas SQL generadas.
-     * Útil para reducir la CPU en consultas complejas con múltiples JOINs.
+     * Enables or disables the SQL query cache.
+     * Useful for reducing CPU usage in complex queries with multiple JOINs.
      */
     public static function setQueryCacheEnabled(bool $enabled): void
     {
@@ -67,8 +67,8 @@ class SQL
     }
 
     /**
-     * Establece el tamaño máximo del caché de consultas.
-     * Cuando se alcanza el límite, se eliminan las entradas más antiguas (LRU).
+     * Sets the maximum size of the query cache.
+     * When the limit is reached, the oldest entries are removed (LRU).
      */
     public static function setQueryCacheMaxSize(int $size): void
     {
@@ -76,8 +76,8 @@ class SQL
     }
 
     /**
-     * Obtiene estadísticas del caché de consultas.
-     * @return array Con hits, misses, size y hitRate.
+     * Gets query cache statistics.
+     * @return array With hits, misses, size and hitRate.
      */
     public static function getQueryCacheStats(): array
     {
@@ -93,7 +93,7 @@ class SQL
     }
 
     /**
-     * Limpia completamente el caché de consultas.
+     * Completely clears the query cache.
      */
     public static function clearQueryCache(): void
     {
@@ -102,7 +102,7 @@ class SQL
         self::$queryCacheMisses = 0;
     }
 
-    // ========== CARGA DEL MAPA Y ESQUEMA ==========
+    // ========== MAP AND SCHEMA LOADING ==========
 
     public static function setRelationsMap(array $map): void
     {
@@ -134,7 +134,7 @@ class SQL
         return array_keys(self::$schema[$tableName]);
     }
 
-    // ========== MÉTODOS BASE ==========
+    // ========== BASE METHODS ==========
 
     public static function reset(): void
     {
@@ -183,7 +183,7 @@ class SQL
         return self::quote($field);
     }
 
-    // ========== CONSTRUCCIÓN DE SELECT ==========
+    // ========== SELECT BUILDING ==========
 
     /**
      * Construye una consulta SELECT completa con soporte para JOINs automáticos, paginación y ordenamiento.
@@ -482,7 +482,7 @@ class SQL
         }
         return $structure;
     }
-    // ========== CONSTRUCCIÓN DE FROM CON JOINS ==========
+    // ========== FROM BUILDING WITH JOINS ==========
 
 
     /**
@@ -1070,7 +1070,7 @@ class SQL
             . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
     }
 
-    // ========== WHERE Y ORDER BY ==========
+    // ========== WHERE AND ORDER BY ==========
 
 
     /**
@@ -1359,7 +1359,7 @@ class SQL
         return "ORDER BY " . implode(', ', $parts);
     }
 
-    // ========== OPERACIONES DE ESCRITURA ==========
+    // ========== WRITE OPERATIONS ==========
 
     private static function normalizeValue(mixed $value): mixed
     {
