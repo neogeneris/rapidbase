@@ -123,13 +123,6 @@ $relationsMap = [
                 'foreign_key' => 'post_id'
             ]
         ],
-        'post_tag' => [
-            'tags' => [
-                'type' => 'hasOne',
-                'local_key' => 'tag_id',
-                'foreign_key' => 'id'
-            ]
-        ],
         'tags' => [
             'post_tag' => [
                 'type' => 'hasMany',
