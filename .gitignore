@@ -1,7 +1,37 @@
 ```
-# Database files
-*.sqlite
-
-# Temporary files
+# Test temporary files
 tests/tmp/
+
+# Environment files
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+dist/
+build/
+*.so
+*.egg-info/
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage/
+
+# System files
+.DS_Store
+Thumbs.db
 ```
