@@ -55,5 +55,24 @@ class Conn {
     public static function has(string $name): bool {
         return isset(self::$pool[$name]);
     }
+
+    /**
+     * Close a specific connection or all connections
+     */
+    public static function close(string $name = null): void {
+        if ($name === null) {
+            // Close all connections
+            self::$pool = [];
+            self::$dbNames = [];
+            self::$default = 'main';
+        } else {
+            // Close specific connection
+            unset(self::$pool[$name]);
+            unset(self::$dbNames[$name]);
+            if (self::$default === $name) {
+                self::$default = !empty(self::$pool) ? array_key_first(self::$pool) : 'main';
+            }
+        }
+    }
 }
 

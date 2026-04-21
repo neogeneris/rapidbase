@@ -340,6 +340,8 @@ class SQL
         
         // Generar clave de caché basada en la ESTRUCTURA de la consulta
         $cacheKey = null;
+        $isCacheHit = false;
+        
         if (self::$queryCacheEnabled) {
             $tableStr = is_array($table) ? implode(',', self::flattenTables($table)) : (string)$table;
             $fieldsStr = is_array($fields) ? (is_string(key($fields)) ? implode(',', array_keys($fields)) : implode(',', $fields)) : (string)$fields;
@@ -355,6 +357,7 @@ class SQL
             
             if (isset(self::$queryCache[$cacheKey])) {
                 self::$queryCacheHits++;
+                $isCacheHit = true;
                 $cachedData = self::$queryCache[$cacheKey];
                 $params = self::buildWhere($where)['params'];
                 if (!empty($having)) {
@@ -364,6 +367,9 @@ class SQL
                 // Return SQL, params AND projection map from cache
                 return [$cachedData['sql'], $params, $cachedData['map']];
             }
+            self::$queryCacheMisses++;
+        } else {
+            // When cache is disabled, still count as miss for statistics
             self::$queryCacheMisses++;
         }
         
@@ -448,7 +454,7 @@ class SQL
         
         // Guardar el mapa de proyección para FETCH_NUM
         self::$lastProjectionMap = $parts['projectionMap'];
-        return [$sql, $whereData['params']];
+        return [$sql, $whereData['params'], $parts['projectionMap']];
     }
 
     /**

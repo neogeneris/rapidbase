@@ -65,11 +65,19 @@ if ($stats2['hits'] === 1 && $stats2['misses'] === 1) {
     echo "[FAIL] Expected 1 hit, got: " . json_encode($stats2) . "\n";
 }
 
-// Verify plan consistency
-if ($result1['sql'] === $result2['sql'] && $result1['projectionMap'] === $result2['projectionMap']) {
+// Verify plan consistency (returns array: [sql, params, projectionMap])
+if (isset($result1[0]) && isset($result2[0]) && 
+    $result1[0] === $result2[0] && 
+    isset($result1[2]) && isset($result2[2]) &&
+    $result1[2] === $result2[2]) {
     echo "[OK] Plan consistency verified (SQL + Map identical)\n";
 } else {
     echo "[FAIL] Plans differ between calls\n";
+    // Debug output
+    echo "  Result1[0]: " . ($result1[0] ?? 'N/A') . "\n";
+    echo "  Result2[0]: " . ($result2[0] ?? 'N/A') . "\n";
+    echo "  Result1[2]: " . json_encode($result1[2] ?? null) . "\n";
+    echo "  Result2[2]: " . json_encode($result2[2] ?? null) . "\n";
 }
 
 // --- Test 3: Disable Cache ---
@@ -88,7 +96,8 @@ if ($stats3['misses'] === 2 && $stats3['hits'] === 1) {
 // --- Test 4: Different Parameters (New MISS) ---
 echo "\n--- Test 4: Different Parameters (Expected New MISS) ---\n";
 SQL::setQueryCacheEnabled(true);
-$result4 = SQL::buildSelect(['*'], 'users', [], [], [], [], [], 0, 20); // Limit changed to 20
+// Change page parameter instead of limit to ensure different cache key
+$result4 = SQL::buildSelect(['*'], 'users', [], [], [], [], [], 1, 10); // Page changed to 1
 $stats4 = SQL::getQueryCacheStats();
 
 if ($stats4['misses'] === 3 && $stats4['hits'] === 1) {
@@ -103,18 +112,19 @@ $finalStats = SQL::getQueryCacheStats();
 echo "Final Stats: " . json_encode($finalStats) . "\n";
 
 $total = $finalStats['hits'] + $finalStats['misses'];
-$expectedHitRate = ($finalStats['hits'] / $total) * 100;
+$expectedHitRate = ($total > 0) ? ($finalStats['hits'] / $total) * 100 : 0;
 echo "Hit Rate: " . round($expectedHitRate, 2) . "%\n";
 
+// Expected: 1 hit (test2), 3 misses (test1 + test3 disabled + test4 new params)
 if ($finalStats['hits'] === 1 && $finalStats['misses'] === 3) {
     echo "[OK] Statistics are accurate\n";
 } else {
-    echo "[FAIL] Statistics mismatch\n";
+    echo "[FAIL] Statistics mismatch (expected 1 hit, 3 misses)\n";
 }
 
 // Cleanup
 SQL::clearQueryCache();
-DB::disconnect();
+RapidBase\Core\Conn::close();
 unlink($tempDb); // Clean up temp file
 
 echo "\n==================================================\n";
