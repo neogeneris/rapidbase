@@ -1,1 +1,48 @@
-Nothing needs to be added to .gitignore since the only modified file is a PHP test file (`tests/Unit/Cache/test-all.php`) which is source code and should not be ignored.
+```php
+# Compiled and build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Dependencies
+vendor/
+node_modules/
+*.lock
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Build directories
+build/
+dist/
+target/
+*.pyc
+__pycache__/
+
+# OS specific
+.DS_Store
+Thumbs.db
+```

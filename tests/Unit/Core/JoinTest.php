@@ -10,8 +10,17 @@
  */
 
 // Cargar dependencias
+require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/QueryResponse.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/Field.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/Table.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/Join.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/WhereTrait.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/SelectBuilder.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/InsertBuilder.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/UpdateBuilder.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/DeleteBuilder.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
@@ -114,11 +123,11 @@ $relationsMap = [
                 'foreign_key' => 'post_id'
             ]
         ],
-        'post_tag' => [
-            'tags' => [
-                'type' => 'belongsTo',
-                'local_key' => 'tag_id',
-                'foreign_key' => 'id'
+        'tags' => [
+            'post_tag' => [
+                'type' => 'hasMany',
+                'local_key' => 'id',
+                'foreign_key' => 'tag_id'
             ]
         ]
     ],

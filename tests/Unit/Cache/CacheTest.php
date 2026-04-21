@@ -5,10 +5,11 @@ use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
 use RapidBase\Core\Event;
 
-// Autoload manual para el entorno de pruebas
-include_once "../../../src/RapidBase/Core/Cache/CacheService.php";
-include_once "../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php";
-include_once "../../../src/RapidBase/Core/Event.php";
+// Autoload manual para el entorno de pruebas (usando rutas absolutas)
+$basePath = dirname(__DIR__, 3) . '/src/RapidBase/Core';
+include_once $basePath . '/Cache/CacheService.php';
+include_once $basePath . '/Cache/Adapters/DirectoryCacheAdapter.php';
+include_once $basePath . '/Event.php';
 
 echo "--- Ejecutando: CacheTest.php (Motor de Persistencia L1/L2) ---\n";
 

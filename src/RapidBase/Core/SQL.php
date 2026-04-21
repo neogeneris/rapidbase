@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace RapidBase\Core;
 
+use RapidBase\Core\SQL\Builders\SelectBuilder;
+use RapidBase\Core\SQL\Builders\InsertBuilder;
+use RapidBase\Core\SQL\Builders\UpdateBuilder;
+use RapidBase\Core\SQL\Builders\DeleteBuilder;
+
 class SQL
 {
     private static array $relMap = [];
@@ -15,12 +20,12 @@ class SQL
     private static int $joinTreeCacheSize = 0;
     private static int $joinTreeCacheMaxSize = 500;
     
-    // ========== FAST PATH SLOTS (para consultas simples) ==========
-    // Slots reutilizables para evitar asignaciones de memoria (GC pressure)
-    // Índices: 1=Select, 2=From, 3=Where, 4=Group, 5=Order, 6=Limit
+    // ========== FAST PATH SLOTS (for simple queries) ==========
+    // Reusable slots to avoid memory allocations (GC pressure)
+    // Indices: 1=Select, 2=From, 3=Where, 4=Group, 5=Order, 6=Limit
     private static array $fastSlots = [1 => '*', 2 => '', 3 => '1', 4 => '', 5 => '', 6 => ''];
     
-    // Plantillas optimizadas para ensamblaje rápido
+    // Optimized templates for fast assembly
     private const SELECT_TPL = "SELECT %s FROM %s WHERE %s %s %s %s";
     private const INSERT_TPL = "INSERT INTO %s (%s) VALUES (%s)";
     private const UPDATE_TPL = "UPDATE %s SET %s WHERE %s";
@@ -28,7 +33,7 @@ class SQL
     private const COUNT_TPL = "SELECT COUNT(*) FROM %s WHERE %s";
     private const EXISTS_TPL = "SELECT EXISTS(SELECT 1 FROM %s WHERE %s)";
     
-    // ========== CACHÉ DE CONSULTAS SQL ==========
+    // ========== SQL QUERY CACHE ==========
     private static array $queryCache = [];
     private static bool $queryCacheEnabled = false;
     private static int $queryCacheMaxSize = 1000;
@@ -36,7 +41,7 @@ class SQL
     private static int $queryCacheMisses = 0;
     private static ?string $lastSchemaHash = null;
 
-    // ========== CONFIGURACIÓN DE DRIVER ==========
+    // ========== DRIVER CONFIGURATION ==========
 
     public static function setDriver(string $driver): void
     {
@@ -55,11 +60,11 @@ class SQL
         self::setDriver($driver);
     }
 
-    // ========== CONFIGURACIÓN DEL CACHÉ DE CONSULTAS ==========
+    // ========== QUERY CACHE CONFIGURATION ==========
 
     /**
-     * Habilita o deshabilita el caché de consultas SQL generadas.
-     * Útil para reducir la CPU en consultas complejas con múltiples JOINs.
+     * Enables or disables the SQL query cache.
+     * Useful for reducing CPU usage in complex queries with multiple JOINs.
      */
     public static function setQueryCacheEnabled(bool $enabled): void
     {
@@ -67,8 +72,8 @@ class SQL
     }
 
     /**
-     * Establece el tamaño máximo del caché de consultas.
-     * Cuando se alcanza el límite, se eliminan las entradas más antiguas (LRU).
+     * Sets the maximum size of the query cache.
+     * When the limit is reached, the oldest entries are removed (LRU).
      */
     public static function setQueryCacheMaxSize(int $size): void
     {
@@ -76,8 +81,8 @@ class SQL
     }
 
     /**
-     * Obtiene estadísticas del caché de consultas.
-     * @return array Con hits, misses, size y hitRate.
+     * Gets query cache statistics.
+     * @return array With hits, misses, size and hitRate.
      */
     public static function getQueryCacheStats(): array
     {
@@ -93,7 +98,7 @@ class SQL
     }
 
     /**
-     * Limpia completamente el caché de consultas.
+     * Completely clears the query cache.
      */
     public static function clearQueryCache(): void
     {
@@ -102,7 +107,7 @@ class SQL
         self::$queryCacheMisses = 0;
     }
 
-    // ========== CARGA DEL MAPA Y ESQUEMA ==========
+    // ========== MAP AND SCHEMA LOADING ==========
 
     public static function setRelationsMap(array $map): void
     {
@@ -134,7 +139,7 @@ class SQL
         return array_keys(self::$schema[$tableName]);
     }
 
-    // ========== MÉTODOS BASE ==========
+    // ========== BASE METHODS ==========
 
     public static function reset(): void
     {
@@ -183,7 +188,7 @@ class SQL
         return self::quote($field);
     }
 
-    // ========== CONSTRUCCIÓN DE SELECT ==========
+    // ========== SELECT BUILDING ==========
 
     /**
      * Construye una consulta SELECT completa con soporte para JOINs automáticos, paginación y ordenamiento.
@@ -254,14 +259,14 @@ class SQL
      * ## Ejemplos de paginado:
      * 
      * @example
-     * // Página 3, 20 registros por página (OFFSET 40 LIMIT 20)
+     * // Page 3, 20 records per page (OFFSET 40 LIMIT 20)
      * SQL::buildSelect('*', 'users', [], [], [], [], 3, 20);
      * 
      * @example
-     * // Sin paginación (todos los resultados)
+     * // Without pagination (all results)
      * SQL::buildSelect('*', 'users', [], [], [], [], 0, 0);
      * 
-     * ## Ejemplo completo:
+     * ## Complete example:
      * 
      * @example
      * // SELECT u.id, u.name, p.title FROM users AS u INNER JOIN posts AS p ON u.id = p.user_id
@@ -303,10 +308,10 @@ class SQL
         $page = empty($page) ? 0 : (int)$page;
         self::reset();
         
-        // Crear instancia de SelectBuilder como contenedor estructurado
-        $builder = new SQL\Builders\SelectBuilder();
+        // Create SelectBuilder instance as structured container
+        $builder = new SelectBuilder();
         
-        // Asignar propiedades directamente (reemplaza $parts['select'] = $fields)
+        // Assign properties directly (replaces $parts['select'] = $fields)
         $builder->select = $fields;
         $builder->from = $table;
         $builder->where = $where;
@@ -351,22 +356,22 @@ class SQL
             self::$queryCacheMisses++;
         }
         
-        // Usar el builder para construir las cláusulas
+        // Use builder to build clauses
         $fromClause = $builder->buildFromClause();
         $whereData = empty($where) ? ['sql' => '', 'params' => []] : self::buildWhere($where);
         $whereClause = empty($whereData['sql']) ? '' : 'WHERE ' . $whereData['sql'];
         $builder->params = $whereData['params'];
         
-        // Construir GROUP BY
+        // Build GROUP BY
         $groupByClause = '';
         if (!empty($groupBy)) {
             $groupByFields = [];
             foreach ($groupBy as $field) {
-                // Si ya tiene comillas o es una función, no quoteear
+                // If already quoted or is a function, don't quote
                 if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
                     $groupByFields[] = $field;
                 } else {
-                    // Quoteear cada parte del campo (ej: 'd.category' -> '`d`.`category`')
+                    // Quote each part of field (e.g., 'd.category' -> '`d`.`category`')
                     $parts = explode('.', $field);
                     $quotedParts = array_map(function($part) {
                         return self::quote($part);
@@ -377,7 +382,7 @@ class SQL
             $groupByClause = 'GROUP BY ' . implode(', ', $groupByFields);
         }
         
-        // Construir HAVING
+        // Build HAVING
         $havingClause = '';
         if (!empty($having)) {
             $havingData = self::buildWhere($having);
@@ -387,15 +392,15 @@ class SQL
             }
         }
         
-        // Construir ORDER BY
+        // Build ORDER BY
         $orderByClause = '';
         if (!empty($sort)) {
-            // Soportar tanto formato numérico ['field1', '-field2'] como asociativo ['field' => 'ASC']
+            // Support both numeric format ['field1', '-field2'] and associative ['field' => 'ASC']
             $sortFields = [];
             $isAssociative = !empty($sort) && !is_numeric(key($sort));
             
             if ($isAssociative) {
-                // Formato asociativo: ['field' => 'ASC/DESC']
+                // Associative format: ['field' => 'ASC/DESC']
                 foreach ($sort as $field => $dir) {
                     $dirUpper = strtoupper($dir);
                     if ($dirUpper === 'DESC') {
@@ -405,16 +410,16 @@ class SQL
                     }
                 }
             } else {
-                // Formato numérico: ['field1', '-field2']
+                // Numeric format: ['field1', '-field2']
                 $sortFields = $sort;
             }
             $orderByClause = self::buildOrderBy($sortFields);
         }
         
-        // Usar el builder para construir SELECT
+        // Use builder to build SELECT clause
         $selectClause = $builder->buildSelectClause();
         
-        // Ensamblar SQL final usando las cláusulas del builder
+        // Assemble final SQL using builder clauses
         $sqlParts = [$selectClause, $fromClause];
         if ($whereClause !== '') $sqlParts[] = $whereClause;
         if ($groupByClause !== '') $sqlParts[] = $groupByClause;
@@ -482,7 +487,7 @@ class SQL
         }
         return $structure;
     }
-    // ========== CONSTRUCCIÓN DE FROM CON JOINS ==========
+    // ========== FROM BUILDING WITH JOINS ==========
 
 
     /**
@@ -505,8 +510,8 @@ class SQL
         }
 
         $degrees = [];
-        $relMapFrom = self::$relMap['from'];
-        $relMapTo = self::$relMap['to'];
+        $relMapFrom = self::$relMap['from'] ?? [];
+        $relMapTo = self::$relMap['to'] ?? [];
 
         foreach ($tableNames as $t) {
             $out = isset($relMapFrom[$t]) ? count($relMapFrom[$t]) : 0;
@@ -550,7 +555,10 @@ class SQL
         foreach ($tableNames as $t)
             $graph[$t] = [];
 
-        foreach (self::$relMap['from'] as $from => $rels) {
+        $relMapFrom = self::$relMap['from'] ?? [];
+        $relMapTo = self::$relMap['to'] ?? [];
+
+        foreach ($relMapFrom as $from => $rels) {
             foreach ($rels as $to => $rel) {
                 if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
                     $graph[$from][$to] = $rel;
@@ -558,8 +566,10 @@ class SQL
                 }
             }
         }
-        foreach (self::$relMap['to'] as $from => $rels) {
-            foreach ($rels as $to => $rel) {
+        
+        // Process 'to' relationships: to => from (inverse direction)
+        foreach ($relMapTo as $to => $rels) {
+            foreach ($rels as $from => $rel) {
                 if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
                     $graph[$from][$to] = $rel;
                     $graph[$to][$from] = $rel;
@@ -607,60 +617,51 @@ class SQL
 
 
     /**
-     * Construye la condición ON para un JOIN entre dos tablas, usando el mapa de relaciones.
+     * Builds the ON condition for a JOIN between two tables using the relationship map.
      *
-     * La función determina automáticamente la dirección correcta de la relación:
-     * - Si la relación está definida en 'from' desde la tabla padre hacia la hija,
-     *   se usa `padre.local_key = hijo.foreign_key`.
-     * - Si está definida en sentido inverso (desde la hija hacia la padre),
-     *   se usa `hijo.local_key = padre.foreign_key`.
+     * The function automatically determines the correct direction of the relationship:
+     * - If the relationship is defined from parent to child in relMap['from'],
+     *   it uses `parent.local_key = child.foreign_key` (hasMany/hasOne semantics).
+     * - If the relationship is defined in the reverse direction (child to parent),
+     *   it uses `child.local_key = parent.foreign_key` (belongsTo semantics).
      *
-     * También distingue entre tipos de relación ('belongsTo' vs 'hasMany/hasOne')
-     * para ajustar la semántica.
+     * It also distinguishes between relationship types ('belongsTo' vs 'hasMany/hasOne')
+     * to adjust the semantics accordingly.
      *
-     * @param string $parentTabla Nombre real de la tabla padre.
-     * @param string $parentAlias Alias de la tabla padre en la consulta.
-     * @param string $childTabla  Nombre real de la tabla hija.
-     * @param string $childAlias  Alias de la tabla hija.
-     * @param array $relation     Array con la definición de la relación (debe contener
+     * @param string $parentTabla Real name of the parent table.
+     * @param string $parentAlias Alias of the parent table in the query.
+     * @param string $childTabla  Real name of the child table.
+     * @param string $childAlias  Alias of the child table.
+     * @param array $relation     Array with relationship definition (must contain
      *                            'type', 'local_key', 'foreign_key').
-     * @return string Cláusula ON (incluye la palabra "ON" y la condición).
+     * @return string ON clause (includes "ON" keyword and condition).
      */
 
 
     private static function buildJoinCondition(string $parentTabla, string $parentAlias, string $childTabla, string $childAlias, array $relation): string
     {
-        $type = $relation['type'];
-        $localKey = $relation['local_key'];
-        $foreignKey = $relation['foreign_key'];
-
-        $isDirectFromParentToChild = isset(self::$relMap['from'][$parentTabla][$childTabla]);
-        $isDirectFromChildToParent = isset(self::$relMap['from'][$childTabla][$parentTabla]);
-
-        if ($type === 'belongsTo') {
-            if ($isDirectFromParentToChild) {
-                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
-            } elseif ($isDirectFromChildToParent) {
-                return "ON " . self::quote($parentAlias) . "." . self::quote($foreignKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($localKey);
-            } else {
-                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
-            }
+        // Explicit type takes precedence
+        if (isset($relation['type'])) {
+            $type = $relation['type'];
         } else {
-            if (isset(self::$relMap['to'][$parentTabla][$childTabla])) {
-                $relTo = self::$relMap['to'][$parentTabla][$childTabla];
-                return "ON " . self::quote($childAlias) . "." . self::quote($relTo['local_key'])
-                    . " = " . self::quote($parentAlias) . "." . self::quote($relTo['foreign_key']);
-            } elseif (isset(self::$relMap['to'][$childTabla][$parentTabla])) {
-                $relTo = self::$relMap['to'][$childTabla][$parentTabla];
-                return "ON " . self::quote($parentAlias) . "." . self::quote($relTo['local_key'])
-                    . " = " . self::quote($childAlias) . "." . self::quote($relTo['foreign_key']);
-            } else {
-                return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
-            }
+            // Infer type from relationship direction:
+            // If relation is defined from parent to child in relMap['from'], it's hasMany/hasOne
+            // Otherwise (defined from child to parent), it's belongsTo
+            $type = isset(self::$relMap['from'][$parentTabla][$childTabla]) ? 'hasOne' : 'belongsTo';
+        }
+        
+        $localKey = $relation['local_key'] ?? '';
+        $foreignKey = $relation['foreign_key'] ?? '';
+
+        // For hasMany/hasOne: parent.local_key = child.foreign_key
+        // For belongsTo: child.local_key = parent.foreign_key
+        if ($type === 'hasMany' || $type === 'hasOne') {
+            return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
+                . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
+        } else {
+            // belongsTo: the child table has the foreign key pointing to parent
+            return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
+                . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
         }
     }
 
@@ -727,13 +728,13 @@ class SQL
         }
 
         // DETECTAR FORMATO PIVOTE: [t1, [t2, t3, ...]]
-        // El primer elemento es la tabla base, el segundo es un array de tablas a conectar
+        // The first element is the base table, the second is an array of tables to connect
         if (count($table) >= 2 && 
             is_string($table[0]) && 
             is_array($table[1]) && 
             array_is_list($table[1])) 
         {
-            // Formato pivote detectado: t1 es FROM, [t2, t3, ...] se conectan automáticamente
+            // Pivot format detected: t1 is FROM, [t2, t3, ...] are connected automatically
             return self::buildFromPivot($table[0], $table[1]);
         }
 
@@ -806,12 +807,12 @@ class SQL
             $aliases = $aliasesOrdered;
         }
 
-        // Optimización: usar serialize + crc32 para clave de caché de joinTree
+        // Optimization: use serialize + crc32 for joinTree cache key
         $cacheKey = 'join_' . crc32(serialize($realNames));
         
-        // Limitar tamaño del joinTreeCache
+        // Limit joinTreeCache size
         if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
-            // Eliminar el 10% más antiguo
+            // Remove oldest 10%
             $keysToRemove = array_slice(array_keys(self::$joinTreeCache), 0, (int)(self::$joinTreeCacheMaxSize * 0.1));
             foreach ($keysToRemove as $key) {
                 unset(self::$joinTreeCache[$key]);
@@ -946,7 +947,7 @@ class SQL
      */
     private static function buildFromPivot(string $pivot, array $connectedTables): string
     {
-        // Extraer nombre real y alias del pivote
+        // Extract real name and alias from pivot
         $pivotReal = $pivot;
         $pivotAlias = $pivot;
         if (preg_match('/^\s*(\S+)\s+as\s+(\S+)\s*$/i', $pivot, $matches)) {
@@ -954,23 +955,23 @@ class SQL
             $pivotAlias = $matches[2];
         }
 
-        // Iniciar cláusula FROM con el pivote
+        // Initialize FROM clause with pivot
         $parts = [];
         $parts[] = "FROM " . self::quote($pivotReal);
         if ($pivotAlias !== $pivotReal) {
             $parts[] = "AS " . self::quote($pivotAlias);
         }
 
-        // Si no hay tablas que conectar, retornar solo el FROM
+        // If no tables to connect, return only FROM
         if (empty($connectedTables)) {
             return implode(' ', $parts);
         }
 
-        // Construir lista completa: [pivot, t2, t3, ...] para usar el motor de grafos
-        // pero forzando que pivot sea siempre la primera tabla
+        // Build complete list: [pivot, t2, t3, ...] to use graph engine
+        // but forcing pivot to always be the first table
         $allTables = array_merge([$pivotReal], $connectedTables);
         
-        // Extraer nombres reales y aliases de todas las tablas conectadas
+        // Extract real names and aliases from all connected tables
         $realNames = [$pivotReal];
         $aliases = [$pivotReal => $pivotAlias];
         
@@ -986,31 +987,31 @@ class SQL
             $aliases[$real] = $alias;
         }
 
-        // El pivote ya está en la posición 0, ahora conectar el resto usando el grafo
-        // pero SIN reordenar (orderTablesByWeakness) para mantener el pivote primero
+        // Pivot is already at position 0, now connect the rest using the graph
+        // but WITHOUT reordering (orderTablesByWeakness) to keep pivot first
         $currentReal = $pivotReal;
         $currentAlias = $pivotAlias;
         $usedTables = [$pivotReal => true];
 
-        // Conectar cada tabla restante buscando la mejor ruta desde el pivote o tablas ya conectadas
+        // Connect each remaining table looking for the best route from pivot or already connected tables
         $tablesToConnect = array_slice($realNames, 1);
         
         foreach ($tablesToConnect as $nextReal) {
             if (isset($usedTables[$nextReal])) {
-                continue; // Ya conectada
+                continue; // Already connected
             }
 
             $nextAlias = $aliases[$nextReal];
             
-            // Buscar relación desde la tabla actual o cualquier tabla ya conectada
+            // Look for relationship from current table or any already connected table
             $foundRelation = false;
             $sourceTable = $currentReal;
             $sourceAlias = $currentAlias;
             
-            // Intentar encontrar relación desde el pivote primero
+            // Try to find relationship from pivot first
             $relationDef = self::$relMap['from'][$currentReal][$nextReal] ?? self::$relMap['to'][$currentReal][$nextReal] ?? null;
             
-            // Si no hay relación directa desde la tabla actual, buscar desde cualquier tabla conectada
+            // If no direct relationship from current table, search from any connected table
             if (!$relationDef) {
                 foreach (array_keys($usedTables) as $connectedTable) {
                     $relationDef = self::$relMap['from'][$connectedTable][$nextReal] ?? self::$relMap['to'][$connectedTable][$nextReal] ?? null;
@@ -1036,7 +1037,7 @@ class SQL
             $parts[] = $joinPart;
             $usedTables[$nextReal] = true;
             
-            // Actualizar tabla actual para la siguiente iteración
+            // Update current table for next iteration
             if ($foundRelation) {
                 $currentReal = $nextReal;
                 $currentAlias = $nextAlias;
@@ -1070,7 +1071,7 @@ class SQL
             . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
     }
 
-    // ========== WHERE Y ORDER BY ==========
+    // ========== WHERE AND ORDER BY ==========
 
 
     /**
@@ -1191,7 +1192,7 @@ class SQL
             return ['sql' => "1", 'params' => []];
         }
 
-        // --- Detección de grupos OR (array indexado) ---
+        // --- OR groups detection (indexed array) ---
         $isIndexed = array_is_list($where);
         if ($isIndexed) {
             $groupSql = [];
@@ -1208,7 +1209,7 @@ class SQL
             return ['sql' => $sql, 'params' => $allParams];
         }
 
-        // --- Modo normal: AND entre condiciones (array asociativo) ---
+        // --- Normal mode: AND between conditions (associative array) ---
         $sqlParts = [];
         $params = [];
         $hasSchema = self::hasSchema();
@@ -1359,7 +1360,7 @@ class SQL
         return "ORDER BY " . implode(', ', $parts);
     }
 
-    // ========== OPERACIONES DE ESCRITURA ==========
+    // ========== WRITE OPERATIONS ==========
 
     private static function normalizeValue(mixed $value): mixed
     {
