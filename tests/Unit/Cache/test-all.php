@@ -2,22 +2,11 @@
 // tests/Unit/Cache/test-all.php
 
 // Cargamos las dependencias en el orden correcto
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/Field.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/Table.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/Join.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/WhereTrait.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/SelectBuilder.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/InsertBuilder.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/UpdateBuilder.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Builders/DeleteBuilder.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Cache.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Event.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php';
 
-use RapidBase\Core\DB;
+use RapidBase\Core\Cache\CacheService;
 
 // Función global de ayuda para aserciones
 function assert_cache($name, $condition, $details = "") {
