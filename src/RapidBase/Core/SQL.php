@@ -571,8 +571,9 @@ class SQL
         foreach ($relMapTo as $to => $rels) {
             foreach ($rels as $from => $rel) {
                 if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
-                    // For 'to' relationships, the relation is defined from child to parent
-                    // We need to preserve the original direction for buildJoinCondition
+                    // For 'to' relationships, we need to mark them specially
+                    // so buildJoinCondition knows the original direction
+                    $rel['_direction'] = 'to'; // Mark as coming from 'to' map
                     $graph[$to][$from] = $rel;
                     $graph[$from][$to] = $rel;
                 }
@@ -654,16 +655,34 @@ class SQL
         
         $localKey = $relation['local_key'] ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
+        
+        // Check if this relationship came from the 'to' map (inverse direction)
+        $fromToMap = isset($relation['_direction']) && $relation['_direction'] === 'to';
 
         // For hasMany/hasOne: parent.local_key = child.foreign_key
         // For belongsTo: child.local_key = parent.foreign_key
+        // When coming from 'to' map, the semantics are reversed
         if ($type === 'hasMany' || $type === 'hasOne') {
-            return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
+            if ($fromToMap) {
+                // Inverse: child.local_key = parent.foreign_key
+                return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
+                    . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
+            } else {
+                // Normal: parent.local_key = child.foreign_key
+                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
+                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
+            }
         } else {
-            // belongsTo: the child table has the foreign key pointing to parent
-            return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
-                . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
+            // belongsTo
+            if ($fromToMap) {
+                // Inverse: parent.local_key = child.foreign_key
+                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
+                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
+            } else {
+                // Normal: child.local_key = parent.foreign_key
+                return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
+                    . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
+            }
         }
     }
 
