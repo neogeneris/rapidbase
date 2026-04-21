@@ -22,8 +22,10 @@ use RapidBase\Core\SQL;
  *     'created_at' => ['<' => '2023-01-01']
  * ]);
  */
-class DeleteBuilder extends WhereTrait
+class DeleteBuilder
 {
+    use WhereTrait;
+    
     protected string $table;
     protected bool $force = false;
     

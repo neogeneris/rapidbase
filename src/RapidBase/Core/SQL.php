@@ -510,8 +510,8 @@ class SQL
         }
 
         $degrees = [];
-        $relMapFrom = self::$relMap['from'];
-        $relMapTo = self::$relMap['to'];
+        $relMapFrom = self::$relMap['from'] ?? [];
+        $relMapTo = self::$relMap['to'] ?? [];
 
         foreach ($tableNames as $t) {
             $out = isset($relMapFrom[$t]) ? count($relMapFrom[$t]) : 0;
@@ -555,7 +555,10 @@ class SQL
         foreach ($tableNames as $t)
             $graph[$t] = [];
 
-        foreach (self::$relMap['from'] as $from => $rels) {
+        $relMapFrom = self::$relMap['from'] ?? [];
+        $relMapTo = self::$relMap['to'] ?? [];
+
+        foreach ($relMapFrom as $from => $rels) {
             foreach ($rels as $to => $rel) {
                 if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
                     $graph[$from][$to] = $rel;
@@ -563,7 +566,7 @@ class SQL
                 }
             }
         }
-        foreach (self::$relMap['to'] as $from => $rels) {
+        foreach ($relMapTo as $from => $rels) {
             foreach ($rels as $to => $rel) {
                 if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
                     $graph[$from][$to] = $rel;
@@ -635,12 +638,13 @@ class SQL
 
     private static function buildJoinCondition(string $parentTabla, string $parentAlias, string $childTabla, string $childAlias, array $relation): string
     {
-        $type = $relation['type'];
-        $localKey = $relation['local_key'];
-        $foreignKey = $relation['foreign_key'];
+        $type = $relation['type'] ?? 'belongsTo';
+        $localKey = $relation['local_key'] ?? '';
+        $foreignKey = $relation['foreign_key'] ?? '';
 
-        $isDirectFromParentToChild = isset(self::$relMap['from'][$parentTabla][$childTabla]);
-        $isDirectFromChildToParent = isset(self::$relMap['from'][$childTabla][$parentTabla]);
+        $relMapFrom = self::$relMap['from'] ?? [];
+        $isDirectFromParentToChild = isset($relMapFrom[$parentTabla][$childTabla]);
+        $isDirectFromChildToParent = isset($relMapFrom[$childTabla][$parentTabla]);
 
         if ($type === 'belongsTo') {
             if ($isDirectFromParentToChild) {
@@ -654,12 +658,13 @@ class SQL
                     . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
             }
         } else {
-            if (isset(self::$relMap['to'][$parentTabla][$childTabla])) {
-                $relTo = self::$relMap['to'][$parentTabla][$childTabla];
+            $relMapTo = self::$relMap['to'] ?? [];
+            if (isset($relMapTo[$parentTabla][$childTabla])) {
+                $relTo = $relMapTo[$parentTabla][$childTabla];
                 return "ON " . self::quote($childAlias) . "." . self::quote($relTo['local_key'])
                     . " = " . self::quote($parentAlias) . "." . self::quote($relTo['foreign_key']);
-            } elseif (isset(self::$relMap['to'][$childTabla][$parentTabla])) {
-                $relTo = self::$relMap['to'][$childTabla][$parentTabla];
+            } elseif (isset($relMapTo[$childTabla][$parentTabla])) {
+                $relTo = $relMapTo[$childTabla][$parentTabla];
                 return "ON " . self::quote($parentAlias) . "." . self::quote($relTo['local_key'])
                     . " = " . self::quote($childAlias) . "." . self::quote($relTo['foreign_key']);
             } else {

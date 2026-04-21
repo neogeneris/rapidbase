@@ -23,8 +23,10 @@ use RapidBase\Core\SQL;
  *     'created_at' => ['>' => '2023-01-01']
  * ]);
  */
-class UpdateBuilder extends WhereTrait
+class UpdateBuilder
 {
+    use WhereTrait;
+    
     protected string $table;
     protected array $data = [];
     protected bool $force = false;
