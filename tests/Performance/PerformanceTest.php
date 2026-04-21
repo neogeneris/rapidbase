@@ -41,35 +41,46 @@ $pdo->exec("
 ");
 
 // Insert Users
+echo "Inserting users...\n";
 $stmt = $pdo->prepare("INSERT INTO users (name, email) VALUES (?, ?)");
+$pdo->beginTransaction();
 for ($i = 1; $i <= 10000; $i++) {
     $stmt->execute(["User $i", "user$i@test.com"]);
 }
+$pdo->commit();
 
 // Insert Posts
+echo "Inserting posts...\n";
 $stmt = $pdo->prepare("INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)");
+$pdo->beginTransaction();
 for ($i = 1; $i <= 50000; $i++) {
     $stmt->execute([$i % 10000 + 1, "Post Title $i", "Content for post $i"]);
 }
+$pdo->commit();
 
 // Insert Tags
+echo "Inserting tags...\n";
 $stmt = $pdo->prepare("INSERT INTO tags (name) VALUES (?)");
+$pdo->beginTransaction();
 for ($i = 1; $i <= 100; $i++) {
     $stmt->execute(["Tag $i"]);
 }
+$pdo->commit();
 
 // Insert Post_Tags (Pivot)
+echo "Inserting post_tag relations...\n";
 $stmt = $pdo->prepare("INSERT INTO post_tag (post_id, tag_id) VALUES (?, ?)");
+$pdo->beginTransaction();
 for ($i = 1; $i <= 50000; $i++) {
     $stmt->execute([$i, ($i % 100) + 1]);
 }
+$pdo->commit();
 
 echo "Database ready.\n\n";
 
 // Initialize RapidBase
-DB::connect($dsn);
-CacheService::init(new DirectoryCacheAdapter($cacheDir));
-CacheService::on(); // Enable cache
+DB::setup($dsn, '', '', 'main');
+CacheService::init($cacheDir);
 
 // Helper for timing
 function benchmark($name, callable $fn, $iterations = 100) {
@@ -94,16 +105,16 @@ $timePdoSimple = benchmark("PDO Native", function() use ($pdo) {
 });
 
 $timeRbNoCache = benchmark("RapidBase (No Cache)", function() {
-    CacheService::off();
-    DB::table('users')->limit(50)->get();
+    CacheService::disable();
+    DB::read('users', [], [], 50);
 });
 
-CacheService::on();
+CacheService::enable();
 // Run once to populate cache
-DB::table('users')->limit(50)->get();
+DB::read('users', [], [], 50);
 
 $timeRbCache = benchmark("RapidBase (Cache Hit)", function() {
-    DB::table('users')->limit(50)->get();
+    DB::read('users', [], [], 50);
 });
 
 echo "\n--- SCENARIO 2: Join 2 Tables (50 iterations) ---\n";
@@ -115,17 +126,19 @@ $timePdoJoin2 = benchmark("PDO Native", function() use ($pdo) {
 });
 
 $timeRbJoin2NoCache = benchmark("RapidBase (No Cache)", function() {
-    CacheService::off();
+    CacheService::disable();
     // Simulating join via relationship or raw query depending on API
     // Using raw SQL for fair comparison of overhead
-    DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50")->getAll();
+    $stmt = DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50");
+    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
 });
 
-CacheService::on();
-DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50")->getAll();
+CacheService::enable();
+DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50")->fetchAll(\PDO::FETCH_ASSOC);
 
 $timeRbJoin2Cache = benchmark("RapidBase (Cache Hit)", function() {
-    DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50")->getAll();
+    $stmt = DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50");
+    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
 });
 
 echo "\n--- SCENARIO 3: Join 3 Tables (20 iterations) ---\n";
@@ -144,36 +157,39 @@ $timePdoJoin3 = benchmark("PDO Native", function() use ($pdo) {
 });
 
 $timeRbJoin3NoCache = benchmark("RapidBase (No Cache)", function() {
-    CacheService::off();
-    DB::query("
+    CacheService::disable();
+    $stmt = DB::query("
         SELECT p.*, u.name as user_name, t.name as tag_name 
         FROM posts p 
         JOIN users u ON p.user_id = u.id 
         JOIN post_tag pt ON p.id = pt.post_id 
         JOIN tags t ON pt.tag_id = t.id 
         LIMIT 50
-    ")->getAll();
+    ");
+    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
 });
 
-CacheService::on();
-DB::query("
+CacheService::enable();
+$stmt = DB::query("
     SELECT p.*, u.name as user_name, t.name as tag_name 
     FROM posts p 
     JOIN users u ON p.user_id = u.id 
     JOIN post_tag pt ON p.id = pt.post_id 
     JOIN tags t ON pt.tag_id = t.id 
     LIMIT 50
-")->getAll();
+");
+$result = $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
 
 $timeRbJoin3Cache = benchmark("RapidBase (Cache Hit)", function() {
-    DB::query("
+    $stmt = DB::query("
         SELECT p.*, u.name as user_name, t.name as tag_name 
         FROM posts p 
         JOIN users u ON p.user_id = u.id 
         JOIN post_tag pt ON p.id = pt.post_id 
         JOIN tags t ON pt.tag_id = t.id 
         LIMIT 50
-    ")->getAll();
+    ");
+    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
 });
 
 echo "\n==================================================\n";
