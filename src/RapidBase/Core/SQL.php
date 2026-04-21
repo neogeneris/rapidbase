@@ -186,20 +186,108 @@ class SQL
     // ========== CONSTRUCCIÓN DE SELECT ==========
 
     /**
-     * Construye una consulta SELECT utilizando SelectBuilder internamente.
+     * Construye una consulta SELECT completa con soporte para JOINs automáticos, paginación y ordenamiento.
      * 
-     * Esta versión usa un objeto SelectBuilder en lugar de arrays para mejor
-     * rendimiento y mantenibilidad. El caché almacena la plantilla SQL generada.
+     * ## Parámetros:
+     * - **$fields**: Columnas a seleccionar. Puede ser:
+     *   - `'*'` para todas las columnas
+     *   - `['id', 'name']` array de columnas
+     *   - `['id' => 'user_id', 'name' => 'user_name']` array asociativo para aliases
+     *   - `'MAX(price) AS max_price'` expresiones SQL directas
+     * 
+     * - **$table**: Tabla(s) para el FROM. Puede ser:
+     *   - `'users'` string simple para una tabla
+     *   - `['users', 'posts', 'comments']` array plano para JOINs automáticos (usa el mapa de relaciones)
+     *   - `['users', ['posts' => ['local_key' => 'user_id', 'foreign_key' => 'id']]]` JOIN manual
+     *   - `['users', ['posts', 'ON u.id = p.user_id']]` JOIN con condición manual
+     * 
+     * - **$where**: Condiciones WHERE matriciales (ver ejemplos abajo)
+     * - **$groupBy**: Array de columnas para GROUP BY ej: `['category', 'status']`
+     * - **$having**: Condiciones HAVING (mismo formato que $where)
+     * - **$sort**: Ordenamiento. Puede ser:
+     *   - `['name', '-created_at']` array numérico (prefijo `-` indica DESC)
+     *   - `['name' => 'ASC', 'created_at' => 'DESC']` array asociativo
+     * 
+     * - **$page**: Número de página (1-based). Si es 0 o null, no hay paginación.
+     * - **$perPage**: Cantidad de registros por página. Default: 10.
+     * 
+     * ## Ejemplos de WHERE matricial:
+     * 
+     * @example
+     * // Condición simple: WHERE status = 'active'
+     * ['status' => 'active']
+     * 
+     * @example
+     * // Múltiples condiciones AND: WHERE status = 'active' AND age > 18
+     * ['status' => 'active', 'age' => ['>' => 18]]
+     * 
+     * @example
+     * // Condición IN: WHERE id IN (1, 2, 3)
+     * ['id' => [1, 2, 3]]
+     * 
+     * @example
+     * // Condición IS NULL: WHERE deleted_at IS NULL
+     * ['deleted_at' => null]
+     * 
+     * @example
+     * // Múltiples operadores: WHERE age >= 18 AND age < 65
+     * ['age' => ['>=' => 18, '<' => 65]]
+     * 
+     * @example
+     * // Condiciones OR (array indexado): WHERE (status = 'active') OR (status = 'pending')
+     * [['status' => 'active'], ['status' => 'pending']]
+     * 
+     * @example
+     * // Combinando AND/OR: WHERE (status = 'active' AND role = 'admin') OR (status = 'pending')
+     * [['status' => 'active', 'role' => 'admin'], ['status' => 'pending']]
+     * 
+     * ## Ejemplos de ordenamiento con prefijo -:
+     * 
+     * @example
+     * // ORDER BY name ASC, created_at DESC
+     * ['name', '-created_at']
+     * 
+     * @example
+     * // ORDER BY price DESC
+     * ['-price']
+     * 
+     * ## Ejemplos de paginado:
+     * 
+     * @example
+     * // Página 3, 20 registros por página (OFFSET 40 LIMIT 20)
+     * SQL::buildSelect('*', 'users', [], [], [], [], 3, 20);
+     * 
+     * @example
+     * // Sin paginación (todos los resultados)
+     * SQL::buildSelect('*', 'users', [], [], [], [], 0, 0);
+     * 
+     * ## Ejemplo completo:
+     * 
+     * @example
+     * // SELECT u.id, u.name, p.title FROM users AS u INNER JOIN posts AS p ON u.id = p.user_id
+     * // WHERE u.status = 'active' AND u.age >= 18
+     * // ORDER BY u.created_at DESC
+     * // LIMIT 10 OFFSET 20
+     * SQL::buildSelect(
+     *     ['u.id', 'u.name', 'p.title'],
+     *     ['users AS u', 'posts AS p'],
+     *     ['u.status' => 'active', 'u.age' => ['>=' => 18]],
+     *     [],
+     *     [],
+     *     ['-u.created_at'],
+     *     3,  // Página 3
+     *     10  // 10 por página
+     * );
      * 
      * @param mixed $fields Columnas a seleccionar.
      * @param mixed $table Tabla o array de tablas para JOINs.
-     * @param array $where Condiciones WHERE.
-     * @param array $groupBy Agrupamiento.
-     * @param array $having Condiciones HAVING.
-     * @param array $sort Ordenamiento.
-     * @param int $page Página actual.
+     * @param array $where Condiciones WHERE matriciales.
+     * @param array $groupBy Agrupamiento por columnas.
+     * @param array $having Condiciones HAVING matriciales.
+     * @param array $sort Ordenamiento (prefijo - para DESC).
+     * @param int $page Página actual (1-based, 0 para sin paginación).
      * @param int $perPage Registros por página.
-     * @return array [sql, params]
+     * @return array [string $sql, array $params] SQL generado y parámetros para PDO.
      */
     public static function buildSelect(
         $fields = '*',
@@ -987,46 +1075,116 @@ class SQL
 
     /**
      * Construye la cláusula WHERE de una consulta SQL a partir de un array de condiciones.
+     * 
+     * Este método es el corazón del sistema de consultas dinámicas. Permite construir
+     * condiciones WHERE complejas de forma segura y legible, usando parámetros nombrados
+     * para prevenir inyección SQL.
      *
-     * Soporta múltiples formatos de entrada:
+     * ## Formatos soportados:
      *
-     * 1. **Array asociativo (AND)**
-     *    `['col1' => 'valor1', 'col2' => 'valor2']`
-     *    → `col1 = :p0 AND col2 = :p1`
+     * ### 1. Condiciones simples (AND implícito)
+     * Las claves del array asociativo se combinan con AND automáticamente.
+     * 
+     * @example
+     * // WHERE status = 'active' AND role = 'admin'
+     * ['status' => 'active', 'role' => 'admin']
      *
-     * 2. **Array indexado de grupos (OR)**
-     *    `[ ['col1' => 'valor1'], ['col2' => 'valor2'] ]`
-     *    → `(col1 = :p0) OR (col2 = :p1)`
+     * ### 2. Grupos OR (array indexado)
+     * Los arrays dentro de un array indexado se combinan con OR.
+     * 
+     * @example
+     * // WHERE (status = 'active') OR (status = 'pending')
+     * [['status' => 'active'], ['status' => 'pending']]
+     * 
+     * @example
+     * // WHERE (status = 'active' AND role = 'admin') OR (status = 'closed' AND priority = 'high')
+     * [
+     *     ['status' => 'active', 'role' => 'admin'],
+     *     ['status' => 'closed', 'priority' => 'high']
+     * ]
      *
-     *    También grupos con múltiples condiciones:
-     *    `[ ['col1' => 'valor1', 'col2' => 'valor2'], ['col3' => 'valor3'] ]`
-     *    → `(col1 = :p0 AND col2 = :p1) OR (col3 = :p2)`
+     * ### 3. Valores NULL (IS NULL / IS NOT NULL)
+     * 
+     * @example
+     * // WHERE deleted_at IS NULL
+     * ['deleted_at' => null]
+     * 
+     * @example
+     * // WHERE deleted_at IS NOT NULL
+     * ['deleted_at' => ['!=' => null]]
      *
-     * 3. **Valores NULL** (genera IS NULL)
-     *    `['col' => null]` → `col IS NULL`
+     * ### 4. Operadores personalizados
+     * Usar un array asociativo con el operador como clave.
+     * 
+     * @example
+     * // WHERE age > 18 AND age < 65
+     * ['age' => ['>' => 18, '<' => 65]]
+     * 
+     * @example
+     * // WHERE created_at >= '2024-01-01'
+     * ['created_at' => ['>=' => '2024-01-01']]
+     * 
+     * @example
+     * // WHERE name LIKE '%john%'
+     * ['name' => ['LIKE' => '%john%']]
      *
-     * 4. **Operadores personalizados**
-     *    `['col' => ['>' => 18, '<' => 30]]` → `col > :p0 AND col < :p1`
+     * ### 5. Lista de valores (IN)
+     * Un array numérico genera automáticamente una cláusula IN.
+     * 
+     * @example
+     * // WHERE id IN (1, 2, 3, 4)
+     * ['id' => [1, 2, 3, 4]]
+     * 
+     * @example
+     * // WHERE status IN ('active', 'pending')
+     * ['status' => ['active', 'pending']]
      *
-     * 5. **Lista de valores (IN)**
-     *    `['col' => [1, 2, 3]]` → `col IN (:p0, :p1, :p2)`
+     * ### 6. Combinación de operadores e IN
+     * 
+     * @example
+     * // WHERE age >= 18 AND status IN ('active', 'verified')
+     * ['age' => ['>=' => 18], 'status' => ['active', 'verified']]
      *
-     * 6. **Condiciones con alias de tabla**
-     *    Si se pasa `$context` (array `alias => tablaReal`) y `$defaultAlias`,
-     *    se resuelven automáticamente los nombres de columna sin prefijo.
+     * ### 7. Resolución automática de alias con contexto
+     * Cuando se usa con JOINs, el método resuelve automáticamente los prefijos de tabla.
+     * 
+     * @example
+     * // Con contexto ['u' => 'users', 'p' => 'posts']
+     * // WHERE u.status = 'active' AND p.published = 1
+     * buildWhere(
+     *     ['status' => 'active', 'published' => 1],
+     *     ['u' => 'users', 'p' => 'posts'],
+     *     'u'  // alias por defecto
+     * )
      *
-     * @param array $where       Array de condiciones (asociativo o indexado).
-     * @param array $context     Mapeo de alias de tabla a nombre real (opcional).
-     * @param string $defaultAlias Alias por defecto para columnas sin prefijo (opcional).
+     * ### 8. Ejemplo complejo combinando todo
+     * 
+     * @example
+     * // WHERE (status = 'active' AND (role = 'admin' OR role = 'moderator'))
+     * // AND age >= 18 AND deleted_at IS NULL
+     * [
+     *     'status' => 'active',
+     *     ['role' => 'admin'],
+     *     ['role' => 'moderator'],
+     *     'age' => ['>=' => 18],
+     *     'deleted_at' => null
+     * ]
+     * 
+     * ⚠️ **Nota importante**: Para combinar AND/OR correctamente, recuerda:
+     * - Array asociativo = condiciones AND
+     * - Array indexado = grupos OR
+     * - Para mezclar, anida arrays indexados dentro del asociativo principal
      *
-     * @return array<string, mixed> Devuelve `['sql' => string, 'params' => array]`.
-     *                               La clave `sql` contiene la cláusula WHERE (sin la palabra WHERE).
-     *                               La clave `params` contiene los parámetros nombrados (claves como "p0", valores a bindear).
+     * @param array $where Array de condiciones (asociativo para AND, indexado para OR).
+     * @param array $context Mapeo de alias de tabla a nombre real ej: `['u' => 'users', 'p' => 'posts']`.
+     * @param string $defaultAlias Alias por defecto para columnas sin prefijo.
      *
-     * @throws \RuntimeException Si una columna es ambigua (presente en más de una tabla del contexto).
+     * @return array<string, mixed> Devuelve `['sql' => string, 'params' => array]`:
+     *   - **sql**: La cláusula WHERE completa (sin la palabra "WHERE")
+     *   - **params**: Parámetros nombrados para bindear con PDO (claves como "p0", "p1", etc.)
+     *
+     * @throws \RuntimeException Si una columna es ambigua (existe en múltiples tablas del contexto).
      */
-
-
     public static function buildWhere(array $where, array $context = [], string $defaultAlias = ''): array
     {
         if (empty($where)) {
@@ -1114,23 +1272,78 @@ class SQL
     }
 
     /**
-     * Construye la cláusula ORDER BY a partir de un array de especificadores de orden.
-     *
-     * Cada elemento puede ser:
-     * - Un **string** con el nombre de una columna (puede incluir alias de tabla, ej. "u.name").
-     * - Un **entero** positivo indicando la posición de la columna en el SELECT (empezando en 1).
-     *
-     * Para orden descendente, se antepone un guion `-` al nombre o al número.
-     *
-     * Ejemplos:
-     * - `['name', '-id']` → `ORDER BY name ASC, id DESC`
-     * - `['-created_at']` → `ORDER BY created_at DESC`
-     * - `[1, '-2']` → `ORDER BY 1 ASC, 2 DESC` (primera columna ascendente, segunda descendente)
-     * - `[-1]` → `ORDER BY 1 DESC`
-     * - `[]` → retorna cadena vacía (sin ORDER BY)
-     *
-     * @param array $sortFields Lista de strings o enteros (pueden llevar prefijo '-').
-     * @return string Cláusula ORDER BY (incluye la palabra "ORDER BY") o cadena vacía si no hay campos.
+     * Construye la cláusula ORDER BY a partir de un array de campos.
+     * 
+     * Este método utiliza una convención simple pero poderosa: el prefijo `-` (guion)
+     * indica orden descendente (DESC). Si no hay prefijo, se asume ASC.
+     * 
+     * ## Formatos soportados:
+     * 
+     * ### 1. Campos simples (ASC por defecto)
+     * 
+     * @example
+     * // ORDER BY name ASC
+     * buildOrderBy(['name'])
+     * 
+     * @example
+     * // ORDER BY name ASC, email ASC
+     * buildOrderBy(['name', 'email'])
+     * 
+     * ### 2. Orden descendente con prefijo -
+     * El guion `-` antes del nombre del campo indica DESC.
+     * 
+     * @example
+     * // ORDER BY created_at DESC
+     * buildOrderBy(['-created_at'])
+     * 
+     * @example
+     * // ORDER BY name ASC, created_at DESC
+     * buildOrderBy(['name', '-created_at'])
+     * 
+     * ### 3. Múltiples niveles de ordenamiento
+     * 
+     * @example
+     * // ORDER BY category ASC, price DESC, name ASC
+     * buildOrderBy(['category', '-price', 'name'])
+     * 
+     * ### 4. Columnas con alias de tabla
+     * 
+     * @example
+     * // ORDER BY u.name ASC, p.price DESC
+     * buildOrderBy(['u.name', '-p.price'])
+     * 
+     * ### 5. Funciones y expresiones SQL
+     * Las expresiones que ya contienen paréntesis no son quoteadas.
+     * 
+     * @example
+     * // ORDER BY COUNT(*) DESC, AVG(rating) ASC
+     * buildOrderBy(['-COUNT(*)', 'AVG(rating)'])
+     * 
+     * ### 6. Posiciones numéricas (útil para SELECTs con funciones)
+     * 
+     * @example
+     * // ORDER BY 1 ASC, 2 DESC (primera y segunda columna del SELECT)
+     * buildOrderBy([1, '-2'])
+     * 
+     * @example
+     * // ORDER BY 1 DESC
+     * buildOrderBy([-1])  // o ['-1']
+     * 
+     * ## Integración con buildSelect():
+     * 
+     * El método `buildSelect()` también acepta formato asociativo alternativo:
+     * 
+     * @example
+     * // Ambas formas son equivalentes:
+     * buildSelect('*', 'users', [], [], [], ['name', '-created_at']);
+     * buildSelect('*', 'users', [], [], [], ['name' => 'ASC', 'created_at' => 'DESC']);
+     * 
+     * @param array $sortFields Lista de campos a ordenar. Cada elemento puede ser:
+     *   - `string`: Nombre del campo, opcionalmente con prefijo `-` para DESC
+     *   - `int`: Posición de la columna en el SELECT (1-based), negativo para DESC
+     *   - `string con punto`: Campo calificado con alias ej: `'u.name'`
+     * 
+     * @return string Cláusula ORDER BY completa (incluye "ORDER BY") o cadena vacía si no hay campos.
      */
     public static function buildOrderBy(array $sortFields): string
     {
