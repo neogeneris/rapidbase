@@ -1,1 +1,24 @@
-Nothing should be ignored based on the provided file changes, as they only include source code files (.php, .test) without any build artifacts, dependencies, or temporary files.
+#Nothing should be ignored based on the provided file changes, as they only include source code files (.php, .test) without any build artifacts, dependencies, or temporary files.
+# Ignorar la base de datos temporal de los benchmarks
+tests/tmp/benchmark.sqlite
+
+# Ignorar todos los logs generados
+tests/tmp/log/
+
+# Opcional: Si quieres ignorar TODO lo que caiga en la carpeta tmp de pruebas
+tests/tmp/
+
+# Archivos de base de datos temporales
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.db
+*.tmp
+
+# Directorios de salida de pruebas y logs
+/tests/tmp/
+/logs/
+/vendor/
+
+# Configuraciones de entorno (si llegas a usarlas)
+.env
