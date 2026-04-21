@@ -1,1 +1,9 @@
-Nothing needs to be added to .gitignore since the only modified file is a PHP test file (`tests/Unit/Cache/test-all.php`) which is source code and should not be ignored.
+```
+# Logs and temp files
+*.log
+tmp/
+tests/tmp/
+
+# Original rules preserved
+*.log
+```

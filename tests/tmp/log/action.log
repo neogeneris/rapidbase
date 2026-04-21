@@ -1,8 +1,0 @@
-{"event":"db.success","type":"insert","table":"test_log","duration":0.02002716064453125,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p1)","timestamp":1776657038.654568}
-{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.02002716064453125,"timestamp":1776657038.654654}
-{"event":"db.success","type":"insert","table":"test_log","duration":0.019073486328125,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p2)","timestamp":1776657038.654699}
-{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.019073486328125,"timestamp":1776657038.654711}
-{"event":"db.success","type":"update","table":"test_log","duration":0.0209808349609375,"sql":"UPDATE \"test_log\" SET \"nombre\" = :p3 WHERE \"id\" = :p4","timestamp":1776657038.654759}
-{"event":"db.log","type":"update","table":"test_log","success":true,"duration":0.0209808349609375,"timestamp":1776657038.654772}
-{"event":"db.success","type":"delete","table":"test_log","duration":0.013828277587890625,"sql":"DELETE FROM \"test_log\" WHERE \"id\" = :p5","timestamp":1776657038.654804}
-{"event":"db.log","type":"delete","table":"test_log","success":true,"duration":0.013828277587890625,"timestamp":1776657038.654815}

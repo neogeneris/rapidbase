@@ -38,6 +38,7 @@ class Gateway {
     }
     /**
      * CAPA 1 (Núcleo): Consulta Pura a la DB.
+     * Ahora soporta FETCH_NUM con mapa de proyección para máxima eficiencia.
      *
      * @param mixed $fields Columnas a seleccionar (string o array).
      * @param mixed $table Nombre de la tabla (string) o array de tablas para JOIN.
@@ -46,7 +47,8 @@ class Gateway {
      * @param int $page Número de página.
      * @param int $perPage Registros por página.
      * @param bool $withTotal Si es true, incluye el total de registros (sin paginación).
-     * @return array Con claves: data, total, page, limit, source, timestamp.
+     * @param bool $useFetchNum Si es true, usa PDO::FETCH_NUM con mapa de proyección (más rápido).
+     * @return array Con claves: data, total, page, limit, source, timestamp, projectionMap.
      */
     public static function select(
         mixed $fields   = '*', 
@@ -57,7 +59,8 @@ class Gateway {
         array $sort     = [], 
         int $page       = 1, 
         int $perPage    = 10,
-        bool $withTotal = false
+        bool $withTotal = false,
+        bool $useFetchNum = false
     ): array {
         
         // Construir SQL de datos
@@ -74,19 +77,31 @@ class Gateway {
         $start = microtime(true);
         try {
             $stmt = Executor::query($sql, $params, Conn::get());
-            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Usar FETCH_NUM si está habilitado, de lo contrario FETCH_ASSOC
+            if ($useFetchNum) {
+                // Obtener el mapa de proyección desde SQL
+                $projectionMap = SQL::getLastProjectionMap();
+                $data = $stmt->fetchAll(\PDO::FETCH_NUM);
+            } else {
+                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $projectionMap = [];
+            }
+            
             $duration = (microtime(true) - $start) * 1000; // milisegundos
             
             $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logStatus(true, $sql, $params, null, [], 'select', $tableName, $duration);
 
             return [
-                'data'      => $data,
-                'total'     => $withTotal ? $total : count($data),
-                'page'      => $page,
-                'limit'     => $perPage,
-                'source'    => 'database',
-                'timestamp' => microtime(true)
+                'data'           => $data,
+                'total'          => $withTotal ? $total : count($data),
+                'page'           => $page,
+                'limit'          => $perPage,
+                'source'         => 'database',
+                'timestamp'      => microtime(true),
+                'projectionMap'  => $projectionMap,
+                'useFetchNum'    => $useFetchNum
             ];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
