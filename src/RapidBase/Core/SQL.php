@@ -28,9 +28,10 @@ class SQL
     private const COUNT_TPL = "SELECT COUNT(*) FROM %s WHERE %s";
     private const EXISTS_TPL = "SELECT EXISTS(SELECT 1 FROM %s WHERE %s)";
     
-    // ========== SQL QUERY CACHE ==========
+    // ========== SQL QUERY CACHE (L3) ==========
+    // Stores compiled SQL strings and Projection Maps to avoid rebuilding logic
     private static array $queryCache = [];
-    private static bool $queryCacheEnabled = false;
+    private static bool $queryCacheEnabled = true;  // Enabled by default for L3 cache
     private static int $queryCacheMaxSize = 1000;
     private static int $queryCacheHits = 0;
     private static int $queryCacheMisses = 0;
@@ -354,13 +355,14 @@ class SQL
             
             if (isset(self::$queryCache[$cacheKey])) {
                 self::$queryCacheHits++;
-                $cachedTemplate = self::$queryCache[$cacheKey];
+                $cachedData = self::$queryCache[$cacheKey];
                 $params = self::buildWhere($where)['params'];
                 if (!empty($having)) {
                     $havingData = self::buildWhere($having);
                     $params = array_merge($params, $havingData['params']);
                 }
-                return [$cachedTemplate, $params];
+                // Return SQL, params AND projection map from cache
+                return [$cachedData['sql'], $params, $cachedData['map']];
             }
             self::$queryCacheMisses++;
         }
@@ -437,7 +439,11 @@ class SQL
         $sql = implode(' ', $sqlParts);
         
         if ($cacheKey !== null && count(self::$queryCache) < self::$queryCacheMaxSize) {
-            self::$queryCache[$cacheKey] = $sql;
+            // Cache SQL, params structure AND projection map
+            self::$queryCache[$cacheKey] = [
+                'sql' => $sql,
+                'map' => $parts['projectionMap']
+            ];
         }
         
         // Guardar el mapa de proyección para FETCH_NUM

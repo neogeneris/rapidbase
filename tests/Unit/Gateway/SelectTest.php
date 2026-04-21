@@ -32,6 +32,7 @@ function assert_select($name, $assertion, $details = "") {
 // --- SETUP ---
 Conn::setup("sqlite::memory:", "", "", "main");
 $pdo = Conn::get();
+$pdo->exec("DROP TABLE IF EXISTS leads");
 $pdo->exec("CREATE TABLE leads (id INTEGER PRIMARY KEY, source TEXT, status TEXT)");
 
 // Insertamos datos de prueba
