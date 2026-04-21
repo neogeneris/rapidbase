@@ -123,11 +123,11 @@ $relationsMap = [
                 'foreign_key' => 'post_id'
             ]
         ],
-        'post_tag' => [
-            'tags' => [
-                'type' => 'belongsTo',
-                'local_key' => 'tag_id',
-                'foreign_key' => 'id'
+        'tags' => [
+            'post_tag' => [
+                'type' => 'hasMany',
+                'local_key' => 'id',
+                'foreign_key' => 'tag_id'
             ]
         ]
     ],
@@ -150,11 +150,6 @@ $relationsMap = [
             'posts' => [
                 'type' => 'belongsTo',
                 'local_key' => 'post_id',
-                'foreign_key' => 'id'
-            ],
-            'tags' => [
-                'type' => 'belongsTo',
-                'local_key' => 'tag_id',
                 'foreign_key' => 'id'
             ]
         ],

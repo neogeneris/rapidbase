@@ -659,7 +659,7 @@ class SQL
             return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
                 . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
         } else {
-            // belongsTo: the child table has the foreign key
+            // belongsTo: the child table has the foreign key pointing to parent
             return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
                 . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
         }

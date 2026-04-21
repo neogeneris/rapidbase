@@ -1,1 +1,48 @@
-Nothing should be ignored based on the provided file changes. The modification of 'src/RapidBase/Core/SQL.php' is a source code file and should not be added to .gitignore.
+```php
+# Compiled and build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Dependencies
+vendor/
+node_modules/
+*.lock
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Build directories
+build/
+dist/
+target/
+*.pyc
+__pycache__/
+
+# OS specific
+.DS_Store
+Thumbs.db
+```
