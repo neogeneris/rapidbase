@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Prueba de JOIN automático para distintos tipos de relaciones:
+ * Prueba de JOIN automÃ¡tico para distintos tipos de relaciones:
  * - 1:n (users ? posts)
  * - n:1 (posts ? users)
  * - 1:1 (users ? profiles)
@@ -33,7 +33,7 @@ use RapidBase\Core\Conn;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\Cache\CacheService;
 
-// Configuración
+// ConfiguraciÃ³n
 Conn::setup('sqlite::memory:', '', '', 'main');
 $testCachePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . 'cache';
 if (!is_dir($testCachePath)) mkdir($testCachePath, 0777, true);
@@ -87,7 +87,7 @@ DB::insert('posts', ['user_id' => $aliceId, 'title' => 'Post de Alice 2', 'conte
 DB::insert('posts', ['user_id' => $bobId,   'title' => 'Post de Bob',     'content' => 'Contenido B']);
 
 // Profiles (1:1)
-DB::insert('profiles', ['user_id' => $aliceId, 'bio' => 'Fanática de la F1', 'avatar' => 'alice.jpg']);
+DB::insert('profiles', ['user_id' => $aliceId, 'bio' => 'FanÃ¡tica de la F1', 'avatar' => 'alice.jpg']);
 DB::insert('profiles', ['user_id' => $bobId,   'bio' => 'Piloto amateur',    'avatar' => 'bob.jpg']);
 
 // Tags
@@ -145,50 +145,32 @@ $relationsMap = [
                 'local_key' => 'user_id',
                 'foreign_key' => 'id'
             ]
-        ],
-        'post_tag' => [
-            'posts' => [
-                'type' => 'belongsTo',
-                'local_key' => 'post_id',
-                'foreign_key' => 'id'
-            ],
-            'tags' => [
-                'type' => 'belongsTo',
-                'local_key' => 'tag_id',
-                'foreign_key' => 'id'
-            ]
+        ]
         ],
         'tags' => [
-            'post_tag' => [
-                'type' => 'hasMany',
-                'local_key' => 'id',
-                'foreign_key' => 'tag_id'
-            ]
-        ]
-    ]
-];
+    ]];
 
 DB::setRelationsMap($relationsMap);
 
-// 4. Funciones de aserción
+// 4. Funciones de aserciÃ³n
 function assertJoin($msg, $cond) {
     echo $cond ? "  [OK] $msg\n" : "  [FAIL] $msg\n";
 }
 
 echo "==================================================\n";
-echo "PRUEBAS DE RELACIONES CON JOIN AUTOMÁTICO\n";
+echo "PRUEBAS DE RELACIONES CON JOIN AUTOMÃTICO\n";
 echo "==================================================\n";
 
 // 1:n
 echo "\n--- 1:n (users ? posts) ---\n";
 $result = DB::all(['users', 'posts'], ['users.id' => 1]);
-assertJoin("Número de registros", count($result) === 2);
+assertJoin("NÃºmero de registros", count($result) === 2);
 assertJoin("Columnas de ambas tablas", isset($result[0]['username']) && isset($result[0]['title']));
 
 // n:1
 echo "\n--- n:1 (posts ? users) ---\n";
 $result = DB::all(['posts', 'users'], ['posts.id' => 1]);
-assertJoin("Registro único", count($result) === 1);
+assertJoin("Registro Ãºnico", count($result) === 1);
 assertJoin("Usuario relacionado", $result[0]['username'] === 'Alice');
 
 // 1:1
@@ -198,7 +180,7 @@ assertJoin("Un solo registro", count($result) === 1);
 assertJoin("Bio correcta", $result[0]['bio'] === 'Piloto amateur');
 
 // n:m usando pivote (posts ? post_tag ? tags)
-echo "\n--- n:m (posts ? tags vía pivote) ---\n";
+echo "\n--- n:m (posts ? tags vÃ­a pivote) ---\n";
 $result = DB::all(['posts', 'post_tag', 'tags'], ['posts.id' => 1]);
 $tagNames = array_column($result, 'name');
 assertJoin("Dos tags", count($result) === 2);
@@ -206,25 +188,25 @@ assertJoin("Contiene 'Racing'", in_array('Racing', $tagNames));
 assertJoin("Contiene 'Simracing'", in_array('Simracing', $tagNames));
 
 // n:m inverso (tags ? post_tag ? posts)
-echo "\n--- n:m inverso (tags ? posts vía pivote) ---\n";
+echo "\n--- n:m inverso (tags ? posts vÃ­a pivote) ---\n";
 $result = DB::all(['tags', 'post_tag', 'posts'], ['tags.name' => 'Racing']);
 $postTitles = array_column($result, 'title');
 assertJoin("Dos posts con tag 'Racing'", count($result) === 2);
 assertJoin("Post de Alice 1 presente", in_array('Post de Alice 1', $postTitles));
 assertJoin("Post de Alice 2 presente", in_array('Post de Alice 2', $postTitles));
 
-// Relación triple (users ? posts ? post_tag ? tags)
-echo "\n--- Relación triple (users ? posts ? tags) ---\n";
+// RelaciÃ³n triple (users ? posts ? post_tag ? tags)
+echo "\n--- RelaciÃ³n triple (users ? posts ? tags) ---\n";
 $result = DB::all(['users', 'posts', 'post_tag', 'tags'], ['users.username' => 'Alice']);
-assertJoin("Número de combinaciones esperado (3)", count($result) === 3);
+assertJoin("NÃºmero de combinaciones esperado (3)", count($result) === 3);
 $found = false;
 foreach ($result as $row) {
     if ($row['title'] === 'Post de Alice 2' && $row['name'] === 'Racing') $found = true;
 }
-assertJoin("Combinación correcta (Alice 2 + Racing)", $found);
+assertJoin("CombinaciÃ³n correcta (Alice 2 + Racing)", $found);
 
-// ========== AUTO-REFERENCIA (categorías) ==========
-echo "\n--- Auto-referencia (categorías) ---\n";
+// ========== AUTO-REFERENCIA (categorÃ­as) ==========
+echo "\n--- Auto-referencia (categorÃ­as) ---\n";
 
 // Crear tabla categories
 DB::exec("CREATE TABLE IF NOT EXISTS categories (
@@ -234,11 +216,11 @@ DB::exec("CREATE TABLE IF NOT EXISTS categories (
     FOREIGN KEY(parent_id) REFERENCES categories(id)
 )");
 DB::exec("DELETE FROM categories");
-DB::insert('categories', ['name' => 'Electrónica', 'parent_id' => null]);
+DB::insert('categories', ['name' => 'ElectrÃ³nica', 'parent_id' => null]);
 DB::insert('categories', ['name' => 'Computadoras', 'parent_id' => 1]);
 DB::insert('categories', ['name' => 'Laptops', 'parent_id' => 2]);
 
-// Añadir relación auto-referencia al mapa (usando el nombre real de la tabla)
+// AÃ±adir relaciÃ³n auto-referencia al mapa (usando el nombre real de la tabla)
 $relationsMap['from']['categories']['categories'] = [
     'type' => 'belongsTo',
     'local_key' => 'parent_id',
@@ -255,16 +237,16 @@ $result = Gateway::select(
 $data = $result['data'];
 assertJoin("Auto-referencia con alias manual", isset($data[0]['parent_name']) && $data[0]['parent_name'] === 'Computadoras');
 
-// Caso 2: Intentar usar '*' sin esquema de tablas -> debe lanzar excepción
+// Caso 2: Intentar usar '*' sin esquema de tablas -> debe lanzar excepciÃ³n
 $exceptionCaught = false;
 try {
     Gateway::select('*', ['categories', 'categories as parent'], ['categories.name' => 'Laptops']);
 } catch (\RuntimeException $e) {
     $exceptionCaught = (strpos($e->getMessage(), 'requires the full schema map') !== false);
 }
-assertJoin("Excepción esperada por uso de '*' sin esquema", $exceptionCaught);
+assertJoin("ExcepciÃ³n esperada por uso de '*' sin esquema", $exceptionCaught);
 
-// Caso 3: Cargar esquema completo y probar '*' con alias automáticos
+// Caso 3: Cargar esquema completo y probar '*' con alias automÃ¡ticos
 $fullMap = [
     'relationships' => $relationsMap,
     'tables' => [
@@ -277,12 +259,12 @@ $fullMap = [
 ];
 DB::setRelationsMap($fullMap);   // <-- CORREGIDO
 
-// Ahora '*' debería generar alias automáticos
+// Ahora '*' deberÃ­a generar alias automÃ¡ticos
 $result = Gateway::select('*', ['categories', 'categories as parent'], ['categories.name' => 'Laptops']);
 $data = $result['data'];
 assertJoin("Auto-referencia con '*' y esquema completo", isset($data[0]['parent_name']) && $data[0]['parent_name'] === 'Computadoras');
 
-// Limpiar caché
+// Limpiar cachÃ©
 CacheService::clear();
 
 echo "\n==================================================\n";
