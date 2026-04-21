@@ -642,35 +642,15 @@ class SQL
         $localKey = $relation['local_key'] ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
 
-        $relMapFrom = self::$relMap['from'] ?? [];
-        $isDirectFromParentToChild = isset($relMapFrom[$parentTabla][$childTabla]);
-        $isDirectFromChildToParent = isset($relMapFrom[$childTabla][$parentTabla]);
-
-        if ($type === 'belongsTo') {
-            if ($isDirectFromParentToChild) {
-                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
-            } elseif ($isDirectFromChildToParent) {
-                return "ON " . self::quote($parentAlias) . "." . self::quote($foreignKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($localKey);
-            } else {
-                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
-            }
+        // For hasMany/hasOne: parent.local_key = child.foreign_key
+        // For belongsTo: child.local_key = parent.foreign_key
+        if ($type === 'hasMany' || $type === 'hasOne') {
+            return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
+                . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
         } else {
-            $relMapTo = self::$relMap['to'] ?? [];
-            if (isset($relMapTo[$parentTabla][$childTabla])) {
-                $relTo = $relMapTo[$parentTabla][$childTabla];
-                return "ON " . self::quote($childAlias) . "." . self::quote($relTo['local_key'])
-                    . " = " . self::quote($parentAlias) . "." . self::quote($relTo['foreign_key']);
-            } elseif (isset($relMapTo[$childTabla][$parentTabla])) {
-                $relTo = $relMapTo[$childTabla][$parentTabla];
-                return "ON " . self::quote($parentAlias) . "." . self::quote($relTo['local_key'])
-                    . " = " . self::quote($childAlias) . "." . self::quote($relTo['foreign_key']);
-            } else {
-                return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
-            }
+            // belongsTo: the child table has the foreign key
+            return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
+                . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
         }
     }
 
