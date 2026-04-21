@@ -571,8 +571,10 @@ class SQL
         foreach ($relMapTo as $to => $rels) {
             foreach ($rels as $from => $rel) {
                 if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
-                    $graph[$from][$to] = $rel;
+                    // For 'to' relationships, the relation is defined from child to parent
+                    // We need to preserve the original direction for buildJoinCondition
                     $graph[$to][$from] = $rel;
+                    $graph[$from][$to] = $rel;
                 }
             }
         }
