@@ -259,14 +259,14 @@ class SQL
      * ## Ejemplos de paginado:
      * 
      * @example
-     * // Página 3, 20 registros por página (OFFSET 40 LIMIT 20)
+     * // Page 3, 20 records per page (OFFSET 40 LIMIT 20)
      * SQL::buildSelect('*', 'users', [], [], [], [], 3, 20);
      * 
      * @example
-     * // Sin paginación (todos los resultados)
+     * // Without pagination (all results)
      * SQL::buildSelect('*', 'users', [], [], [], [], 0, 0);
      * 
-     * ## Ejemplo completo:
+     * ## Complete example:
      * 
      * @example
      * // SELECT u.id, u.name, p.title FROM users AS u INNER JOIN posts AS p ON u.id = p.user_id
@@ -308,10 +308,10 @@ class SQL
         $page = empty($page) ? 0 : (int)$page;
         self::reset();
         
-        // Crear instancia de SelectBuilder como contenedor estructurado
-        $builder = new SQL\Builders\SelectBuilder();
+        // Create SelectBuilder instance as structured container
+        $builder = new SelectBuilder();
         
-        // Asignar propiedades directamente (reemplaza $parts['select'] = $fields)
+        // Assign properties directly (replaces $parts['select'] = $fields)
         $builder->select = $fields;
         $builder->from = $table;
         $builder->where = $where;
@@ -356,22 +356,22 @@ class SQL
             self::$queryCacheMisses++;
         }
         
-        // Usar el builder para construir las cláusulas
+        // Use builder to build clauses
         $fromClause = $builder->buildFromClause();
         $whereData = empty($where) ? ['sql' => '', 'params' => []] : self::buildWhere($where);
         $whereClause = empty($whereData['sql']) ? '' : 'WHERE ' . $whereData['sql'];
         $builder->params = $whereData['params'];
         
-        // Construir GROUP BY
+        // Build GROUP BY
         $groupByClause = '';
         if (!empty($groupBy)) {
             $groupByFields = [];
             foreach ($groupBy as $field) {
-                // Si ya tiene comillas o es una función, no quoteear
+                // If already quoted or is a function, don't quote
                 if (strpos($field, '`') !== false || preg_match('/\(/', $field)) {
                     $groupByFields[] = $field;
                 } else {
-                    // Quoteear cada parte del campo (ej: 'd.category' -> '`d`.`category`')
+                    // Quote each part of field (e.g., 'd.category' -> '`d`.`category`')
                     $parts = explode('.', $field);
                     $quotedParts = array_map(function($part) {
                         return self::quote($part);
@@ -382,7 +382,7 @@ class SQL
             $groupByClause = 'GROUP BY ' . implode(', ', $groupByFields);
         }
         
-        // Construir HAVING
+        // Build HAVING
         $havingClause = '';
         if (!empty($having)) {
             $havingData = self::buildWhere($having);
@@ -392,15 +392,15 @@ class SQL
             }
         }
         
-        // Construir ORDER BY
+        // Build ORDER BY
         $orderByClause = '';
         if (!empty($sort)) {
-            // Soportar tanto formato numérico ['field1', '-field2'] como asociativo ['field' => 'ASC']
+            // Support both numeric format ['field1', '-field2'] and associative ['field' => 'ASC']
             $sortFields = [];
             $isAssociative = !empty($sort) && !is_numeric(key($sort));
             
             if ($isAssociative) {
-                // Formato asociativo: ['field' => 'ASC/DESC']
+                // Associative format: ['field' => 'ASC/DESC']
                 foreach ($sort as $field => $dir) {
                     $dirUpper = strtoupper($dir);
                     if ($dirUpper === 'DESC') {
@@ -410,16 +410,16 @@ class SQL
                     }
                 }
             } else {
-                // Formato numérico: ['field1', '-field2']
+                // Numeric format: ['field1', '-field2']
                 $sortFields = $sort;
             }
             $orderByClause = self::buildOrderBy($sortFields);
         }
         
-        // Usar el builder para construir SELECT
+        // Use builder to build SELECT clause
         $selectClause = $builder->buildSelectClause();
         
-        // Ensamblar SQL final usando las cláusulas del builder
+        // Assemble final SQL using builder clauses
         $sqlParts = [$selectClause, $fromClause];
         if ($whereClause !== '') $sqlParts[] = $whereClause;
         if ($groupByClause !== '') $sqlParts[] = $groupByClause;
@@ -717,13 +717,13 @@ class SQL
         }
 
         // DETECTAR FORMATO PIVOTE: [t1, [t2, t3, ...]]
-        // El primer elemento es la tabla base, el segundo es un array de tablas a conectar
+        // The first element is the base table, the second is an array of tables to connect
         if (count($table) >= 2 && 
             is_string($table[0]) && 
             is_array($table[1]) && 
             array_is_list($table[1])) 
         {
-            // Formato pivote detectado: t1 es FROM, [t2, t3, ...] se conectan automáticamente
+            // Pivot format detected: t1 is FROM, [t2, t3, ...] are connected automatically
             return self::buildFromPivot($table[0], $table[1]);
         }
 
@@ -796,12 +796,12 @@ class SQL
             $aliases = $aliasesOrdered;
         }
 
-        // Optimización: usar serialize + crc32 para clave de caché de joinTree
+        // Optimization: use serialize + crc32 for joinTree cache key
         $cacheKey = 'join_' . crc32(serialize($realNames));
         
-        // Limitar tamaño del joinTreeCache
+        // Limit joinTreeCache size
         if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
-            // Eliminar el 10% más antiguo
+            // Remove oldest 10%
             $keysToRemove = array_slice(array_keys(self::$joinTreeCache), 0, (int)(self::$joinTreeCacheMaxSize * 0.1));
             foreach ($keysToRemove as $key) {
                 unset(self::$joinTreeCache[$key]);
@@ -936,7 +936,7 @@ class SQL
      */
     private static function buildFromPivot(string $pivot, array $connectedTables): string
     {
-        // Extraer nombre real y alias del pivote
+        // Extract real name and alias from pivot
         $pivotReal = $pivot;
         $pivotAlias = $pivot;
         if (preg_match('/^\s*(\S+)\s+as\s+(\S+)\s*$/i', $pivot, $matches)) {
@@ -944,23 +944,23 @@ class SQL
             $pivotAlias = $matches[2];
         }
 
-        // Iniciar cláusula FROM con el pivote
+        // Initialize FROM clause with pivot
         $parts = [];
         $parts[] = "FROM " . self::quote($pivotReal);
         if ($pivotAlias !== $pivotReal) {
             $parts[] = "AS " . self::quote($pivotAlias);
         }
 
-        // Si no hay tablas que conectar, retornar solo el FROM
+        // If no tables to connect, return only FROM
         if (empty($connectedTables)) {
             return implode(' ', $parts);
         }
 
-        // Construir lista completa: [pivot, t2, t3, ...] para usar el motor de grafos
-        // pero forzando que pivot sea siempre la primera tabla
+        // Build complete list: [pivot, t2, t3, ...] to use graph engine
+        // but forcing pivot to always be the first table
         $allTables = array_merge([$pivotReal], $connectedTables);
         
-        // Extraer nombres reales y aliases de todas las tablas conectadas
+        // Extract real names and aliases from all connected tables
         $realNames = [$pivotReal];
         $aliases = [$pivotReal => $pivotAlias];
         
@@ -976,31 +976,31 @@ class SQL
             $aliases[$real] = $alias;
         }
 
-        // El pivote ya está en la posición 0, ahora conectar el resto usando el grafo
-        // pero SIN reordenar (orderTablesByWeakness) para mantener el pivote primero
+        // Pivot is already at position 0, now connect the rest using the graph
+        // but WITHOUT reordering (orderTablesByWeakness) to keep pivot first
         $currentReal = $pivotReal;
         $currentAlias = $pivotAlias;
         $usedTables = [$pivotReal => true];
 
-        // Conectar cada tabla restante buscando la mejor ruta desde el pivote o tablas ya conectadas
+        // Connect each remaining table looking for the best route from pivot or already connected tables
         $tablesToConnect = array_slice($realNames, 1);
         
         foreach ($tablesToConnect as $nextReal) {
             if (isset($usedTables[$nextReal])) {
-                continue; // Ya conectada
+                continue; // Already connected
             }
 
             $nextAlias = $aliases[$nextReal];
             
-            // Buscar relación desde la tabla actual o cualquier tabla ya conectada
+            // Look for relationship from current table or any already connected table
             $foundRelation = false;
             $sourceTable = $currentReal;
             $sourceAlias = $currentAlias;
             
-            // Intentar encontrar relación desde el pivote primero
+            // Try to find relationship from pivot first
             $relationDef = self::$relMap['from'][$currentReal][$nextReal] ?? self::$relMap['to'][$currentReal][$nextReal] ?? null;
             
-            // Si no hay relación directa desde la tabla actual, buscar desde cualquier tabla conectada
+            // If no direct relationship from current table, search from any connected table
             if (!$relationDef) {
                 foreach (array_keys($usedTables) as $connectedTable) {
                     $relationDef = self::$relMap['from'][$connectedTable][$nextReal] ?? self::$relMap['to'][$connectedTable][$nextReal] ?? null;
@@ -1026,7 +1026,7 @@ class SQL
             $parts[] = $joinPart;
             $usedTables[$nextReal] = true;
             
-            // Actualizar tabla actual para la siguiente iteración
+            // Update current table for next iteration
             if ($foundRelation) {
                 $currentReal = $nextReal;
                 $currentAlias = $nextAlias;
@@ -1181,7 +1181,7 @@ class SQL
             return ['sql' => "1", 'params' => []];
         }
 
-        // --- Detección de grupos OR (array indexado) ---
+        // --- OR groups detection (indexed array) ---
         $isIndexed = array_is_list($where);
         if ($isIndexed) {
             $groupSql = [];
@@ -1198,7 +1198,7 @@ class SQL
             return ['sql' => $sql, 'params' => $allParams];
         }
 
-        // --- Modo normal: AND entre condiciones (array asociativo) ---
+        // --- Normal mode: AND between conditions (associative array) ---
         $sqlParts = [];
         $params = [];
         $hasSchema = self::hasSchema();
