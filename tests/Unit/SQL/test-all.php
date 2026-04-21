@@ -1,6 +1,6 @@
 <?php
 // RapidBase/tests/test_all.php
-include_once __DIR__."/../../../src/RapidBase/Core/SQL.php";
+require_once __DIR__."/../../../vendor/autoload.php";
 
 $tests = [
     'BuildFromTest.php',
@@ -13,14 +13,14 @@ $tests = [
     'BuildInsertTest.php',
     'BuildUpdateTest.php',
     'BuildDeleteTest.php',
-    
+
 ];
 
 foreach ($tests as $test) {
-    echo "\n--- Ejecutando: $test ---\n";
-	\RapidBase\Core\SQL::reset();
+    echo "\n--- Running: $test ---\n";
+        \RapidBase\Core\SQL::reset();
     include __DIR__ . '/' . $test;
-	
+
 }
 
-echo "\nFelicidades, la fundición SQL está lista para producción.\n";
+echo "\nCongratulations, the SQL foundry is ready for production.\n";

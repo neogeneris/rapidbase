@@ -1,8 +1,16 @@
-{"event":"db.success","type":"insert","table":"test_log","duration":0.02002716064453125,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p1)","timestamp":1776657038.654568}
-{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.02002716064453125,"timestamp":1776657038.654654}
-{"event":"db.success","type":"insert","table":"test_log","duration":0.019073486328125,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p2)","timestamp":1776657038.654699}
-{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.019073486328125,"timestamp":1776657038.654711}
-{"event":"db.success","type":"update","table":"test_log","duration":0.0209808349609375,"sql":"UPDATE \"test_log\" SET \"nombre\" = :p3 WHERE \"id\" = :p4","timestamp":1776657038.654759}
-{"event":"db.log","type":"update","table":"test_log","success":true,"duration":0.0209808349609375,"timestamp":1776657038.654772}
-{"event":"db.success","type":"delete","table":"test_log","duration":0.013828277587890625,"sql":"DELETE FROM \"test_log\" WHERE \"id\" = :p5","timestamp":1776657038.654804}
-{"event":"db.log","type":"delete","table":"test_log","success":true,"duration":0.013828277587890625,"timestamp":1776657038.654815}
+{"event":"db.success","type":"insert","table":"test_log","duration":0.02288818359375,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p0)","timestamp":1776770320.429693}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.02288818359375,"timestamp":1776770320.429812}
+{"event":"db.success","type":"insert","table":"test_log","duration":0.03814697265625,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p1)","timestamp":1776770320.42992}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.03814697265625,"timestamp":1776770320.42994}
+{"event":"db.success","type":"update","table":"test_log","duration":0.032901763916015625,"sql":"UPDATE \"test_log\" SET \"nombre\" = :p2 WHERE \"id\" = :p3","timestamp":1776770320.430026}
+{"event":"db.log","type":"update","table":"test_log","success":true,"duration":0.032901763916015625,"timestamp":1776770320.43005}
+{"event":"db.success","type":"delete","table":"test_log","duration":0.027894973754882812,"sql":"DELETE FROM \"test_log\" WHERE \"id\" = :p4","timestamp":1776770320.430125}
+{"event":"db.log","type":"delete","table":"test_log","success":true,"duration":0.027894973754882812,"timestamp":1776770320.430143}
+{"event":"db.error","type":"select","table":"test_log","error":"Error de Escritura (Action): SQLSTATE[HY000]: General error: 1 no such table: 1 | SQL: SELECT test_log FROM \"1\" LIMIT 10 OFFSET 0","sql":"SELECT test_log FROM \"1\" LIMIT 10 OFFSET 0","timestamp":1776770320.430227}
+{"event":"db.log","type":"select","table":"test_log","success":false,"duration":0.030994415283203125,"timestamp":1776770320.43025}
+{"event":"db.success","type":"count","table":"leads","duration":0.03504753112792969,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE 1","timestamp":1776770320.430784}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.03504753112792969,"timestamp":1776770320.430815}
+{"event":"db.success","type":"count","table":"leads","duration":0.04792213439941406,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE \"status\" = :p0","timestamp":1776770320.430913}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.04792213439941406,"timestamp":1776770320.430936}
+{"event":"db.success","type":"count","table":"leads","duration":0.03600120544433594,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE \"status\" = :p0","timestamp":1776770320.431009}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.03600120544433594,"timestamp":1776770320.431027}

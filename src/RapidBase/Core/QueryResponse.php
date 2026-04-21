@@ -44,4 +44,40 @@ class QueryResponse implements \JsonSerializable {
             'to'      => $to,
         ];
     }
+
+    /**
+     * Exporta los datos en formato "Rapid-Pack" (RPF).
+     * Optimizado para consumo directo por componentes UI (Grids) sin overhead de CPU.
+     * 
+     * Estructura:
+     * {
+     *   "head": { "vars": [...], "map": {...} },
+     *   "body": [ [val1, val2...], ... ],
+     *   "meta": { "total": N, "page": N, ... }
+     * }
+     */
+    public function toRapidPack(): array {
+        return [
+            "head" => [
+                "vars" => $this->metadata['flat_columns'] ?? [],
+                "map"  => $this->metadata['projection_map'] ?? []
+            ],
+            "body" => $this->data, // Array numérico puro (FETCH_NUM)
+            "meta" => [
+                "count" => count($this->data),
+                "total" => (int)$this->total,
+                "page"  => (int)($this->state['page'] ?? 1),
+                "limit" => (int)($this->state['per_page'] ?? 0),
+                "sort"  => $this->metadata['sort_status'] ?? null,
+                "took"  => (float)($this->metadata['execution_time'] ?? 0)
+            ]
+        ];
+    }
+
+    /**
+     * Exporta los datos como JSON en formato Rapid-Pack.
+     */
+    public function toJson(): string {
+        return json_encode($this->toRapidPack(), JSON_NUMERIC_CHECK);
+    }
 }
