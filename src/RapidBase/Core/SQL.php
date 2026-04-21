@@ -566,8 +566,10 @@ class SQL
                 }
             }
         }
-        foreach ($relMapTo as $from => $rels) {
-            foreach ($rels as $to => $rel) {
+        
+        // Process 'to' relationships: to => from (inverse direction)
+        foreach ($relMapTo as $to => $rels) {
+            foreach ($rels as $from => $rel) {
                 if (in_array($from, $tableNames) && in_array($to, $tableNames)) {
                     $graph[$from][$to] = $rel;
                     $graph[$to][$from] = $rel;
