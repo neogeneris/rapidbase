@@ -5,10 +5,10 @@ namespace RapidBase\Core\SQL\Builders;
 use RapidBase\Core\SQL;
 
 /**
- * Trait compartido para builders que necesitan cláusulas WHERE.
+ * Trait shared for builders that need WHERE clauses.
  * 
- * Proporciona métodos comunes para construir condiciones WHERE
- * con soporte para operadores, NULL, IN, y grupos OR.
+ * Provides common methods for building WHERE conditions
+ * with support for operators, NULL, IN, and OR groups.
  */
 trait WhereTrait
 {
@@ -16,9 +16,9 @@ trait WhereTrait
     protected array $params = [];
     
     /**
-     * Establece las condiciones WHERE
+     * Sets the WHERE conditions
      * 
-     * @param array $conditions Condiciones WHERE
+     * @param array $conditions WHERE conditions
      * @return self
      */
     public function where(array $conditions): self
@@ -28,10 +28,10 @@ trait WhereTrait
     }
     
     /**
-     * Agrega una condición WHERE adicional
+     * Adds an additional WHERE condition
      * 
-     * @param string|array $condition Condición o array de condiciones
-     * @param mixed $value Valor opcional para la condición
+     * @param string|array $condition Condition or array of conditions
+     * @param mixed $value Optional value for the condition
      * @return self
      */
     public function andWhere(string|array $condition, mixed $value = null): self
@@ -48,7 +48,7 @@ trait WhereTrait
     }
     
     /**
-     * Construye la cláusula WHERE
+     * Builds the WHERE clause
      * 
      * @return array ['sql' => string, 'params' => array]
      */
@@ -62,7 +62,7 @@ trait WhereTrait
     }
     
     /**
-     * Obtiene las condiciones WHERE actuales
+     * Gets the current WHERE conditions
      */
     public function getWhere(): array
     {
@@ -70,7 +70,7 @@ trait WhereTrait
     }
     
     /**
-     * Obtiene los parámetros WHERE actuales
+     * Gets the current WHERE parameters
      */
     public function getWhereParams(): array
     {

@@ -5,19 +5,19 @@ namespace RapidBase\Core\SQL\Builders;
 use RapidBase\Core\SQL;
 
 /**
- * Builder para consultas UPDATE usando objetos en lugar de arrays.
+ * Builder for UPDATE queries using objects instead of arrays.
  * 
- * Reemplaza el enfoque tradicional basado en arrays con una API orientada a objetos
- * para mayor claridad y type-safety.
+ * Replaces the traditional array-based approach with an object-oriented API
+ * for greater clarity and type-safety.
  * 
  * @example
- * // Update simple
+ * // Simple update
  * $update = new UpdateBuilder('users');
  * $update->set(['name' => 'John', 'email' => 'john@example.com']);
  * $update->where(['id' => 1]);
  * [$sql, $params] = $update->build();
  * 
- * // Update con condición compleja
+ * // Update with complex condition
  * $update->where([
  *     'status' => 'active',
  *     'created_at' => ['>' => '2023-01-01']
@@ -34,7 +34,7 @@ class UpdateBuilder
     /**
      * Constructor
      * 
-     * @param string $table Nombre de la tabla
+     * @param string $table Table name
      */
     public function __construct(string $table)
     {
@@ -42,9 +42,9 @@ class UpdateBuilder
     }
     
     /**
-     * Establece los valores a actualizar
+     * Sets the values to update
      * 
-     * @param array $data Array asociativo de columnas y valores
+     * @param array $data Associative array of columns and values
      * @return self
      */
     public function set(array $data): self
@@ -54,10 +54,10 @@ class UpdateBuilder
     }
     
     /**
-     * Establece un valor específico
+     * Sets a specific value
      * 
-     * @param string $column Nombre de la columna
-     * @param mixed $value Valor a actualizar
+     * @param string $column Column name
+     * @param mixed $value Value to update
      * @return self
      */
     public function setValue(string $column, mixed $value): self
@@ -67,7 +67,7 @@ class UpdateBuilder
     }
     
     /**
-     * Habilita update masivo sin WHERE (peligroso)
+     * Enables mass update without WHERE (dangerous)
      */
     public function force(bool $force = true): self
     {
@@ -76,7 +76,7 @@ class UpdateBuilder
     }
     
     /**
-     * Normaliza un valor (convierte strings vacíos a null)
+     * Normalizes a value (converts empty strings to null)
      */
     protected function normalizeValue(mixed $value): mixed
     {
@@ -87,18 +87,18 @@ class UpdateBuilder
     }
     
     /**
-     * Construye la consulta SQL
+     * Builds the SQL query
      * 
      * @return array [sql, params]
      */
     public function build(): array
     {
         if (empty($this->data)) {
-            throw new \InvalidArgumentException("No se pueden actualizar registros sin datos.");
+            throw new \InvalidArgumentException("Cannot update records without data.");
         }
         
         if (empty($this->where) && !$this->force) {
-            throw new \RuntimeException("PELIGRO: UPDATE masivo sin WHERE en [{$this->table}].");
+            throw new \RuntimeException("DANGER: Mass UPDATE without WHERE on [{$this->table}].");
         }
         
         $parts = ["UPDATE " . SQL::quote($this->table), "SET"];
@@ -122,7 +122,7 @@ class UpdateBuilder
     }
     
     /**
-     * Obtiene el nombre de la tabla
+     * Gets the table name
      */
     public function getTable(): string
     {
@@ -130,7 +130,7 @@ class UpdateBuilder
     }
     
     /**
-     * Obtiene los datos a actualizar
+     * Gets the data to update
      */
     public function getData(): array
     {
@@ -138,7 +138,7 @@ class UpdateBuilder
     }
     
     /**
-     * Reset del builder
+     * Reset the builder
      */
     public function reset(): self
     {

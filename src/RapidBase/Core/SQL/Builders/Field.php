@@ -3,19 +3,19 @@
 namespace RapidBase\Core\SQL\Builders;
 
 /**
- * Clase para representar un campo con alias en consultas SQL.
+ * Class to represent a field with alias in SQL queries.
  * 
- * Permite especificar de forma precisa la sintaxis de campos con alias,
- * evitando ambigüedades y mejorando la legibilidad del código.
+ * Allows precise specification of field syntax with aliases,
+ * avoiding ambiguities and improving code readability.
  * 
  * @example
- * // Sin alias
+ * // Without alias
  * new Field('name')           // -> `name`
  * 
- * // Con alias
+ * // With alias
  * new Field('users.name', 'user_name')  // -> `users`.`name` AS `user_name`
  * 
- * // Con función agregada
+ * // With aggregate function
  * new Field('COUNT(*)', 'total')        // -> COUNT(*) AS `total`
  */
 class Field
@@ -26,8 +26,8 @@ class Field
     /**
      * Constructor
      * 
-     * @param string $name Nombre del campo (puede incluir tabla: 'table.column')
-     * @param string|null $alias Alias opcional para el campo
+     * @param string $name Field name (can include table: 'table.column')
+     * @param string|null $alias Optional alias for the field
      */
     public function __construct(string $name, ?string $alias = null)
     {
@@ -36,10 +36,10 @@ class Field
     }
     
     /**
-     * Construye la representación SQL del campo
+     * Builds the SQL representation of the field
      * 
-     * @param callable $quoteFunc Función para quoteear identificadores
-     * @return string El campo formateado para SQL
+     * @param callable $quoteFunc Function to quote identifiers
+     * @return string The field formatted for SQL
      */
     public function toSql(callable $quoteFunc): string
     {
@@ -50,9 +50,9 @@ class Field
     }
     
     /**
-     * Crea un Field desde un string con sintaxis AS
+     * Creates a Field from a string with AS syntax
      * 
-     * @param string $fieldString Campo en formato 'column AS alias'
+     * @param string $fieldString Field in format 'column AS alias'
      * @return self
      */
     public static function fromString(string $fieldString): self
@@ -64,7 +64,7 @@ class Field
     }
     
     /**
-     * Convierte a array
+     * Converts to array
      */
     public function toArray(): array
     {

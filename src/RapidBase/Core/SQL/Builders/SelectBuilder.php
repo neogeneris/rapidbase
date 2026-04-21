@@ -5,47 +5,47 @@ namespace RapidBase\Core\SQL\Builders;
 use RapidBase\Core\SQL;
 
 /**
- * Clase que reemplaza el array $parts tradicional en buildSelect().
+ * Class that replaces the traditional $parts array in buildSelect().
  * 
- * Esta clase actúa como un esqueleto estructurado con las mismas propiedades
- * que tenía el array $parts, pero con acceso tipado y potencialmente más rápido.
+ * This class acts as a structured skeleton with the same properties
+ * that the $parts array had, but with typed access and potentially faster performance.
  * 
- * Objetivo: Reemplazar $parts['select'] = '*' por $this->select = '*'
- * manteniendo la misma lógica de ensamblaje pero con mejor performance.
+ * Goal: Replace $parts['select'] = '*' with $this->select = '*'
+ * while maintaining the same assembly logic but with better performance.
  */
 class SelectBuilder
 {
-    // Propiedades públicas que reemplazan los índices del array $parts
-    public mixed $select = '*';      // reemplaza $parts['select']
-    public mixed $from = '';         // reemplaza $parts['from']
-    public array $join = [];         // reemplaza $parts['join']
-    public array $where = [];        // reemplaza $parts['where']
-    public array $params = [];       // reemplaza $parts['params']
-    public array $groupBy = [];      // reemplaza $parts['groupBy']
-    public array $having = [];       // reemplaza $parts['having']
-    public array $orderBy = [];      // reemplaza $parts['orderBy']
-    public int $limit = 10;          // reemplaza $parts['limit']
-    public int $offset = 0;          // reemplaza $parts['offset']
-    public bool $count = false;      // reemplaza $parts['count']
-    public array $map = [];          // reemplaza $parts['map']
-    public bool $noQuote = false;    // reemplaza $parts['noQuote']
+    // Public properties that replace $parts array indices
+    public mixed $select = '*';      // replaces $parts['select']
+    public mixed $from = '';         // replaces $parts['from']
+    public array $join = [];         // replaces $parts['join']
+    public array $where = [];        // replaces $parts['where']
+    public array $params = [];       // replaces $parts['params']
+    public array $groupBy = [];      // replaces $parts['groupBy']
+    public array $having = [];       // replaces $parts['having']
+    public array $orderBy = [];      // replaces $parts['orderBy']
+    public int $limit = 10;          // replaces $parts['limit']
+    public int $offset = 0;          // replaces $parts['offset']
+    public bool $count = false;      // replaces $parts['count']
+    public array $map = [];          // replaces $parts['map']
+    public bool $noQuote = false;    // replaces $parts['noQuote']
     
-    // Cache interna opcional para cláusulas construidas
+    // Internal cache for built clauses
     private ?string $cachedSelectClause = null;
     private ?string $cachedFromClause = null;
     private ?string $cachedWhereClause = null;
     
     /**
-     * Constructor vacío - la clase actúa como contenedor de propiedades
-     * Los valores se asignan directamente: $builder->select = '*', $builder->from = 'users'
+     * Empty constructor - the class acts as a property container
+     * Values are assigned directly: $builder->select = '*', $builder->from = 'users'
      */
     public function __construct()
     {
-        // Inicialización por defecto ya está en las propiedades
+        // Default initialization is already in properties
     }
     
     /**
-     * Construye la cláusula SELECT
+     * Builds the SELECT clause
      */
     public function buildSelectClause(): string
     {
@@ -56,13 +56,13 @@ class SelectBuilder
         if ($this->select === '*') {
             $this->cachedSelectClause = 'SELECT *';
         } elseif (is_array($this->select)) {
-            // Array de campos o Field objects
+            // Array of fields or Field objects
             $fields = [];
             foreach ($this->select as $field) {
                 if ($field instanceof Field) {
                     $fields[] = $field->toSql([SQL::class, 'quote']);
                 } elseif (is_array($field)) {
-                    // Formato antiguo: ['campo', 'alias']
+                    // Old format: ['field', 'alias']
                     $fields[] = SQL::quoteField($field[0]) . ' AS ' . SQL::quoteField($field[1]);
                 } else {
                     $fields[] = SQL::quoteField($field);
@@ -70,7 +70,7 @@ class SelectBuilder
             }
             $this->cachedSelectClause = 'SELECT ' . implode(', ', $fields);
         } else {
-            // String o expresión
+            // String or expression
             $this->cachedSelectClause = 'SELECT ' . $this->select;
         }
         
@@ -78,7 +78,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula FROM con JOINs
+     * Builds the FROM clause with JOINs
      */
     public function buildFromClause(): string
     {
@@ -86,7 +86,7 @@ class SelectBuilder
             return $this->cachedFromClause;
         }
         
-        // Delegar a SQL::buildFromWithMap para manejar todos los casos (incluyendo pivote)
+        // Delegate to SQL::buildFromWithMap to handle all cases (including pivot)
         $sql = SQL::buildFromWithMap($this->from);
         
         $this->cachedFromClause = $sql;
@@ -94,7 +94,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula WHERE
+     * Builds the WHERE clause
      */
     public function buildWhereClause(): string
     {
@@ -107,7 +107,7 @@ class SelectBuilder
             return '';
         }
         
-        // Delegar a SQL::buildWhere para mantener compatibilidad
+        // Delegate to SQL::buildWhere to maintain compatibility
         $whereData = SQL::buildWhere($this->where, $this->params, $this->noQuote);
         $whereClause = is_array($whereData) ? ($whereData['sql'] ?? '') : $whereData;
         $this->cachedWhereClause = $whereClause;
@@ -115,7 +115,7 @@ class SelectBuilder
     }
     
     /**
-     * Método mágico para acceso dinámico (opcional, para compatibilidad)
+     * Magic method for dynamic access (optional, for compatibility)
      */
     public function __get(string $name): mixed
     {
@@ -123,12 +123,12 @@ class SelectBuilder
     }
     
     /**
-     * Método mágico para asignación dinámica (opcional, para compatibilidad)
+     * Magic method for dynamic assignment (optional, for compatibility)
      */
     public function __set(string $name, mixed $value): void
     {
         $this->$name = $value;
-        // Invalidar caches cuando cambian las propiedades
+        // Invalidate caches when properties change
         if (in_array($name, ['select', 'from', 'join'])) {
             $this->cachedSelectClause = null;
             $this->cachedFromClause = null;
@@ -139,7 +139,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula GROUP BY
+     * Builds the GROUP BY clause
      */
     public function buildGroupByClause(): string
     {
@@ -151,7 +151,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula HAVING
+     * Builds the HAVING clause
      */
     public function buildHavingClause(): string
     {
@@ -159,7 +159,7 @@ class SelectBuilder
             return '';
         }
         
-        // Manejar arrays anidados en HAVING (ej: ['total' => ['>' => 5]])
+        // Handle nested arrays in HAVING (e.g.: ['total' => ['>' => 5]])
         $conditions = [];
         foreach ($this->having as $key => $value) {
             if (is_array($value)) {
@@ -181,7 +181,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula ORDER BY
+     * Builds the ORDER BY clause
      */
     public function buildOrderByClause(): string
     {
@@ -198,7 +198,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye la cláusula LIMIT/OFFSET
+     * Builds the LIMIT/OFFSET clause
      */
     public function buildLimitClause(): string
     {
@@ -206,7 +206,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye la consulta SQL completa
+     * Builds the complete SQL query
      */
     public function buildSQL(): string
     {
@@ -241,7 +241,7 @@ class SelectBuilder
     }
     
     /**
-     * Obtiene todos los parámetros
+     * Gets all parameters
      */
     public function getParams(): array
     {
@@ -249,7 +249,7 @@ class SelectBuilder
     }
     
     /**
-     * Construye y retorna [sql, params]
+     * Builds and returns [sql, params]
      */
     public function build(): array
     {
@@ -257,8 +257,8 @@ class SelectBuilder
     }
     
     /**
-     * Alias de buildSQL() para compatibilidad con SQL::buildSelect
-     * Retorna solo el SQL construido
+     * Alias of buildSQL() for compatibility with SQL::buildSelect
+     * Returns only the built SQL
      */
     public function toSql(): string
     {
@@ -266,7 +266,7 @@ class SelectBuilder
     }
     
     /**
-     * Convierte el objeto a array (para compatibilidad)
+     * Converts object to array (for compatibility)
      */
     public function toArray(): array
     {
@@ -285,7 +285,7 @@ class SelectBuilder
     }
     
     /**
-     * Crea desde un array (para compatibilidad inversa)
+     * Creates from array (for backward compatibility)
      */
     public static function fromArray(array $array): self
     {
@@ -326,7 +326,7 @@ class SelectBuilder
     }
     
     /**
-     * Reset completo
+     * Full reset
      */
     public function reset(): self
     {

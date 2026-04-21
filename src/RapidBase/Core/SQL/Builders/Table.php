@@ -3,16 +3,16 @@
 namespace RapidBase\Core\SQL\Builders;
 
 /**
- * Clase para representar una tabla con alias en consultas SQL.
+ * Class to represent a table with alias in SQL queries.
  * 
- * Permite especificar de forma precisa la sintaxis de tablas con alias,
- * esencial para JOINs y consultas complejas.
+ * Allows precise specification of table syntax with aliases,
+ * essential for JOINs and complex queries.
  * 
  * @example
- * // Sin alias
+ * // Without alias
  * new Table('users')           // -> FROM `users`
  * 
- * // Con alias
+ * // With alias
  * new Table('users', 'u')      // -> FROM `users` AS `u`
  */
 class Table
@@ -23,8 +23,8 @@ class Table
     /**
      * Constructor
      * 
-     * @param string $name Nombre real de la tabla
-     * @param string|null $alias Alias opcional para la tabla
+     * @param string $name Real table name
+     * @param string|null $alias Optional alias for the table
      */
     public function __construct(string $name, ?string $alias = null)
     {
@@ -33,10 +33,10 @@ class Table
     }
     
     /**
-     * Construye la representación SQL de la tabla
+     * Builds the SQL representation of the table
      * 
-     * @param callable $quoteFunc Función para quoteear identificadores
-     * @return string La tabla formateada para SQL
+     * @param callable $quoteFunc Function to quote identifiers
+     * @return string The table formatted for SQL
      */
     public function toSql(callable $quoteFunc): string
     {
@@ -47,9 +47,9 @@ class Table
     }
     
     /**
-     * Crea un Table desde un string con sintaxis AS
+     * Creates a Table from a string with AS syntax
      * 
-     * @param string $tableString Tabla en formato 'table AS alias'
+     * @param string $tableString Table in format 'table AS alias'
      * @return self
      */
     public static function fromString(string $tableString): self
@@ -61,7 +61,7 @@ class Table
     }
     
     /**
-     * Obtiene el alias o el nombre si no hay alias
+     * Gets the alias or name if no alias exists
      */
     public function getIdentifier(): string
     {
@@ -69,7 +69,7 @@ class Table
     }
     
     /**
-     * Convierte a array
+     * Converts to array
      */
     public function toArray(): array
     {

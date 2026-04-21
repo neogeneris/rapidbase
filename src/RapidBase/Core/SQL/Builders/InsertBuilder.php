@@ -5,18 +5,18 @@ namespace RapidBase\Core\SQL\Builders;
 use RapidBase\Core\SQL;
 
 /**
- * Builder para consultas INSERT usando objetos en lugar de arrays.
+ * Builder for INSERT queries using objects instead of arrays.
  * 
- * Reemplaza el enfoque tradicional basado en arrays con una API orientada a objetos
- * para mayor claridad y type-safety.
+ * Replaces the traditional array-based approach with an object-oriented API
+ * for greater clarity and type-safety.
  * 
  * @example
- * // Insert simple
+ * // Simple insert
  * $insert = new InsertBuilder('users');
  * $insert->values(['name' => 'John', 'email' => 'john@example.com']);
  * [$sql, $params] = $insert->build();
  * 
- * // Insert múltiple
+ * // Multiple insert
  * $insert->values([
  *     ['name' => 'John', 'email' => 'john@example.com'],
  *     ['name' => 'Jane', 'email' => 'jane@example.com']
@@ -31,7 +31,7 @@ class InsertBuilder
     /**
      * Constructor
      * 
-     * @param string $table Nombre de la tabla
+     * @param string $table Table name
      */
     public function __construct(string $table)
     {
@@ -39,14 +39,14 @@ class InsertBuilder
     }
     
     /**
-     * Establece los valores a insertar
+     * Sets the values to insert
      * 
-     * @param array $rows Array de filas (asociativo o lista de arrays asociativos)
+     * @param array $rows Array of rows (associative or list of associative arrays)
      * @return self
      */
     public function values(array $rows): self
     {
-        // Detectar si es un solo registro o múltiples
+        // Detect if it's a single record or multiple
         if (!isset($rows[0]) || !is_array($rows[0])) {
             // Single row: ['name' => 'John']
             $this->rows = [$rows];
@@ -54,7 +54,7 @@ class InsertBuilder
         } else {
             // Multiple rows: [['name' => 'John'], ['name' => 'Jane']]
             $this->rows = $rows;
-            // Usar las columnas de la primera fila como referencia
+            // Use columns from first row as reference
             $this->columns = array_keys($rows[0] ?? []);
         }
         
@@ -62,10 +62,10 @@ class InsertBuilder
     }
     
     /**
-     * Agrega una columna específica con su valor
+     * Adds a specific column with its value
      * 
-     * @param string $column Nombre de la columna
-     * @param mixed $value Valor a insertar
+     * @param string $column Column name
+     * @param mixed $value Value to insert
      * @return self
      */
     public function value(string $column, mixed $value): self
@@ -81,7 +81,7 @@ class InsertBuilder
     }
     
     /**
-     * Normaliza un valor (convierte strings vacíos a null)
+     * Normalizes a value (converts empty strings to null)
      */
     protected function normalizeValue(mixed $value): mixed
     {
@@ -92,18 +92,18 @@ class InsertBuilder
     }
     
     /**
-     * Construye la consulta SQL
+     * Builds the SQL query
      * 
      * @return array [sql, params]
      */
     public function build(): array
     {
         if (empty($this->rows)) {
-            throw new \InvalidArgumentException("No se pueden insertar registros vacíos.");
+            throw new \InvalidArgumentException("Cannot insert empty records.");
         }
         
         if (empty($this->rows[0])) {
-            throw new \InvalidArgumentException("El registro de datos está vacío.");
+            throw new \InvalidArgumentException("The data record is empty.");
         }
         
         $columns = $this->columns;
@@ -111,7 +111,7 @@ class InsertBuilder
         $placeholders = [];
         $params = [];
         
-        // Solo construimos para la primera fila (INSERT single)
+        // Build only for first row (INSERT single)
         foreach ($columns as $col) {
             $token = SQL::nextTokenPublic();
             $value = $this->normalizeValue($this->rows[0][$col]);
@@ -125,7 +125,7 @@ class InsertBuilder
     }
     
     /**
-     * Obtiene el nombre de la tabla
+     * Gets the table name
      */
     public function getTable(): string
     {
@@ -133,7 +133,7 @@ class InsertBuilder
     }
     
     /**
-     * Obtiene las filas a insertar
+     * Gets the rows to insert
      */
     public function getRows(): array
     {
@@ -141,7 +141,7 @@ class InsertBuilder
     }
     
     /**
-     * Obtiene las columnas
+     * Gets the columns
      */
     public function getColumns(): array
     {
@@ -149,7 +149,7 @@ class InsertBuilder
     }
     
     /**
-     * Reset del builder
+     * Reset the builder
      */
     public function reset(): self
     {

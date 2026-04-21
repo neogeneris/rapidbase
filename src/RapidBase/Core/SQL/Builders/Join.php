@@ -5,22 +5,22 @@ namespace RapidBase\Core\SQL\Builders;
 use RapidBase\Core\SQL;
 
 /**
- * Clase para representar un JOIN en consultas SQL.
+ * Class to represent a JOIN in SQL queries.
  * 
- * Soporta todos los tipos de JOIN y permite especificar alias para tablas.
+ * Supports all JOIN types and allows specifying table aliases.
  * 
  * @example
- * // JOIN simple
+ * // Simple JOIN
  * new Join('users', 'u.id = p.user_id')
  * // -> LEFT JOIN `users` AS `u` ON `u`.`id` = `p`.`user_id`
  * 
- * // Con tipo específico
+ * // With specific type
  * new Join('posts', 'p.cat_id = c.id', 'INNER')
  */
 class Join
 {
     public string $type;
-    public mixed $table;  // string o Table object
+    public mixed $table;  // string or Table object
     public ?string $alias;
     public string $on;
     public array $params;
@@ -28,10 +28,10 @@ class Join
     /**
      * Constructor
      * 
-     * @param string|Table $table Nombre de la tabla o objeto Table
-     * @param string $on Condición ON del JOIN
-     * @param string $type Tipo de JOIN: INNER, LEFT, RIGHT, FULL, etc. (default: LEFT)
-     * @param array $params Parámetros para la condición ON
+     * @param string|Table $table Table name or Table object
+     * @param string $on ON condition for the JOIN
+     * @param string $type JOIN type: INNER, LEFT, RIGHT, FULL, etc. (default: LEFT)
+     * @param array $params Parameters for the ON condition
      */
     public function __construct(
         mixed $table,
@@ -54,10 +54,10 @@ class Join
     }
     
     /**
-     * Construye la representación SQL del JOIN
+     * Builds the SQL representation of the JOIN
      * 
-     * @param callable $quoteFunc Función para quoteear identificadores
-     * @return string El JOIN formateado para SQL
+     * @param callable $quoteFunc Function to quote identifiers
+     * @return string The JOIN formatted for SQL
      */
     public function toSql(callable $quoteFunc): string
     {
@@ -77,9 +77,9 @@ class Join
     }
     
     /**
-     * Crea un Join desde un array de configuración
+     * Creates a Join from a configuration array
      * 
-     * @param array $config Configuración con keys: type, table, alias, on, params
+     * @param array $config Configuration with keys: type, table, alias, on, params
      * @return self
      */
     public static function fromArray(array $config): self
@@ -93,7 +93,7 @@ class Join
     }
     
     /**
-     * Convierte a array
+     * Converts to array
      */
     public function toArray(): array
     {

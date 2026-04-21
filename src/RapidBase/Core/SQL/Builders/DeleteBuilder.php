@@ -5,18 +5,18 @@ namespace RapidBase\Core\SQL\Builders;
 use RapidBase\Core\SQL;
 
 /**
- * Builder para consultas DELETE usando objetos en lugar de arrays.
+ * Builder for DELETE queries using objects instead of arrays.
  * 
- * Reemplaza el enfoque tradicional basado en arrays con una API orientada a objetos
- * para mayor claridad y type-safety.
+ * Replaces the traditional array-based approach with an object-oriented API
+ * for greater clarity and type-safety.
  * 
  * @example
- * // Delete simple
+ * // Simple delete
  * $delete = new DeleteBuilder('users');
  * $delete->where(['id' => 1]);
  * [$sql, $params] = $delete->build();
  * 
- * // Delete con condición compleja
+ * // Delete with complex condition
  * $delete->where([
  *     'status' => 'inactive',
  *     'created_at' => ['<' => '2023-01-01']
@@ -32,7 +32,7 @@ class DeleteBuilder
     /**
      * Constructor
      * 
-     * @param string $table Nombre de la tabla
+     * @param string $table Table name
      */
     public function __construct(string $table)
     {
@@ -40,7 +40,7 @@ class DeleteBuilder
     }
     
     /**
-     * Habilita delete masivo sin WHERE (peligroso)
+     * Enables mass delete without WHERE (dangerous)
      */
     public function force(bool $force = true): self
     {
@@ -49,14 +49,14 @@ class DeleteBuilder
     }
     
     /**
-     * Construye la consulta SQL
+     * Builds the SQL query
      * 
      * @return array [sql, params]
      */
     public function build(): array
     {
         if (empty($this->where) && !$this->force) {
-            throw new \RuntimeException("PELIGRO: DELETE masivo sin WHERE.");
+            throw new \RuntimeException("DANGER: Mass DELETE without WHERE.");
         }
         
         $whereData = $this->buildWhereClause();
@@ -66,7 +66,7 @@ class DeleteBuilder
     }
     
     /**
-     * Obtiene el nombre de la tabla
+     * Gets the table name
      */
     public function getTable(): string
     {
@@ -74,7 +74,7 @@ class DeleteBuilder
     }
     
     /**
-     * Reset del builder
+     * Reset the builder
      */
     public function reset(): self
     {
