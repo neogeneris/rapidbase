@@ -760,7 +760,7 @@ class SQL
         if (count($table) === 0) {
             return ["", $tablesInfo];
         }
-        if (count($table) === 1 && is_string($table[0])) {
+        if (count($table) === 1 && isset($table[0]) && is_string($table[0])) {
             $tablesInfo[] = ['real' => $table[0], 'alias' => $table[0]];
             return ["FROM " . self::quote($table[0]), $tablesInfo];
         }
@@ -809,12 +809,14 @@ class SQL
         $realNames = [];
         $aliases = [];
         foreach ($table as $t) {
-            if (preg_match('/^\s*(\S+)\s+as\s+(\S+)\s*$/i', $t, $matches)) {
+            // Parche: asegurar que $t sea string para preg_match
+            $tStr = is_string($t) ? $t : (string)$t;
+            if (preg_match('/^\s*(\S+)\s+as\s+(\S+)\s*$/i', $tStr, $matches)) {
                 $real = $matches[1];
                 $alias = $matches[2];
             } else {
-                $real = $t;
-                $alias = $t;
+                $real = $tStr;
+                $alias = $tStr;
             }
             $realNames[] = $real;
             $aliases[$real] = $alias;
@@ -1591,7 +1593,7 @@ class SQL
             $parts = ['SELECT', 'COUNT(*)'];
             $from = self::buildFromWithMap($table);
             if ($from)
-                $parts[] = $from;
+                $parts[] = $from[0]; // buildFromWithMap retorna [sql, tablesInfo]
             $whereData = self::buildWhere($where);
             $parts[] = 'WHERE';
             $parts[] = $whereData['sql'];

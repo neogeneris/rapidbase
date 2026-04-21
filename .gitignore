@@ -1,37 +1,9 @@
 ```
-# Test temporary files
+# Logs and temp files
+*.log
+tmp/
 tests/tmp/
 
-# Environment files
-.env
-.env.local
-.env.*
-
-# Logs
+# Original rules preserved
 *.log
-
-# IDE files
-.vscode/
-.idea/
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Build artifacts
-dist/
-build/
-*.so
-*.egg-info/
-
-# Coverage reports
-.coverage
-htmlcov/
-coverage/
-
-# System files
-.DS_Store
-Thumbs.db
 ```
