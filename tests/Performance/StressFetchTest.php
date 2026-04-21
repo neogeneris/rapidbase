@@ -15,11 +15,15 @@ include_once "$basePath/SQL.php";
 include_once "$basePath/Conn.php";
 include_once "$basePath/Executor.php";
 include_once "$basePath/Gateway.php";
-include_once "$basePath/SelectBuilder.php";
+include_once "$basePath/SQL/Builders/SelectBuilder.php";
+include_once "$basePath/SQL/Builders/Field.php";
+include_once "$basePath/SQL/Builders/Table.php";
+include_once "$basePath/SQL/Builders/Join.php";
+include_once "$basePath/SQL/Builders/WhereTrait.php";
 
 use RapidBase\Core\Conn;
 use RapidBase\Core\SQL;
-use RapidBase\Core\SelectBuilder;
+use RapidBase\Core\SQL\Builders\SelectBuilder;
 
 // Configuración
 Conn::setup("sqlite::memory:", "", ""); 
@@ -147,7 +151,8 @@ echo "--- Escenario 3: Construcción de SQL ---\n";
 SQL::setQueryCacheEnabled(false);
 
 $fields = ['p.id', 'p.name', 'p.price', 'c.name as category_name'];
-$table = ['products' => 'p', 'categories' => 'c'];
+// Format: [base_table, joined_table1, joined_table2...] with aliases defined inline
+$table = ['products p', 'categories c'];
 $where = ['p.stock' => ['>' => 0], 'p.price' => ['>' => 50]];
 $sort = ['p.price' => 'DESC'];
 $page = 1;
@@ -173,11 +178,11 @@ $builder = new SelectBuilder();
 $start = microtime(true);
 for ($i = 0; $i < $iterations; $i++) {
     $builder->reset();
-    $builder->setSelect('*');
-    $builder->setFrom('products');
-    $builder->setWhere($where);
-    $builder->setOrderBy($sort);
-    $builder->setPagination($page, $perPage);
+    $builder->select = '*';
+    $builder->from = 'products';
+    $builder->where = $where;
+    $builder->orderBy = $sort;
+    $builder->pagination = [$page, $perPage];
     [$sql, $params] = $builder->build();
 }
 $timeObjectReuse = (microtime(true) - $start) / $iterations;
