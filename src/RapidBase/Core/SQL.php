@@ -643,46 +643,22 @@ class SQL
 
     private static function buildJoinCondition(string $parentTabla, string $parentAlias, string $childTabla, string $childAlias, array $relation): string
     {
-        // Explicit type takes precedence
-        if (isset($relation['type'])) {
-            $type = $relation['type'];
-        } else {
-            // Infer type from relationship direction:
-            // If relation is defined from parent to child in relMap['from'], it's hasMany/hasOne
-            // Otherwise (defined from child to parent), it's belongsTo
-            $type = isset(self::$relMap['from'][$parentTabla][$childTabla]) ? 'hasOne' : 'belongsTo';
-        }
-        
         $localKey = $relation['local_key'] ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
         
         // Check if this relationship came from the 'to' map (inverse direction)
         $fromToMap = isset($relation['_direction']) && $relation['_direction'] === 'to';
-
-        // For hasMany/hasOne: parent.local_key = child.foreign_key
-        // For belongsTo: child.local_key = parent.foreign_key
-        // When coming from 'to' map, the semantics are reversed
-        if ($type === 'hasMany' || $type === 'hasOne') {
-            if ($fromToMap) {
-                // Inverse: child.local_key = parent.foreign_key
-                return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
-            } else {
-                // Normal: parent.local_key = child.foreign_key
-                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
-            }
+        
+        if ($fromToMap) {
+            // Relationship from 'to' map (belongsTo): child.local_key = parent.foreign_key
+            // Example: posts.user_id = users.id
+            return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
+                . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
         } else {
-            // belongsTo
-            if ($fromToMap) {
-                // Inverse: parent.local_key = child.foreign_key
-                return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
-            } else {
-                // Normal: child.local_key = parent.foreign_key
-                return "ON " . self::quote($childAlias) . "." . self::quote($localKey)
-                    . " = " . self::quote($parentAlias) . "." . self::quote($foreignKey);
-            }
+            // Relationship from 'from' map (hasMany/hasOne): parent.local_key = child.foreign_key
+            // Example: users.id = posts.user_id
+            return "ON " . self::quote($parentAlias) . "." . self::quote($localKey)
+                . " = " . self::quote($childAlias) . "." . self::quote($foreignKey);
         }
     }
 
