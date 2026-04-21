@@ -615,30 +615,39 @@ class SQL
 
 
     /**
-     * Construye la condición ON para un JOIN entre dos tablas, usando el mapa de relaciones.
+     * Builds the ON condition for a JOIN between two tables using the relationship map.
      *
-     * La función determina automáticamente la dirección correcta de la relación:
-     * - Si la relación está definida en 'from' desde la tabla padre hacia la hija,
-     *   se usa `padre.local_key = hijo.foreign_key`.
-     * - Si está definida en sentido inverso (desde la hija hacia la padre),
-     *   se usa `hijo.local_key = padre.foreign_key`.
+     * The function automatically determines the correct direction of the relationship:
+     * - If the relationship is defined from parent to child in relMap['from'],
+     *   it uses `parent.local_key = child.foreign_key` (hasMany/hasOne semantics).
+     * - If the relationship is defined in the reverse direction (child to parent),
+     *   it uses `child.local_key = parent.foreign_key` (belongsTo semantics).
      *
-     * También distingue entre tipos de relación ('belongsTo' vs 'hasMany/hasOne')
-     * para ajustar la semántica.
+     * It also distinguishes between relationship types ('belongsTo' vs 'hasMany/hasOne')
+     * to adjust the semantics accordingly.
      *
-     * @param string $parentTabla Nombre real de la tabla padre.
-     * @param string $parentAlias Alias de la tabla padre en la consulta.
-     * @param string $childTabla  Nombre real de la tabla hija.
-     * @param string $childAlias  Alias de la tabla hija.
-     * @param array $relation     Array con la definición de la relación (debe contener
+     * @param string $parentTabla Real name of the parent table.
+     * @param string $parentAlias Alias of the parent table in the query.
+     * @param string $childTabla  Real name of the child table.
+     * @param string $childAlias  Alias of the child table.
+     * @param array $relation     Array with relationship definition (must contain
      *                            'type', 'local_key', 'foreign_key').
-     * @return string Cláusula ON (incluye la palabra "ON" y la condición).
+     * @return string ON clause (includes "ON" keyword and condition).
      */
 
 
     private static function buildJoinCondition(string $parentTabla, string $parentAlias, string $childTabla, string $childAlias, array $relation): string
     {
-        $type = $relation['type'] ?? 'belongsTo';
+        // Explicit type takes precedence
+        if (isset($relation['type'])) {
+            $type = $relation['type'];
+        } else {
+            // Infer type from relationship direction:
+            // If relation is defined from parent to child in relMap['from'], it's hasMany/hasOne
+            // Otherwise (defined from child to parent), it's belongsTo
+            $type = isset(self::$relMap['from'][$parentTabla][$childTabla]) ? 'hasOne' : 'belongsTo';
+        }
+        
         $localKey = $relation['local_key'] ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
 
