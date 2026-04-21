@@ -145,10 +145,21 @@ $relationsMap = [
                 'local_key' => 'user_id',
                 'foreign_key' => 'id'
             ]
-        ]
         ],
-        'tags' => [
-    ]];
+        'post_tag' => [
+            'posts' => [
+                'type' => 'belongsTo',
+                'local_key' => 'post_id',
+                'foreign_key' => 'id'
+            ],
+            'tags' => [
+                'type' => 'belongsTo',
+                'local_key' => 'tag_id',
+                'foreign_key' => 'id'
+            ]
+        ]
+    ]
+];
 
 DB::setRelationsMap($relationsMap);
 
