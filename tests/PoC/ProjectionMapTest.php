@@ -6,23 +6,14 @@
  * incluso con SELECT * en JOINs complejos, usando un mapa de proyección.
  */
 
-require_once __DIR__ . '/../../vendor/autoload.php';
-
-use RapidBase\DB;
-use RapidBase\Executor;
-use PDO;
+// Configuración directa con PDO (sin depender de DB)
+$pdo = new PDO('sqlite::memory:', null, null, [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+]);
 
 echo "==================================================\n";
 echo "PoC: Mapa de Proyección Dinámico (FETCH_NUM)\n";
 echo "==================================================\n\n";
-
-// Configuración inicial
-DB::setup([
-    'driver' => 'sqlite',
-    'database' => ':memory:'
-]);
-
-$pdo = DB::getInstance();
 
 // Crear tablas de prueba
 echo "Creando esquema de prueba...\n";
