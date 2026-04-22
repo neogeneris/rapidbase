@@ -1,0 +1,16 @@
+{"event":"db.success","type":"insert","table":"test_log","duration":0.014066696166992188,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p0)","timestamp":1776826129.708824}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.014066696166992188,"timestamp":1776826129.708904}
+{"event":"db.success","type":"insert","table":"test_log","duration":0.015020370483398438,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p1)","timestamp":1776826129.708945}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.015020370483398438,"timestamp":1776826129.708957}
+{"event":"db.success","type":"update","table":"test_log","duration":0.017881393432617188,"sql":"UPDATE \"test_log\" SET \"nombre\" = :p2 WHERE \"id\" = :p3","timestamp":1776826129.708998}
+{"event":"db.log","type":"update","table":"test_log","success":true,"duration":0.017881393432617188,"timestamp":1776826129.709009}
+{"event":"db.success","type":"delete","table":"test_log","duration":0.013113021850585938,"sql":"DELETE FROM \"test_log\" WHERE \"id\" = :p4","timestamp":1776826129.709041}
+{"event":"db.log","type":"delete","table":"test_log","success":true,"duration":0.013113021850585938,"timestamp":1776826129.709051}
+{"event":"db.error","type":"select","table":"test_log","error":"Error de Escritura (Action): SQLSTATE[HY000]: General error: 1 no such table: 1 | SQL: SELECT test_log FROM \"1\" LIMIT 10 OFFSET 0","sql":"SELECT test_log FROM \"1\" LIMIT 10 OFFSET 0","timestamp":1776826129.709102}
+{"event":"db.log","type":"select","table":"test_log","success":false,"duration":0.017881393432617188,"timestamp":1776826129.709114}
+{"event":"db.success","type":"count","table":"leads","duration":0.025033950805664062,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE 1","timestamp":1776826129.709442}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.025033950805664062,"timestamp":1776826129.709479}
+{"event":"db.success","type":"count","table":"leads","duration":0.03218650817871094,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE \"status\" = :p0","timestamp":1776826129.709537}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.03218650817871094,"timestamp":1776826129.709552}
+{"event":"db.success","type":"count","table":"leads","duration":0.023126602172851562,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE \"status\" = :p0","timestamp":1776826129.709592}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.023126602172851562,"timestamp":1776826129.709603}

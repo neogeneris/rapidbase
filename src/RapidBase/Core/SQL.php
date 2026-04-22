@@ -460,6 +460,22 @@ class SQL
             self::$queryCacheMisses++;
         }
         
+        // Cuando el cache está deshabilitado o hay telemetría activa,
+        // generamos igual la cacheKey para poder guardar después si corresponde
+        if ($cacheKey === null && self::$queryCacheEnabled) {
+            $tableStr = is_array($table) ? implode(',', self::flattenTables($table)) : (string)$table;
+            $fieldsStr = is_array($fields)
+                ? (is_string(key($fields)) ? implode(',', array_keys($fields)) : implode(',', $fields))
+                : (string)$fields;
+            $structureKey = $fieldsStr . '|' . $tableStr . '|'
+                . self::getWhereKeysString($where) . '|'
+                . implode(',', $groupBy) . '|'
+                . self::getWhereKeysString($having) . '|'
+                . implode(',', array_keys($sort)) . '|'
+                . ($page > 0 ? '1' : '0') . '|' . $perPage;
+            $cacheKey = 'select_' . crc32($structureKey);
+        }
+        
         // Build FROM clause with JOINs and projection map
         $fromResult = self::buildFromWithMap($table);
         $fromClause = $fromResult[0];
