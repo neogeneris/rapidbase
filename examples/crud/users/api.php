@@ -23,19 +23,11 @@ try {
             $sort = isset($_GET['sort']) ? $_GET['sort'] : [];
             $where = isset($_GET['where']) ? $_GET['where'] : [];
             
-            // Use DB::grid() for efficient paginated listing
+            // Use DB::grid() for efficient paginated listing with FETCH_NUM
             $result = DB::grid('users', $where, $sort, $page, $perPage);
             
-            echo json_encode([
-                'success' => true,
-                'data' => $result->data, // Returns array of arrays
-                'meta' => [
-                    'total' => $result->total,
-                    'count' => $result->count,
-                    'page' => $result->state['page'] ?? 1,
-                    'per_page' => $result->state['per_page'] ?? $perPage
-                ]
-            ]);
+            // Convertir a formato RapidPack para máxima eficiencia
+            echo json_encode($result->toRapidPack());
             break;
             
         case 'get':

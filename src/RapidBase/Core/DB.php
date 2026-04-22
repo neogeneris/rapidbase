@@ -366,6 +366,7 @@ class DB implements DBInterface {
 
     /**
      * Motor para DHTMLX que retorna un objeto QueryResponse con datos y total.
+     * Usa FETCH_NUM por defecto para máximo rendimiento.
      * @param string|array $table
      * @param array $where
      * @param array $sort
@@ -374,11 +375,38 @@ class DB implements DBInterface {
      * @return QueryResponse
      */
     public static function grid(string|array $table, array $where = [], array $sort = [], int $page = 1, int $perPage = 50): QueryResponse {
-        $res = Gateway::selectCached('*', $table, $where,[],[], $sort, $page, $perPage, true);
+        $res = Gateway::selectCached('*', $table, $where,[],[], $sort, $page, $perPage, true, true);
+        
+        // Extraer columnas planas del projectionMap para RapidPack
+        $projectionMap = $res['projectionMap'] ?? [];
+        $flatColumns = [];
+        if (!empty($projectionMap) && isset($res['data'][0])) {
+            // Para FETCH_NUM, el projectionMap tiene la estructura [tabla => [columna => indice]]
+            // Creamos un array plano con todos los índices
+            foreach ($projectionMap as $tableKey => $columns) {
+                if (is_array($columns)) {
+                    foreach ($columns as $colName => $index) {
+                        $flatColumns[$index] = $tableKey . '.' . $colName;
+                    }
+                } else {
+                    // Caso de columnas simples sin tabla
+                    $flatColumns[$columns] = $colName ?? $tableKey;
+                }
+            }
+            ksort($flatColumns);
+            $flatColumns = array_values($flatColumns);
+        }
+        
         return new QueryResponse(
             data: $res['data'],
             total: $res['total'],
             count: count($res['data']),
+            metadata: [
+                'flat_columns' => $flatColumns,
+                'projection_map' => $projectionMap,
+                'execution_time' => $res['metadata']['execution_time'] ?? 0,
+                'sort_status' => $res['metadata']['sort_status'] ?? null
+            ],
             state: [
                 'page'     => $res['page'], 
                 'per_page' => $res['limit'], 
