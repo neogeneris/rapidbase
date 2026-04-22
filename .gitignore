@@ -1,48 +1,10 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
-
 # Dependencies
-.venv/
-venv/
-node_modules/
 vendor/
-composer.lock
 
-# Logs and temp files
+# Cache and temporary files
+.phpunit.result.cache
+
+# Logs
 *.log
-*.tmp
-*.swp
-*.swo
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS specific
-.DS_Store
-Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# PHP specific
-*.phar
-vendor/
-composer.lock
 ```

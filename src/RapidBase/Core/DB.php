@@ -384,13 +384,15 @@ class DB implements DBInterface {
      * @return QueryResponse
      */
     public static function grid(string|array $table, array $where = [], array $sort = [], int $page = 1, int $perPage = 50): QueryResponse {
-        $res = Gateway::selectCached('*', $table, $where,[],[], $sort, $page, $perPage, true, true);
+        // CRÍTICO: useFetchNum = true para obtener arrays numéricos (FETCH_NUM)
+        // Firma: selectCached(fields, table, where, groupBy, having, sort, page, perPage, withTotal, ttl, useFetchNum)
+        $res = Gateway::selectCached('*', $table, $where, [], [], $sort, $page, $perPage, true, 3600, true);
         
         // Obtener nombre de la tabla (si es array, tomar la primera)
         $tableName = is_array($table) ? key($table) : $table;
         
-        // Extraer metadata desde SchemaMap
-        $schemaMeta = SchemaMap::getTable($tableName);
+        // Extraer metadata desde SchemaMap (usando connectionId 'main' por defecto)
+        $schemaMeta = SchemaMap::getTable($tableName, 'main');
         $columns = $schemaMeta['columns'] ?? [];
         
         // Construir arrays de columnas y títulos
@@ -419,6 +421,13 @@ class DB implements DBInterface {
                 ksort($columnTitles);
                 $columnNames = array_values($columnNames);
                 $columnTitles = array_values($columnTitles);
+            } elseif (!empty($res['data'])) {
+                // Último fallback: usar las claves del primer resultado (aunque debería ser FETCH_NUM)
+                $firstRow = $res['data'][0];
+                if (is_array($firstRow)) {
+                    $columnNames = array_keys($firstRow);
+                    $columnTitles = array_map([self::class, 'formatTitle'], $columnNames);
+                }
             }
         }
         
