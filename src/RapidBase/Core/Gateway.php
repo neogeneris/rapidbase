@@ -125,13 +125,14 @@ class Gateway {
         int $page       = 1, 
         int $perPage    = 10,
         bool $withTotal = false,
-        int $ttl        = 3600
+        int $ttl        = 3600,
+        bool $useFetchNum = false
     ): array {
         
         $tableName = is_array($table) ? implode('_', $table) : (string)$table;
         
         // CRÍTICO: Incluir $groupBy en el hash para evitar colisiones de caché
-        $queryHash = md5(json_encode([$fields, $where, $groupBy,$having, $sort, $page, $perPage, $withTotal]));
+        $queryHash = md5(json_encode([$fields, $where, $groupBy,$having, $sort, $page, $perPage, $withTotal, $useFetchNum]));
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         // Intentar recuperar de caché
@@ -145,8 +146,7 @@ class Gateway {
         }
 
         // Si no está en caché, llamamos a select() pasando el nuevo parámetro
-        // Nota: Asegúrate de que tu método self::select() también haya sido actualizado para recibir $groupBy
-        $result = self::select($fields, $table, $where, $groupBy,$having, $sort, $page, $perPage, $withTotal);
+        $result = self::select($fields, $table, $where, $groupBy,$having, $sort, $page, $perPage, $withTotal, $useFetchNum);
         
         // Guardar en caché
         if ($result && !empty($result['data']) && (self::$hasCacheService ?? true)) {
