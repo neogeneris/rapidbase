@@ -30,8 +30,11 @@ function assert_action($name, $assertion, $details = "") {
 }
 
 // 2. SETUP
-Conn::setup("sqlite::memory:", "", "", "main");
+$tempDb = tempnam(sys_get_temp_dir(), 'rapidbase_action_') . '.sqlite';
+Conn::setup("sqlite:$tempDb", "", "", "main");
 $pdo = Conn::get();
+$pdo->exec("PRAGMA busy_timeout = 5000");
+$pdo->exec("PRAGMA journal_mode = WAL");
 $pdo->exec("CREATE TABLE pilotos (
     id INTEGER PRIMARY KEY AUTOINCREMENT, 
     nombre TEXT, 
@@ -72,3 +75,10 @@ assert_action("Verificar existencia de piloto", Gateway::exists('pilotos', ['nom
 assert_action("Contar registros totales", Gateway::count('pilotos') === 1);
 
 echo "\n\033[32m[SUCCESS]\033[0m El Gateway y la Fundición SQL están perfectamente acoplados.\n";
+
+// Cleanup: eliminar archivo temporal
+if (isset($tempDb) && file_exists($tempDb)) {
+    @unlink($tempDb);
+    @unlink($tempDb . '-wal');
+    @unlink($tempDb . '-shm');
+}

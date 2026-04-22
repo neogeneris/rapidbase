@@ -30,8 +30,13 @@ function assert_select($name, $assertion, $details = "") {
 }
 
 // --- SETUP ---
-Conn::setup("sqlite::memory:", "", "", "main");
+// Usamos un archivo temporal único para evitar locks entre tests
+$tempDb = tempnam(sys_get_temp_dir(), 'rapidbase_test_') . '.sqlite';
+Conn::setup("sqlite:$tempDb", "", "", "main");
 $pdo = Conn::get();
+// Configuramos timeout para busy lock y modo WAL para mejor concurrencia
+$pdo->exec("PRAGMA busy_timeout = 5000");
+$pdo->exec("PRAGMA journal_mode = WAL");
 $pdo->exec("DROP TABLE IF EXISTS leads");
 $pdo->exec("CREATE TABLE leads (id INTEGER PRIMARY KEY, source TEXT, status TEXT)");
 
@@ -89,3 +94,11 @@ assert_select(
 );
 
 echo "\n\033[32m[SUCCESS]\033[0m Gateway::select maneja agrupamientos y filtros correctamente.\n";
+
+// Cleanup: eliminar archivo temporal
+if (isset($tempDb) && file_exists($tempDb)) {
+    @unlink($tempDb);
+    // También eliminar archivos WAL y SHM si existen
+    @unlink($tempDb . '-wal');
+    @unlink($tempDb . '-shm');
+}

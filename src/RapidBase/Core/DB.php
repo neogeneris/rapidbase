@@ -334,32 +334,35 @@ class DB implements DBInterface {
      * @param int $perPage
      * @return array
      */
+    /**
+     * Obtiene una lista plana o asociativa de registros.
+     * Si hay >=2 columnas, retorna [col1 => col2]. Si hay 1 columna, retorna [col1].
+     * @return array|false Retorna false si no hay datos, o el array transformado.
+     */
     public static function list(
-    //string|array $fields, 
-    string|array $table, 
-    array $where = [], 
-    array $sort = [], 
-    int $page = 1, 
-    int $perPage = 50
-): array {
-    // Nota: Asegúrate de que Gateway::selectCached acepte el parámetro de groupBy
-    $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page, $perPage);
-    
-    $data = $res['data'] ?? [];
-    if (empty($data)) return [];
+        string|array $table, 
+        array $where = [], 
+        array $sort = [], 
+        int $page = 1, 
+        int $perPage = 50
+    ): array {
+        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page, $perPage);
+        
+        $data = $res['data'] ?? [];
+        if (empty($data)) return [];
 
-    // Lógica de transformación automática a Pares (Llave => Valor)
-    $sample = $data[0];
-    $columns = array_keys($sample);
+        // Lógica de transformación automática a Pares (Llave => Valor)
+        $sample = $data[0];
+        $columns = array_keys($sample);
 
-    if (count($columns) >= 2) {
-        // La primera columna es la Llave, la segunda es el Valor
-        return array_column($data, $columns[1], $columns[0]);
+        if (count($columns) >= 2) {
+            // La primera columna es la Llave, la segunda es el Valor
+            return array_column($data, $columns[1], $columns[0]);
+        }
+
+        // Si solo hay una columna, devolvemos lista plana
+        return array_column($data, $columns[0]);
     }
-
-    // Si solo hay una columna, devolvemos lista plana
-    return array_column($data, $columns[0]);
-}
 
     /**
      * Motor para DHTMLX que retorna un objeto QueryResponse con datos y total.

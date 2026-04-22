@@ -30,8 +30,11 @@ function assert_exists($name, $assertion, $details = "") {
 }
 
 // 2. SETUP: SQLite en Memoria
-Conn::setup("sqlite::memory:", "", "", "main");
+$tempDb = tempnam(sys_get_temp_dir(), 'rapidbase_exists_') . '.sqlite';
+Conn::setup("sqlite:$tempDb", "", "", "main");
 $pdo = Conn::get();
+$pdo->exec("PRAGMA busy_timeout = 5000");
+$pdo->exec("PRAGMA journal_mode = WAL");
 
 // Crear tabla de prueba
 $pdo->exec("CREATE TABLE partners (
@@ -77,3 +80,11 @@ assert_exists(
 );
 
 // echo "\n\033[32m[SUCCESS]\033[0m Gateway::exists funciona correctamente con la infraestructura actual.\n";
+echo "\n\033[32m[SUCCESS]\033[0m Gateway::exists funciona correctamente con la infraestructura actual.\n";
+
+// Cleanup: eliminar archivo temporal
+if (isset($tempDb) && file_exists($tempDb)) {
+    @unlink($tempDb);
+    @unlink($tempDb . '-wal');
+    @unlink($tempDb . '-shm');
+}

@@ -30,8 +30,11 @@ function assert_count($name, $assertion, $details = "") {
 }
 
 // 2. SETUP: SQLite en Memoria
-Conn::setup("sqlite::memory:", "", "", "main");
+$tempDb = tempnam(sys_get_temp_dir(), 'rapidbase_count_') . '.sqlite';
+Conn::setup("sqlite:$tempDb", "", "", "main");
 $pdo = Conn::get();
+$pdo->exec("PRAGMA busy_timeout = 5000");
+$pdo->exec("PRAGMA journal_mode = WAL");
 
 // Crear tabla de prueba
 $pdo->exec("CREATE TABLE leads (
@@ -67,3 +70,10 @@ $hasParam = isset($status['params']['p0']) && $status['params']['p0'] === 'rejec
 assert_count("Integridad de parámetros en el despacho", $hasParam, "Los parámetros no llegaron correctamente al estado del Gateway");
 
 echo "\n\033[32m[SUCCESS]\033[0m Gateway::count está despachando y retornando valores correctamente.\n";
+
+// Cleanup: eliminar archivo temporal
+if (isset($tempDb) && file_exists($tempDb)) {
+    @unlink($tempDb);
+    @unlink($tempDb . '-wal');
+    @unlink($tempDb . '-shm');
+}
