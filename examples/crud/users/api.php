@@ -6,7 +6,7 @@
 
 require_once 'config.php';
 
-use Core\DB;
+use RapidBase\Core\DB;
 use Example\User;
 
 header('Content-Type: application/json');
@@ -18,18 +18,23 @@ try {
     switch ($action) {
         case 'list':
             // Handle DataTables server-side processing or simple grid
-            $page = isset($_GET['page']) ? (int)$_GET['page'] : 0;
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
             $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
             $sort = isset($_GET['sort']) ? $_GET['sort'] : [];
             $where = isset($_GET['where']) ? $_GET['where'] : [];
             
-            // Use DB::grid() for efficient paginated listing with FETCH_NUM
-            $result = DB::grid('users', $where, $page, $sort, $perPage);
+            // Use DB::grid() for efficient paginated listing
+            $result = DB::grid('users', $where, $sort, $page, $perPage);
             
             echo json_encode([
                 'success' => true,
-                'data' => $result->getData(), // Returns array of arrays (FETCH_NUM)
-                'meta' => $result->getPagination()
+                'data' => $result->data, // Returns array of arrays
+                'meta' => [
+                    'total' => $result->total,
+                    'count' => $result->count,
+                    'page' => $result->state['page'] ?? 1,
+                    'per_page' => $result->state['per_page'] ?? $perPage
+                ]
             ]);
             break;
             
@@ -39,14 +44,20 @@ try {
                 throw new Exception('ID required');
             }
             
-            $user = new User($id);
-            if (!$user->exists()) {
+            $user = User::read($id);
+            if (!$user) {
                 throw new Exception('User not found');
             }
             
             echo json_encode([
                 'success' => true,
-                'data' => $user->toArray()
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'created_at' => $user->created_at
+                ]
             ]);
             break;
             
@@ -56,15 +67,28 @@ try {
                 $data = $_POST;
             }
             
-            $user = new User();
-            $user->name = $data['name'] ?? '';
-            $user->email = $data['email'] ?? '';
-            $user->role = $data['role'] ?? 'user';
-            $user->save();
+            $userId = User::create([
+                'name' => $data['name'] ?? '',
+                'email' => $data['email'] ?? '',
+                'role' => $data['role'] ?? 'user',
+                'created_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            if (!$userId) {
+                throw new Exception('Failed to create user');
+            }
+            
+            $user = User::read($userId);
             
             echo json_encode([
                 'success' => true,
-                'data' => $user->toArray(),
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'created_at' => $user->created_at
+                ],
                 'message' => 'User created successfully'
             ]);
             break;
@@ -80,8 +104,8 @@ try {
                 $data = $_POST;
             }
             
-            $user = new User($id);
-            if (!$user->exists()) {
+            $user = User::read($id);
+            if (!$user) {
                 throw new Exception('User not found');
             }
             
@@ -89,11 +113,19 @@ try {
             if (isset($data['email'])) $user->email = $data['email'];
             if (isset($data['role'])) $user->role = $data['role'];
             
-            $user->save();
+            if (!$user->save()) {
+                throw new Exception('Failed to update user');
+            }
             
             echo json_encode([
                 'success' => true,
-                'data' => $user->toArray(),
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'created_at' => $user->created_at
+                ],
                 'message' => 'User updated successfully'
             ]);
             break;
@@ -104,12 +136,14 @@ try {
                 throw new Exception('ID required');
             }
             
-            $user = new User($id);
-            if (!$user->exists()) {
+            $user = User::read($id);
+            if (!$user) {
                 throw new Exception('User not found');
             }
             
-            $user->delete();
+            if (!User::delete($id)) {
+                throw new Exception('Failed to delete user');
+            }
             
             echo json_encode([
                 'success' => true,
