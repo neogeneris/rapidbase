@@ -1,8 +1,3 @@
-```
-# Logs and temp files
-*.log
-tmp/
-```
 # ==================================================
 # RapidBase - Core Exclusions
 # ==================================================
@@ -26,6 +21,31 @@ tests/tmp/
 *.log
 telemetry.json
 
+=======
+# ==================================================
+# RapidBase - Core Exclusions
+# ==================================================
+
+# Database files (SQLite)
+# Excluimos cualquier base de datos local de pruebas
+*.sqlite
+*.sqlite3
+*.db
+
+# ==================================================
+# RAPIDBASE CACHE (CRÕTICO)
+# ==================================================
+# Ignoramos la cachÈ L2 persistente de SQL y Gateway
+tmp/
+tests/tmp/
+/tmp/sql_cache/
+/tmp/gateway_cache/
+
+# Logs de la aplicaciÛn y del motor
+*.log
+telemetry.json
+
+>>>>>>> 435ec3e (chore: unificar .gitignore y asegurar exclusi√Æn de cach√© L2)
 # ==================================================
 # Environment & Security
 # ==================================================
