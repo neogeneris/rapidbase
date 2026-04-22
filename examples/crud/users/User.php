@@ -6,11 +6,12 @@
 
 namespace Example;
 
-use Core\ActiveRecord;
+use RapidBase\ORM\ActiveRecord\Model;
 
-class User extends ActiveRecord
+class User extends Model
 {
-    protected string $table = 'users';
+    protected static string $table = 'users';
+    protected static string $primaryKey = 'id';
     
     // Optional: Define fillable fields for mass assignment
     protected array $fillable = ['name', 'email', 'role', 'created_at'];

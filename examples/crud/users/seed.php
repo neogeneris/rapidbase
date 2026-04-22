@@ -6,13 +6,13 @@
 
 require_once 'config.php';
 
-use Core\DB;
+use RapidBase\Core\DB;
 
 echo "🌱 Seeding database...\n\n";
 
 try {
     // Create users table
-    DB::execute("
+    DB::exec("
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -24,7 +24,7 @@ try {
     echo "✅ Table 'users' created successfully\n";
 
     // Check if already has data
-    $count = DB::querySingle("SELECT COUNT(*) FROM users");
+    $count = DB::value("SELECT COUNT(*) FROM users");
     if ($count > 0) {
         echo "ℹ️  Table already has $count records. Skipping seed.\n";
         exit(0);
@@ -104,11 +104,11 @@ try {
     echo "✅ Inserted $inserted sample users\n\n";
     
     // Show summary
-    $total = DB::querySingle("SELECT COUNT(*) FROM users");
+    $total = DB::value("SELECT COUNT(*) FROM users");
     echo "📊 Database Summary:\n";
     echo "   Total users: $total\n";
     
-    $roles = DB::queryAll("SELECT role, COUNT(*) as count FROM users GROUP BY role");
+    $roles = DB::many("SELECT role, COUNT(*) as count FROM users GROUP BY role");
     echo "   Roles:\n";
     foreach ($roles as $role) {
         echo "      - {$role['role']}: {$role['count']}\n";
