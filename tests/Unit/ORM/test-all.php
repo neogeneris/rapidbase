@@ -7,7 +7,7 @@ require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Model.php';
+require_once __DIR__ . '/../../../src/RapidBase/ORM/ActiveRecord/Model.php';
 
 use RapidBase\Core\DB;
 

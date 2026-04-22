@@ -1,84 +1,74 @@
-# ==================================================
-# RapidBase - Core Exclusions
-# ==================================================
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
-# Database files (SQLite)
-# Excluimos cualquier base de datos local de pruebas
-*.sqlite
-*.sqlite3
-*.db
-
-# ==================================================
-# RAPIDBASE CACHE (CR√çTICO)
-# ==================================================
-# Ignoramos la cach√© L2 persistente de SQL y Gateway
-tmp/
-tests/tmp/
-/tmp/sql_cache/
-/tmp/gateway_cache/
-
-# Logs de la aplicaci√≥n y del motor
-*.log
-telemetry.json
-
-=======
-# ==================================================
-# RapidBase - Core Exclusions
-# ==================================================
-
-# Database files (SQLite)
-# Excluimos cualquier base de datos local de pruebas
-*.sqlite
-*.sqlite3
-*.db
-
-# ==================================================
-# RAPIDBASE CACHE (CRÕTICO)
-# ==================================================
-# Ignoramos la cachÈ L2 persistente de SQL y Gateway
-tmp/
-tests/tmp/
-/tmp/sql_cache/
-/tmp/gateway_cache/
-
-# Logs de la aplicaciÛn y del motor
-*.log
-telemetry.json
-
->>>>>>> 435ec3e (chore: unificar .gitignore y asegurar exclusi√Æn de cach√© L2)
-# ==================================================
-# Environment & Security
-# ==================================================
+# Dependencies
+node_modules/
+venv/
+.venv/
 .env
 .env.local
-.env.testing
 .env.*
-!.env.example
 
-# ==================================================
-# Dependencies & Build
-# ==================================================
-# PHP (Composer)
-/vendor/
-composer.lock
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
 
-# Frontend (si aplica a tu dashboard)
-node_modules/
-npm-debug.log
-dist/
-
-# ==================================================
-# IDEs & System
-# ==================================================
+# Editors
 .vscode/
 .idea/
+
+# OS generated files
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# ==================================================
-# Testing & Coverage
-# ==================================================
-.phpunit.result.cache
-/coverage/
-.php-cs-fixer.cache
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Build directories
+dist/
+build/
+target/
+.gradle/
+
+# Python specific
+.mypy_cache/
+.pytest_cache/
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
