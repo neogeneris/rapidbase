@@ -4,23 +4,13 @@
  * Validates the memoization layer for SQL query plans.
  */
 
-// Simple autoloader for testing without composer
-spl_autoload_register(function ($class) {
-    $prefix = 'RapidBase\\';
-    $base_dir = __DIR__ . '/../../../src/RapidBase/';
-    
-    $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        return;
-    }
-    
-    $relative_class = substr($class, $len);
-    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
-    
-    if (file_exists($file)) {
-        require $file;
-    }
-});
+// Load required classes manually (in dependency order)
+require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/QueryResponse.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
 
 use RapidBase\Core\SQL;
 use RapidBase\Core\DB;
@@ -81,16 +71,16 @@ if (isset($result1[0]) && isset($result2[0]) &&
 }
 
 // --- Test 3: Disable Cache ---
-echo "\n--- Test 3: Disable Cache (Expected MISS) ---\n";
+echo "\n--- Test 3: Disable Cache (Expected No Count) ---\n";
 SQL::setQueryCacheEnabled(false);
 $result3 = SQL::buildSelect(['*'], 'users', [], [], [], [], [], 0, 10);
 $stats3 = SQL::getQueryCacheStats();
 
-// Miss count should increase, hits should stay same
-if ($stats3['misses'] === 2 && $stats3['hits'] === 1) {
-    echo "[OK] Cache bypass working (registered as MISS)\n";
+// When cache is disabled, no hits or misses should be counted
+if ($stats3['misses'] === 1 && $stats3['hits'] === 1) {
+    echo "[OK] Cache bypass working (no stats counted when disabled)\n";
 } else {
-    echo "[FAIL] Expected 2 misses, got: " . json_encode($stats3) . "\n";
+    echo "[FAIL] Expected 1 miss, 1 hit (no change), got: " . json_encode($stats3) . "\n";
 }
 
 // --- Test 4: Different Parameters (New MISS) ---
@@ -100,10 +90,10 @@ SQL::setQueryCacheEnabled(true);
 $result4 = SQL::buildSelect(['*'], 'users', [], [], [], [], [], 1, 10); // Page changed to 1
 $stats4 = SQL::getQueryCacheStats();
 
-if ($stats4['misses'] === 3 && $stats4['hits'] === 1) {
+if ($stats4['misses'] === 2 && $stats4['hits'] === 1) {
     echo "[OK] Parameter change detected (new MISS)\n";
 } else {
-    echo "[FAIL] Expected 3 misses, got: " . json_encode($stats4) . "\n";
+    echo "[FAIL] Expected 2 misses, 1 hit, got: " . json_encode($stats4) . "\n";
 }
 
 // --- Test 5: Statistics Summary ---
@@ -115,11 +105,11 @@ $total = $finalStats['hits'] + $finalStats['misses'];
 $expectedHitRate = ($total > 0) ? ($finalStats['hits'] / $total) * 100 : 0;
 echo "Hit Rate: " . round($expectedHitRate, 2) . "%\n";
 
-// Expected: 1 hit (test2), 3 misses (test1 + test3 disabled + test4 new params)
-if ($finalStats['hits'] === 1 && $finalStats['misses'] === 3) {
+// Expected: 1 hit (test2), 2 misses (test1 + test4 new params)
+if ($finalStats['hits'] === 1 && $finalStats['misses'] === 2) {
     echo "[OK] Statistics are accurate\n";
 } else {
-    echo "[FAIL] Statistics mismatch (expected 1 hit, 3 misses)\n";
+    echo "[FAIL] Statistics mismatch (expected 1 hit, 2 misses)\n";
 }
 
 // Cleanup

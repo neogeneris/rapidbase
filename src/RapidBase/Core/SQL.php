@@ -456,11 +456,8 @@ class SQL
                 // Return SQL, params AND projection map from cache
                 return [$cachedData['sql'], $params, $cachedData['map']];
             }
-            // Only count as miss if we're going to build the query (not on cache hit)
+            // Cache miss - count it
             self::$queryCacheMisses++;
-        } else {
-            // When cache is disabled, don't count as miss for statistics
-            // This ensures only actual cache lookups are counted
         }
         
         // Build FROM clause with JOINs and projection map

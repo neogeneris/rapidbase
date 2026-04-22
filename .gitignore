@@ -1,10 +1,59 @@
-```
-# Database files
-*.sqlite
-*.db
-*.sqlite3
+# ==================================================
+# RapidBase - Core Exclusions
+# ==================================================
 
-# Temporary files
+# Database files (SQLite)
+# Excluimos cualquier base de datos local de pruebas
+*.sqlite
+*.sqlite3
+*.db
+
+# ==================================================
+# RAPIDBASE CACHE (CRÍTICO)
+# ==================================================
+# Ignoramos la caché L2 persistente de SQL y Gateway
 tmp/
 tests/tmp/
-```
+/tmp/sql_cache/
+/tmp/gateway_cache/
+
+# Logs de la aplicación y del motor
+*.log
+telemetry.json
+
+# ==================================================
+# Environment & Security
+# ==================================================
+.env
+.env.local
+.env.testing
+.env.*
+!.env.example
+
+# ==================================================
+# Dependencies & Build
+# ==================================================
+# PHP (Composer)
+/vendor/
+composer.lock
+
+# Frontend (si aplica a tu dashboard)
+node_modules/
+npm-debug.log
+dist/
+
+# ==================================================
+# IDEs & System
+# ==================================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==================================================
+# Testing & Coverage
+# ==================================================
+.phpunit.result.cache
+/coverage/
+.php-cs-fixer.cache
