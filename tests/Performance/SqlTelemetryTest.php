@@ -413,8 +413,29 @@ print_r(SQL::getTelemetryStats());
 
 echo "\n✅ Detailed telemetry test completed.\n";
 
-// Cleanup
-if (file_exists($dbPath)) {
-    unlink($dbPath);
+// Cleanup - Close PDO connection first to release file lock
+$pdo = null;
+
+// Give the OS a moment to release the file handle
+usleep(100000); // 100ms
+
+// Retry unlink if it fails
+$maxRetries = 3;
+$retryCount = 0;
+while ($retryCount < $maxRetries) {
+    try {
+        if (file_exists($dbPath)) {
+            @unlink($dbPath);
+            if (!file_exists($dbPath)) {
+                break;
+            }
+        }
+    } catch (\Exception $e) {
+        // Ignore errors on cleanup
+    }
+    $retryCount++;
+    usleep(50000); // 50ms between retries
 }
+
 array_map('unlink', glob("$cacheDir/*"));
+@rmdir($cacheDir);
