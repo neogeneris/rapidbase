@@ -14,15 +14,22 @@ class DiscoveryFactory
      * @param PDO $pdo Instancia de PDO conectada a la base de datos.
      * @return DiscoveryInterface
      */
-    public static function create(PDO $pdo): DiscoveryInterface
+    public static function create(PDO $pdo, ?string $schema = null): DiscoveryInterface
     {
         $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
 
         switch ($driverName) {
             case 'mysql':
                 return new MySQLDiscovery($pdo);
-            // case 'pgsql':
-            //     return new PostgreSQLDiscovery($pdo);
+            case 'pgsql':
+                return new PostgreSQLDiscovery($pdo, $schema ?? 'public');
+            case 'sqlsrv':
+                return new SqlServerDiscovery($pdo, $schema ?? 'dbo');
+            case 'oci':
+                if (!$schema) {
+                    throw new InvalidArgumentException("Oracle requiere especificar el schema");
+                }
+                return new OracleDiscovery($pdo, $schema);
             // case 'sqlite':
             //     return new SQLiteDiscovery($pdo);
             default:
