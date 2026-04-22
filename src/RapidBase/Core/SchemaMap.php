@@ -108,7 +108,28 @@ class SchemaMap
     public static function getColumns(string $tableName, ?string $connectionId = null): array
     {
         $table = self::getTable($tableName, $connectionId);
-        return $table['columns'] ?? [];
+        if ($table === null) {
+            return [];
+        }
+        
+        // El formato del schema_map puede ser:
+        // 1. Directo: ['id' => [...], 'name' => [...]] (las columnas están directamente en la tabla)
+        // 2. Con clave 'columns': ['columns' => ['id' => [...], 'name' => [...]]]
+        if (isset($table['columns']) && is_array($table['columns'])) {
+            return $table['columns'];
+        }
+        
+        // Si no hay clave 'columns', asumimos que las columnas están directamente en la tabla
+        // Filtramos claves especiales como 'primary_key', 'foreign_keys', etc.
+        $specialKeys = ['primary_key', 'foreign_keys', 'indexes', 'description'];
+        $columns = [];
+        foreach ($table as $key => $value) {
+            if (!in_array($key, $specialKeys) && is_array($value) && isset($value['type'])) {
+                $columns[$key] = $value;
+            }
+        }
+        
+        return $columns;
     }
 
     /**
