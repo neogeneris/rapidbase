@@ -83,7 +83,19 @@ class SchemaMap
         // Normalizar nombre de tabla (minúsculas usualmente)
         $tableName = strtolower($tableName);
         
-        return $map[$tableName] ?? null;
+        // El mapa puede tener dos formatos:
+        // 1. Formato directo: ['users' => [...], 'posts' => [...]]
+        // 2. Formato completo: ['checksum'=>..., 'tables'=>['users'=>[...]]]
+        if (isset($map[$tableName])) {
+            return $map[$tableName];
+        }
+        
+        // Intentar con formato completo
+        if (isset($map['tables'][$tableName])) {
+            return $map['tables'][$tableName];
+        }
+        
+        return null;
     }
 
     /**

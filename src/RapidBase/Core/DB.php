@@ -365,8 +365,17 @@ class DB implements DBInterface {
     }
 
     /**
-     * Motor para DHTMLX que retorna un objeto QueryResponse con datos y total.
+     * Motor para GRIDs que retorna un objeto QueryResponse optimizado.
      * Usa FETCH_NUM por defecto para máximo rendimiento.
+     * 
+     * Estructura de respuesta esperada:
+     * {
+     *   "head": { "columns": [...], "titles": [...] },
+     *   "data": [[...], [...]],
+     *   "page": { "current": 1, "total": 6, "limit": 10, "records": 51, ... },
+     *   "stats": { "exec_ms": 0.08, "cache": true, ... }
+     * }
+     * 
      * @param string|array $table
      * @param array $where
      * @param array $sort
@@ -377,42 +386,80 @@ class DB implements DBInterface {
     public static function grid(string|array $table, array $where = [], array $sort = [], int $page = 1, int $perPage = 50): QueryResponse {
         $res = Gateway::selectCached('*', $table, $where,[],[], $sort, $page, $perPage, true, true);
         
-        // Extraer columnas planas del projectionMap para RapidPack
-        $projectionMap = $res['projectionMap'] ?? [];
-        $flatColumns = [];
-        if (!empty($projectionMap) && isset($res['data'][0])) {
-            // Para FETCH_NUM, el projectionMap tiene la estructura [tabla => [columna => indice]]
-            // Creamos un array plano con todos los índices
-            foreach ($projectionMap as $tableKey => $columns) {
-                if (is_array($columns)) {
-                    foreach ($columns as $colName => $index) {
-                        $flatColumns[$index] = $tableKey . '.' . $colName;
-                    }
-                } else {
-                    // Caso de columnas simples sin tabla
-                    $flatColumns[$columns] = $colName ?? $tableKey;
-                }
+        // Obtener nombre de la tabla (si es array, tomar la primera)
+        $tableName = is_array($table) ? key($table) : $table;
+        
+        // Extraer metadata desde SchemaMap
+        $schemaMeta = SchemaMap::getTable($tableName);
+        $columns = $schemaMeta['columns'] ?? [];
+        
+        // Construir arrays de columnas y títulos
+        $columnNames = [];
+        $columnTitles = [];
+        
+        if (!empty($columns)) {
+            foreach ($columns as $colName => $colProps) {
+                $columnNames[] = $colName;
+                // Usar descripción si existe, sino usar el nombre formateado
+                $columnTitles[] = $colProps['description'] ?? self::formatTitle($colName);
             }
-            ksort($flatColumns);
-            $flatColumns = array_values($flatColumns);
+        } else {
+            // Fallback: intentar inferir desde projectionMap o data
+            $projectionMap = $res['projectionMap'] ?? [];
+            if (!empty($projectionMap) && isset($res['data'][0])) {
+                foreach ($projectionMap as $tblKey => $cols) {
+                    if (is_array($cols)) {
+                        foreach ($cols as $cName => $index) {
+                            $columnNames[$index] = $cName;
+                            $columnTitles[$index] = self::formatTitle($cName);
+                        }
+                    }
+                }
+                ksort($columnNames);
+                ksort($columnTitles);
+                $columnNames = array_values($columnNames);
+                $columnTitles = array_values($columnTitles);
+            }
         }
+        
+        // Calcular información de paginación
+        $lastPage = $perPage > 0 ? (int) ceil($res['total'] / $perPage) : 1;
         
         return new QueryResponse(
             data: $res['data'],
             total: $res['total'],
             count: count($res['data']),
             metadata: [
-                'flat_columns' => $flatColumns,
-                'projection_map' => $projectionMap,
+                'columns' => $columnNames,
+                'titles' => $columnTitles,
+                'projection_map' => $res['projectionMap'] ?? [],
                 'execution_time' => $res['metadata']['execution_time'] ?? 0,
-                'sort_status' => $res['metadata']['sort_status'] ?? null
+                'sort_status' => $res['metadata']['sort_status'] ?? null,
+                'cache_info' => [
+                    'used' => $res['source'] === 'cache',
+                    'type' => $res['source'] === 'cache' ? 'L2' : null,
+                ]
             ],
             state: [
                 'page'     => $res['page'], 
-                'per_page' => $res['limit'], 
+                'per_page' => $res['limit'],
+                'last_page' => $lastPage,
+                'offset'   => ($res['page'] - 1) * $res['limit'],
                 'source'   => $res['source']
             ]
         );
+    }
+    
+    /**
+     * Formatea un nombre de columna en un título legible.
+     * Ej: created_at -> Created At, user_id -> User ID
+     */
+    private static function formatTitle(string $name): string {
+        // Reemplazar underscores con espacios
+        $title = str_replace('_', ' ', $name);
+        // Capitalizar cada palabra
+        $title = ucwords($title);
+        return $title;
     }
 
     // ========== STREAMING (Telemetría de alto volumen) ==========

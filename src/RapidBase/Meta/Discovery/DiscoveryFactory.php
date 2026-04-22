@@ -30,8 +30,8 @@ class DiscoveryFactory
                     throw new InvalidArgumentException("Oracle requiere especificar el schema");
                 }
                 return new OracleDiscovery($pdo, $schema);
-            // case 'sqlite':
-            //     return new SQLiteDiscovery($pdo);
+            case 'sqlite':
+                return new SQLiteDiscovery($pdo);
             default:
                 throw new InvalidArgumentException("Discovery no disponible para el driver: $driverName");
         }
