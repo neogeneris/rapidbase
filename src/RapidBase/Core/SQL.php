@@ -578,9 +578,13 @@ class SQL
      */
     private static function getWhereKeysString(array $conditions): string
     {
+        // Asegurar orden consistente de las claves para generar la misma clave de caché
+        ksort($conditions);
         $keys = [];
         foreach ($conditions as $key => $value) {
             if (is_array($value)) {
+                // Ordenar también las claves internas (operadores)
+                ksort($value);
                 $keys[] = $key . '(' . implode(',', array_keys($value)) . ')';
             } else {
                 $keys[] = $key;
