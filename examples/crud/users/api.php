@@ -26,8 +26,8 @@ try {
             // Use DB::grid() for efficient paginated listing with FETCH_NUM
             $result = DB::grid('users', $where, $sort, $page, $perPage);
             
-            // Convertir a formato RapidPack para máxima eficiencia
-            echo json_encode($result->toRapidPack());
+            // Convertir a formato Grid moderno para máxima compatibilidad
+            echo json_encode($result->toGridFormat());
             break;
             
         case 'get':

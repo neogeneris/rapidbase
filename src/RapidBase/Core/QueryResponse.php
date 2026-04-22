@@ -75,9 +75,75 @@ class QueryResponse implements \JsonSerializable {
     }
 
     /**
+     * Exporta los datos en formato Grid moderno (compatible con grid.js y similares).
+     * 
+     * Estructura:
+     * {
+     *   "head": {
+     *     "columns": ["id", "name", "email"],
+     *     "titles": ["ID", "Name", "Email"]
+     *   },
+     *   "data": [[1, "John", "john@email.com"], ...],
+     *   "page": {
+     *     "current": 1,
+     *     "total": 6,
+     *     "limit": 10,
+     *     "records": 51,
+     *     "next": 2,
+     *     "prev": null,
+     *     "first": 1,
+     *     "last": 6
+     *   },
+     *   "stats": {
+     *     "exec_ms": 0.0868,
+     *     "cache": true,
+     *     "cache_type": "L2",
+     *     "memory_kb": 124.5,
+     *     "queries": 1
+     *   }
+     * }
+     */
+    public function toGridFormat(): array {
+        $pagination = $this->pagination();
+        $cacheInfo = $this->metadata['cache_info'] ?? [];
+        
+        return [
+            "head" => [
+                "columns" => $this->metadata['columns'] ?? [],
+                "titles"  => $this->metadata['titles'] ?? []
+            ],
+            "data" => $this->data,
+            "page" => [
+                "current" => $this->state['page'] ?? 1,
+                "total"   => $pagination['last'] ?? 1,
+                "limit"   => $this->state['per_page'] ?? 10,
+                "records" => (int)$this->total,
+                "next"    => $pagination['next'],
+                "prev"    => $pagination['prev'],
+                "first"   => 1,
+                "last"    => $pagination['last'] ?? 1
+            ],
+            "stats" => [
+                "exec_ms"    => (float)($this->metadata['execution_time'] ?? 0),
+                "cache"      => $cacheInfo['used'] ?? false,
+                "cache_type" => $cacheInfo['type'] ?? null,
+                "memory_kb"  => round(memory_get_peak_usage(true) / 1024, 2),
+                "queries"    => 1
+            ]
+        ];
+    }
+
+    /**
      * Exporta los datos como JSON en formato Rapid-Pack.
      */
     public function toJson(): string {
         return json_encode($this->toRapidPack(), JSON_NUMERIC_CHECK);
+    }
+
+    /**
+     * Exporta los datos como JSON en formato Grid moderno.
+     */
+    public function toJsonGrid(): string {
+        return json_encode($this->toGridFormat(), JSON_NUMERIC_CHECK);
     }
 }

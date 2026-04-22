@@ -1,69 +1,48 @@
 ```
-# Database files
-*.sqlite
-*.db
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+dist/
+build/
+target/
 
-# Environment files
+# Dependencies
+.venv/
+venv/
+node_modules/
+vendor/
+composer.lock
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# Logs
-*.log
-
-# Temporary files
-*.tmp
-
-# Editor/IDE files
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Dependencies
-node_modules/
-vendor/
+# OS specific
+.DS_Store
+Thumbs.db
 
-# Build artifacts
-dist/
-build/
-target/
-
-# Python specific
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-*.so
+# Coverage
+coverage/
+htmlcov/
 .coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git*
-!CHANGELOG.md
-!CONTRIBUTING.md
-!README.md
-!LICENSE
-!Makefile
 
 # PHP specific
 *.phar
-*.pid
-*.swp
-*.swo
-logs/
-*.log
-.svn/
-CVS/
-Thumbs.db
-.DS_Store
+vendor/
+composer.lock
 ```

@@ -22,3 +22,9 @@ define('DB_PATH', __DIR__ . '/database.sqlite');
 
 // Initialize database connection
 DB::setup('sqlite:' . DB_PATH, '', '', 'main');
+
+// Load schema map for metadata (columns, titles, relationships)
+$schemaMapFile = __DIR__ . '/schema_map_local.php';
+if (file_exists($schemaMapFile)) {
+    \RapidBase\Core\SchemaMap::loadFromFile($schemaMapFile, 'main');
+}

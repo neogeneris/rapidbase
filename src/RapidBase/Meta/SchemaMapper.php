@@ -32,6 +32,7 @@ class SchemaMapper
             $signature = match($driverName) {
                 'mysql' => MySQLDiscovery::getSchemaSignature($pdo, $databaseName),
                 'pgsql' => \RapidBase\Meta\Discovery\PostgreSQLDiscovery::getSchemaSignature($pdo, $databaseName),
+                'sqlite' => self::getSqliteSignature($pdo),
                 default => ''
             };
 
@@ -50,8 +51,8 @@ class SchemaMapper
                 $stmt = $pdo->query("SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = '$schemaUpper'");
                 $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
             } else {
-                $stmt = $pdo->query("SHOW TABLES FROM $databaseName");
-                $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                // Para SQLite y MySQL
+                $allTables = $discovery->getTables();
             }
 
             $tablesMetadata = [];
@@ -76,6 +77,16 @@ class SchemaMapper
             error_log("Error en SchemaMapper: " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Genera un checksum MD5 del esquema SQLite
+     */
+    private static function getSqliteSignature(PDO $pdo): string
+    {
+        $stmt = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+        $schemas = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        return md5(implode("\n", $schemas));
     }
 
     private static function buildMapContent(array $mapStructure): string
