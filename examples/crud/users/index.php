@@ -85,47 +85,6 @@
     const emailInput = document.getElementById('email');
     const roleSelect = document.getElementById('role');
 
-    // Construye la URL con los parámetros de paginación, orden y búsqueda
-    // Grid.js usa page (base 0), lo convertimos a offset para el backend
-    function buildApiUrl(page, limit, sort, search) {
-        // Valores por defecto si son undefined o inválidos
-        if (typeof page !== 'number' || isNaN(page)) page = 0;
-        if (typeof limit !== 'number' || isNaN(limit)) limit = 10;
-        
-        const offset = page * limit;
-        let url = `api.php?action=list&limit=${limit}&offset=${offset}`;
-        if (sort && sort.length > 0) {
-            const sortField = sort[0].column.name;
-            const sortOrder = sort[0].direction;
-            const colMap = { 'ID': 'id', 'Name': 'name', 'Email': 'email', 'Role': 'role', 'Created At': 'created_at' };
-            const apiSortField = colMap[sortField] || 'id';
-            url += `&sort=${apiSortField}&order=${sortOrder}`;
-        }
-        if (search && search.length > 0 && search[0].value) {
-            url += `&search=${encodeURIComponent(search[0].value)}`;
-        }
-        return url;
-    }
-
-    async function fetchServerData(page, limit, sort, search) {
-        // Valores por defecto si son undefined o inválidos
-        if (typeof page !== 'number' || isNaN(page)) page = 0;
-        if (typeof limit !== 'number' || isNaN(limit)) limit = 10;
-        
-        const url = buildApiUrl(page, limit, sort, search);
-        console.log('Fetching:', url);
-        const response = await fetch(url);
-        const json = await response.json();
-        // El API ahora devuelve { data: [...], total: N, columns?: [...] }
-        if (json && Array.isArray(json.data)) {
-            return {
-                data: json.data,
-                total: json.total
-            };
-        }
-        throw new Error('Invalid API response');
-    }
-
     function initGrid() {
         const container = document.getElementById('usersGridContainer');
         if (!container) return;
@@ -163,11 +122,40 @@
         userGrid = new gridjs.Grid({
             columns,
             server: {
-                data: (page, limit, sort, search) => fetchServerData(page, limit, sort, search)
+                url: 'api.php?action=list',
+                then: data => data.data,
+                total: data => data.total
             },
-            pagination: { enabled: true, limit: 10, summary: true },
-            search: { enabled: true, placeholder: '🔍 Search...' },
-            sort: true,
+            pagination: {
+                enabled: true,
+                limit: 10,
+                summary: true,
+                server: {
+                    url: (prev, page, limit) => {
+                        const offset = page * limit;
+                        return `${prev}&limit=${limit}&offset=${offset}`;
+                    }
+                }
+            },
+            search: { 
+                enabled: true, 
+                placeholder: '🔍 Search...',
+                server: {
+                    url: (prev, keyword) => `${prev}&search=${encodeURIComponent(keyword)}`
+                }
+            },
+            sort: {
+                server: {
+                    url: (prev, columns) => {
+                        if (!columns || columns.length === 0) return prev;
+                        const col = columns[0];
+                        const dir = col.direction === 1 ? 'ASC' : 'DESC';
+                        const colMap = { 'ID': 'id', 'Name': 'name', 'Email': 'email', 'Role': 'role', 'Created At': 'created_at' };
+                        const apiSortField = colMap[col.name] || 'id';
+                        return `${prev}&sort=${apiSortField}&order=${dir}`;
+                    }
+                }
+            },
             language: {
                 search: '🔎',
                 pagination: { previous: '⬅', next: '➡', showing: 'Showing', of: 'of', results: 'users' }
