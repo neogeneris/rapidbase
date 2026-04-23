@@ -1,253 +1,217 @@
 <?php
 /**
- * CLI Tool for RapidBase Users CRUD Example
+ * RapidBase CLI Tool - Users CRUD Example
  * 
  * Commands:
- *  php cli.php make:schema   - Generate/Update schema_map.php
- *  php cli.php users:list    - List users (pagination supported)
- *  php cli.php status        - Check system status
- *  php cli.php db:seed       - Reset database with sample data
+ *   php cli.php make:schema    Generate schema_map.php
+ *   php cli.php users:list     List all users (with pagination)
+ *   php cli.php status         Show system status
+ *   php cli.php db:seed        Reset database with seed data
  */
 
 require_once __DIR__ . '/config.php';
 
 use RapidBase\Core\DB;
+use RapidBase\ORM\ActiveRecord\Model;
 use RapidBase\Meta\SchemaMapper;
 
-// Colores para consola
-$COLORS = [
-    'reset' => "\033[0m",
-    'bold' => "\033[1m",
-    'red' => "\033[31m",
-    'green' => "\033[32m",
-    'yellow' => "\033[33m",
-    'blue' => "\033[34m",
-    'cyan' => "\033[36m",
-];
-
-function printLine($text, $color = 'reset') {
-    global $COLORS;
-    echo $COLORS[$color] . $text . $COLORS['reset'] . PHP_EOL;
+// Colores para terminal
+function colorize(string $text, string $color): string {
+    $colors = [
+        'red' => "\033[31m",
+        'green' => "\033[32m",
+        'yellow' => "\033[33m",
+        'blue' => "\033[34m",
+        'cyan' => "\033[36m",
+        'bold' => "\033[1m",
+        'reset' => "\033[0m"
+    ];
+    return ($colors[$color] ?? '') . $text . $colors['reset'];
 }
 
-function printHeader($title) {
-    echo PHP_EOL;
-    printLine(str_repeat('=', 60), 'cyan');
-    printLine(" $title", 'bold');
-    printLine(str_repeat('=', 60), 'cyan');
-    echo PHP_EOL;
+function printHeader(string $title): void {
+    echo "\n" . str_repeat("=", 60) . "\n";
+    echo colorize("  $title", 'bold') . "\n";
+    echo str_repeat("=", 60) . "\n\n";
 }
 
-// Comandos disponibles
-$commands = [
-    'make:schema' => 'Generate or update schema_map.php',
-    'users:list' => 'List all users with pagination',
-    'status' => 'Check system status and connections',
-    'db:seed' => 'Reset database with sample data',
-];
-
-if ($argc < 2) {
-    printHeader("RapidBase CLI Tools");
-    printLine("Usage: php cli.php <command> [options]", 'bold');
-    printLine("\nAvailable commands:", 'yellow');
-    foreach ($commands as $cmd => $desc) {
-        printLine("  $cmd", 'cyan');
-        echo "    $desc" . PHP_EOL;
-    }
-    echo PHP_EOL;
-    exit(0);
+function printLine(string $text, string $color = 'reset'): void {
+    echo colorize($text, $color) . "\n";
 }
 
-$command = $argv[1];
+// Parsear argumentos
+$command = $argv[1] ?? 'help';
 $options = [];
-
-// Parsear opciones (--key=value)
-for ($i = 2; $i < $argc; $i++) {
-    if (strpos($argv[$i], '--') === 0) {
-        $parts = explode('=', substr($argv[$i], 2));
-        $key = $parts[0];
-        $value = $parts[1] ?? true;
-        $options[$key] = $value;
+foreach ($argv as $i => $arg) {
+    if ($i > 1 && strpos($arg, '--') === 0) {
+        $parts = explode('=', substr($arg, 2));
+        $options[$parts[0]] = $parts[1] ?? true;
     }
 }
 
-try {
-    switch ($command) {
-        case 'make:schema':
-            printHeader("Generating Schema Map");
-            
-            $schemaFile = __DIR__ . '/schema_map.php';
-            
-            printLine("Scanning database structure...", 'yellow');
-            $mapper = new SchemaMapper();
-            $map = $mapper->generateMap();
-            
-            if (empty($map['tables'])) {
-                printLine("❌ No tables found in database!", 'red');
-                exit(1);
-            }
-            
-            // Guardar archivo
-            $export = var_export($map, true);
-            $content = "<?php\n// Auto-generated schema map by Meta\\SchemaMapper\nreturn $export;\n";
-            
-            if (file_put_contents($schemaFile, $content)) {
-                printLine("✅ Schema map generated successfully!", 'green');
-                printLine("📄 File: $schemaFile", 'blue');
-                
-                $tableCount = count($map['tables']);
-                printLine("📊 Tables found: $tableCount", 'bold');
-                
-                foreach ($map['tables'] as $tableName => $columns) {
-                    $colCount = count($columns);
-                    printLine("   - $tableName ($colCount columns)", 'cyan');
-                }
-            } else {
-                printLine("❌ Error writing schema file!", 'red');
-                exit(1);
-            }
-            break;
+// Obtener PDO desde config
+global $pdo;
+if (!isset($pdo)) {
+    $config = require __DIR__ . '/config.php';
+    $pdo = DB::connection();
+}
 
-        case 'users:list':
-            printHeader("Users List");
-            
-            $page = isset($options['page']) ? (int)$options['page'] : 1;
-            $limit = isset($options['limit']) ? (int)$options['limit'] : 10;
-            
-            try {
-                $result = DB::grid('users', '*', [], [], $page, $limit);
-                
-                if (empty($result['data'])) {
-                    printLine("No users found.", 'yellow');
-                    exit(0);
-                }
-                
-                // Obtener nombres de columnas del head
-                $columns = $result['head']['columns'] ?? ['id', 'name', 'email', 'role', 'created_at'];
-                $titles = $result['head']['titles'] ?? array_map(fn($c) => ucwords(str_replace('_', ' ', $c)), $columns);
-                
-                // Imprimir cabecera
-                printf("%-5s %-20s %-30s %-15s %-20s\n", ...$titles);
-                printLine(str_repeat('-', 95), 'cyan');
-                
-                // Imprimir filas
-                foreach ($result['data'] as $row) {
-                    // $row viene como array numérico [id, name, email, role, created_at]
-                    printf("%-5s %-20s %-30s %-15s %-20s\n", 
-                        $row[0], // id
-                        substr($row[1], 0, 18), // name
-                        substr($row[2], 0, 28), // email
-                        $row[3], // role
-                        $row[4] // created_at
-                    );
-                }
-                
-                printLine(str_repeat('-', 95), 'cyan');
-                printLine("Page {$result['page']['current']} of {$result['page']['total']} (Total: {$result['page']['records']} records)", 'bold');
-                
-            } catch (Exception $e) {
-                printLine("❌ Error fetching users: " . $e->getMessage(), 'red');
-                exit(1);
-            }
-            break;
+// Obtener nombre de la base de datos (para SQLite es el path)
+$dbName = match(DB::driver()) {
+    'sqlite' => DB::database(),
+    default => DB::database()
+};
 
-        case 'status':
-            printHeader("System Status");
-            
-            // Verificar conexión
-            try {
-                $pdo = DB::getInstance();
-                printLine("✅ Database connection: OK", 'green');
-                
-                $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
-                printLine("   Driver: " . strtoupper($driver), 'cyan');
-                
-                $version = $pdo->getAttribute(PDO::ATTR_SERVER_VERSION);
-                printLine("   Version: $version", 'cyan');
-            } catch (Exception $e) {
-                printLine("❌ Database connection: FAILED", 'red');
-                printLine("   Error: " . $e->getMessage(), 'red');
-                exit(1);
-            }
-            
-            // Verificar schema_map.php
-            $schemaFile = __DIR__ . '/schema_map.php';
-            if (file_exists($schemaFile)) {
-                printLine("✅ Schema map: Found", 'green');
-                $map = require $schemaFile;
-                printLine("   Tables: " . count($map['tables']), 'cyan');
-                printLine("   Generated: " . ($map['generated_at'] ?? 'Unknown'), 'cyan');
-            } else {
-                printLine("⚠️  Schema map: Not found", 'yellow');
-                printLine("   Run 'php cli.php make:schema' to generate it.", 'yellow');
-            }
-            
-            // Verificar caché
-            $cacheDir = dirname(__DIR__, 3) . '/Core/Cache/data';
-            if (is_dir($cacheDir)) {
-                $files = glob("$cacheDir/*.cache");
-                printLine("✅ Cache directory: OK (" . count($files) . " files)", 'green');
-            } else {
-                printLine("⚠️  Cache directory: Not found", 'yellow');
-            }
-            
-            printLine("\n✨ System is ready!", 'green');
-            break;
+switch ($command) {
+    case 'make:schema':
+        printHeader("Generating Schema Map");
 
-        case 'db:seed':
-            printHeader("Database Seeding");
+        $schemaFile = __DIR__ . '/schema_map.php';
+
+        printLine("Scanning database structure...", 'yellow');
+        
+        // Usar el método estático correcto de SchemaMapper
+        $success = SchemaMapper::generate($pdo, $dbName);
+
+        if (!$success || !file_exists($schemaFile)) {
+            printLine("❌ Failed to generate schema map!", 'red');
+            exit(1);
+        }
+
+        // Leer y mostrar resumen
+        $map = include $schemaFile;
+        
+        printLine("✅ Schema map generated successfully!", 'green');
+        printLine("📄 File: $schemaFile", 'blue');
+
+        $tableCount = count($map['tables']);
+        printLine("📊 Tables found: $tableCount", 'bold');
+
+        foreach ($map['tables'] as $tableName => $columns) {
+            $colCount = count($columns);
+            printLine("   - $tableName ($colCount columns)", 'cyan');
+        }
+        break;
+
+    case 'users:list':
+        printHeader("Users List");
+
+        $page = isset($options['page']) ? (int)$options['page'] : 1;
+        $limit = isset($options['limit']) ? (int)$options['limit'] : 10;
+
+        try {
+            $result = DB::grid('users', '*', [], null, $page, $limit);
             
-            if (!isset($options['force']) && !isset($options['f'])) {
-                printLine("⚠️  WARNING: This will DELETE all existing data!", 'yellow');
-                printLine("Run with --force to confirm.", 'yellow');
-                exit(0);
+            if (empty($result->data)) {
+                printLine("No users found.", 'yellow');
+                break;
             }
+
+            // Obtener nombres de columnas del head
+            $columns = $result->head['columns'] ?? ['id', 'name', 'email', 'role', 'created_at'];
             
-            printLine("Dropping existing table...", 'yellow');
+            // Imprimir cabecera
+            printf("%-5s | %-25s | %-30s | %-12s | %-20s\n", "ID", "Name", "Email", "Role", "Created At");
+            echo str_repeat("-", 100) . "\n";
+
+            // Imprimir filas (FETCH_NUM)
+            foreach ($result->data as $row) {
+                printf("%-5s | %-25s | %-30s | %-12s | %-20s\n", 
+                    $row[0], // id
+                    substr($row[1], 0, 25), // name
+                    substr($row[2], 0, 30), // email
+                    $row[3] ?? 'user', // role
+                    $row[4] ?? '-' // created_at
+                );
+            }
+
+            echo "\n";
+            printLine("Page {$page} of {$result->page['total']} (Total: {$result->page['records']} records)", 'cyan');
+
+        } catch (Exception $e) {
+            printLine("❌ Error: " . $e->getMessage(), 'red');
+        }
+        break;
+
+    case 'status':
+        printHeader("System Status");
+        
+        printLine("Environment:", 'bold');
+        echo "  PHP Version: " . PHP_VERSION . "\n";
+        echo "  Database Driver: " . DB::driver() . "\n";
+        echo "  Database Name: " . DB::database() . "\n";
+        
+        // Verificar schema_map
+        $schemaFile = __DIR__ . '/schema_map.php';
+        if (file_exists($schemaFile)) {
+            printLine("  ✓ Schema map found", 'green');
+            $map = include $schemaFile;
+            echo "  Tables mapped: " . count($map['tables']) . "\n";
+            echo "  Generated at: " . ($map['generated_at'] ?? 'unknown') . "\n";
+        } else {
+            printLine("  ✗ Schema map not found (run 'php cli.php make:schema')", 'yellow');
+        }
+        
+        // Probar conexión
+        try {
+            $count = DB::value('SELECT COUNT(*) FROM users');
+            printLine("  ✓ Database connection OK ($count users)", 'green');
+        } catch (Exception $e) {
+            printLine("  ✗ Database connection failed: " . $e->getMessage(), 'red');
+        }
+        break;
+
+    case 'db:seed':
+        printHeader("Seeding Database");
+        
+        if (!isset($options['force'])) {
+            printLine("⚠️  This will DELETE all existing data!", 'yellow');
+            printLine("Run with --force to confirm.", 'cyan');
+            break;
+        }
+
+        try {
+            // Recrear tabla
             DB::exec("DROP TABLE IF EXISTS users");
-            
-            printLine("Creating table...", 'yellow');
             DB::exec("CREATE TABLE users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE,
+                email TEXT UNIQUE NOT NULL,
                 role TEXT DEFAULT 'user',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
-            
-            printLine("Inserting sample data...", 'yellow');
-            $roles = ['user', 'admin', 'moderator'];
+
+            // Insertar datos
             $names = [
-                'John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams',
-                'Charlie Brown', 'Diana Prince', 'Edward Norton', 'Fiona Apple',
-                'George Lucas', 'Hannah Montana', 'Ivan Petrov', 'Julia Roberts',
-                'Kevin Spacey', 'Laura Palmer', 'Michael Scott', 'Nancy Wheeler',
-                'Oscar Martinez', 'Pam Beesly', 'Quentin Tarantino', 'Rachel Green'
+                ['John Doe', 'john@example.com', 'admin'],
+                ['Jane Smith', 'jane@example.com', 'user'],
+                ['Bob Johnson', 'bob@example.com', 'moderator'],
+                ['Alice Williams', 'alice@example.com', 'user'],
+                ['Charlie Brown', 'charlie@example.com', 'user'],
             ];
-            
-            for ($i = 0; $i < 51; $i++) {
-                $name = $names[$i % count($names)];
-                $email = strtolower(str_replace(' ', '.', $name)) . ($i > 0 ? ".$i" : "") . "@example.com";
-                $role = $roles[array_rand($roles)];
-                
-                DB::exec("INSERT INTO users (name, email, role) VALUES (?, ?, ?)", 
-                    [$name, $email, $role]
-                );
+
+            foreach ($names as [$name, $email, $role]) {
+                DB::insert('users', compact('name', 'email', 'role'));
             }
-            
+
             printLine("✅ Database seeded successfully!", 'green');
-            printLine("   Inserted 51 users", 'cyan');
-            break;
+            printLine("  Created 5 test users.", 'cyan');
 
-        default:
-            printLine("❌ Unknown command: $command", 'red');
-            printLine("Run 'php cli.php' to see available commands.", 'yellow');
-            exit(1);
-    }
-} catch (Exception $e) {
-    printLine("\n❌ Fatal error: " . $e->getMessage(), 'red');
-    printLine($e->getTraceAsString(), 'red');
-    exit(1);
+        } catch (Exception $e) {
+            printLine("❌ Error: " . $e->getMessage(), 'red');
+        }
+        break;
+
+    case 'help':
+    default:
+        printHeader("RapidBase CLI - Users CRUD");
+        echo "Available commands:\n\n";
+        echo "  php cli.php make:schema       Generate schema_map.php from database\n";
+        echo "  php cli.php users:list        List users with pagination\n";
+        echo "      [--page=1] [--limit=10]\n";
+        echo "  php cli.php status            Show system status and connection info\n";
+        echo "  php cli.php db:seed           Reset database with test data\n";
+        echo "      [--force]                 Confirm destructive action\n";
+        echo "\n";
+        break;
 }
-
-echo PHP_EOL;

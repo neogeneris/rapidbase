@@ -1,36 +1,28 @@
-# Dependencias
-/vendor/
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
 
-# Archivos temporales de pruebas (SQLite, Logs, Caché)
-tests/tmp/
-tests/Integration/temp_db_integ/
-*.sqlite
-*.sqlite3
-*.db
+# Dependencies
+.venv/
+venv/
+
+# Logs and temp files
 *.log
-
-# Archivos generados por Meta (Schema Maps locales)
-**/schema_map_local.php
-**/schema_map.php.backup
-
-# Caché de aplicaciones y logs generales
-cache/
-logs/
-*.cache
-
-# IDEs y Editores
-.idea/
-.vscode/
+*.tmp
 *.swp
-*.swo
-*~
-.DS_Store
-Thumbs.db
 
-# Configuraciones locales específicas del entorno
-config.local.php
+# Environment
+.env
 .env.local
-.env.*.local
+*.env.*
 
-# Composer lock (opcional, si prefieres no committearlo)
-# composer.lock
+# Editors
+.vscode/
+.idea/
+
+# Original rules preserved
+*.log
+```
