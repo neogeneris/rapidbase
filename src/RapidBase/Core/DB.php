@@ -5,6 +5,7 @@ namespace RapidBase\Core;
 use RapidBase\Core\Conn;
 use RapidBase\Core\SQL;
 use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\SchemaMap;
 
 use \PDO;
 use \Generator;
@@ -98,6 +99,7 @@ class DB implements DBInterface {
     /**
      * Carga el mapa de relaciones desde un archivo PHP que retorna un array.
      * El archivo debe contener la clave 'relationships' con la estructura esperada.
+     * También carga la sección 'tables' en SchemaMap si existe.
      *
      * @param string $filePath
      * @throws \InvalidArgumentException
@@ -113,6 +115,11 @@ class DB implements DBInterface {
             throw new \RuntimeException("Invalid relations map format: missing 'relationships' key");
         }
         self::setRelationsMap($map['relationships']);
+        
+        // Cargar también la sección 'tables' en SchemaMap si existe
+        if (isset($map['tables'])) {
+            SchemaMap::setMap($map['tables'], 'main');
+        }
     }
 
 
@@ -379,29 +386,80 @@ class DB implements DBInterface {
      * ## Firma:
      * DB::grid($table, $conditions, $page = 0, $sort = [])
      * 
-     * @param string|array $table Tabla, Model, array de tablas o SQL.
+     * @param string|array|object $table Tabla, Model, array de tablas o SQL.
      * @param array $conditions Where matricial.
-     * @param int $page Página (0=sin paginación, 1=primera página). Default: 0.
-     * @param string|array $sort Campo(s) de ordenamiento. Default: [].
-     * @param int $perPage Registros por página. Default: 10.
+     * @param mixed $page Página (int), array [page, perPage], o sort (string/array) por compatibilidad.
+     * @param mixed $sort Campo(s) de ordenamiento o perPage (int).
+     * @param int $perPage Registros por página.
      * @return QueryResponse
      */
-    public static function grid(string|array $table, array $conditions = [], int $page = 0, string|array $sort = [], int $perPage = 10): QueryResponse {
+    public static function grid(string|array|object $table, array $conditions = [], mixed $page = 0, mixed $sort = [], int $perPage = 10): QueryResponse {
+        $actualPage = 0;
+        $actualPerPage = $perPage;
+        $actualSort = [];
+        
+        // Detección polimórfica de parámetros
+        // Si $page parece un sort (es string que empieza con - o es array con strings que empiezan con -)
+        if (is_string($page) && str_starts_with($page, '-')) {
+            // El usuario pasó sort en la posición de page
+            $actualSort = [$page];
+            // Si $sort es un entero, lo tratamos como page
+            if (is_int($sort)) {
+                $actualPage = $sort;
+            } elseif (is_array($sort) && count($sort) >= 1 && is_numeric($sort[0])) {
+                // $sort es en realidad [page, perPage]
+                $actualPage = $sort[0];
+                $actualPerPage = $sort[1] ?? $perPage;
+            }
+            // $perPage se queda como está
+        } elseif (is_array($page) && count($page) > 0) {
+            // Verificar si es un array de sort (strings que empiezan con -)
+            $firstElem = reset($page);
+            if (is_string($firstElem) && str_starts_with($firstElem, '-')) {
+                // Es un array de sort
+                $actualSort = $page;
+                // $sort podría ser page (int) o [page, perPage]
+                if (is_int($sort)) {
+                    $actualPage = $sort;
+                    $actualPerPage = $perPage;
+                } elseif (is_array($sort) && count($sort) >= 1 && is_numeric($sort[0])) {
+                    $actualPage = $sort[0];
+                    $actualPerPage = $sort[1] ?? $perPage;
+                }
+            } elseif (is_numeric($firstElem)) {
+                // Es un array [page, perPage]
+                $actualPage = $page[0] ?? 0;
+                $actualPerPage = $page[1] ?? $perPage;
+                // $sort sería el sort real
+                $actualSort = is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []);
+            } else {
+                // Array desconocido, tratar como sort
+                $actualSort = $page;
+                if (is_int($sort)) {
+                    $actualPage = $sort;
+                }
+            }
+        } elseif (is_int($page)) {
+            // Page es un entero normal
+            $actualPage = $page;
+            $actualSort = is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []);
+        }
+        
         // Normalizar $sort a array si es string
-        if (is_string($sort)) {
-            $sort = [$sort];
+        if (is_string($actualSort)) {
+            $actualSort = [$actualSort];
         }
         
         // CRÍTICO: useFetchNum = true para obtener arrays numéricos (FETCH_NUM)
         // Firma: selectCached(fields, table, where, groupBy, having, sort, page, perPage, withTotal, ttl, useFetchNum)
-        $res = Gateway::selectCached('*', $table, $conditions, [], [], $sort, $page, $perPage, true, 3600, true);
+        $res = Gateway::selectCached('*', $table, $conditions, [], [], $actualSort, $actualPage, $actualPerPage, true, 3600, true);
         
         // Obtener nombre de la tabla (si es array, tomar la primera)
         $tableName = is_array($table) ? key($table) : $table;
         
         // Extraer metadata desde SchemaMap (usando connectionId 'main' por defecto)
-        $schemaMeta = SchemaMap::getTable($tableName, 'main');
-        $columns = $schemaMeta['columns'] ?? [];
+        // Usar getColumns() que maneja ambos formatos: directo y con clave 'columns'
+        $columns = SchemaMap::getColumns($tableName, 'main');
         
         // Construir arrays de columnas y títulos
         $columnNames = [];

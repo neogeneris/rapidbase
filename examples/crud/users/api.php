@@ -24,7 +24,8 @@ try {
             $where = isset($_GET['where']) ? $_GET['where'] : [];
             
             // Use DB::grid() for efficient paginated listing with FETCH_NUM
-            $result = DB::grid('users', $where, $sort, $page, $perPage);
+            // Firma: grid($table, $conditions, $page, $sort, $perPage)
+            $result = DB::grid('users', $where, $page, $sort, $perPage);
             
             // Convertir a formato Grid moderno para máxima compatibilidad
             echo json_encode($result->toGridFormat());

@@ -93,7 +93,7 @@
             table = $('#usersTable').DataTable({
                 ajax: {
                     url: 'api.php?action=list',
-                    dataSrc: 'body'  // RapidPack format
+                    dataSrc: 'data'  // Grid format uses 'data' key
                 },
                 columns: [
                     { data: 0 }, // ID (FETCH_NUM index 0)

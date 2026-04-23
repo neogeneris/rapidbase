@@ -68,14 +68,8 @@ switch ($command) {
         $limit = isset($options['limit']) ? (int)$options['limit'] : 10;
 
         try {
-            // La firma actual es grid($table, $conditions, $page, $sort)
-            // Asumimos que el límite por defecto está dentro de DB o se maneja globalmente
-            // Si necesitas pasar el límite, la clase DB debería aceptarlo, pero por ahora usamos la página sola.
-            
-            $currentPage = isset($options['page']) ? (int)$options['page'] : 1;
-            
-            // Llamada corregida: pasamos solo el entero de la página
-            $result = DB::grid('users', [], $currentPage, []);
+            // La firma actual es grid($table, $conditions, $page, $sort, $perPage)
+            $result = DB::grid('users', [], $page, [], $limit);
             
             if (empty($result->data)) {
                 printLine("No users found.", 'yellow');
@@ -86,12 +80,23 @@ switch ($command) {
             echo str_repeat("-", 100) . "\n";
 
             foreach ($result->data as $row) {
+                // FETCH_NUM devuelve array numérico: [0]=>id, [1]=>name, [2]=>email, [3]=>role, [4]=>created_at
                 printf("%-5s | %-25s | %-30s | %-12s | %-20s\n", 
-                    $row[0], substr($row[1], 0, 25), substr($row[2], 0, 30), 
-                    $row[3] ?? 'user', $row[4] ?? '-'
+                    $row[0] ?? '-', 
+                    substr($row[1] ?? '', 0, 25), 
+                    substr($row[2] ?? '', 0, 30), 
+                    $row[3] ?? 'user', 
+                    $row[4] ?? '-'
                 );
             }
-            printLine("Page {$page} of {$result->page['total']} (Total: {$result->page['records']})", 'cyan');
+            
+            // Usar el método pagination() de QueryResponse
+            $pagination = $result->pagination();
+            if ($pagination) {
+                printLine("Page {$pagination['current']} of {$pagination['last']} (Total: {$result->total})", 'cyan');
+            } else {
+                printLine("Total: {$result->total} users", 'cyan');
+            }
 
         } catch (Exception $e) {
             printLine("❌ Error: " . $e->getMessage(), 'red');
