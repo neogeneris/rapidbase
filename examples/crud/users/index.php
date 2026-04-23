@@ -86,8 +86,10 @@
     const roleSelect = document.getElementById('role');
 
     // Construye la URL con los parámetros de paginación, orden y búsqueda
+    // Grid.js usa page (base 0), lo convertimos a offset para el backend
     function buildApiUrl(page, limit, sort, search) {
-        let url = `api.php?action=list&page=${page + 1}&limit=${limit}`;
+        const offset = page * limit;
+        let url = `api.php?action=list&limit=${limit}&offset=${offset}`;
         if (sort && sort.length > 0) {
             const sortField = sort[0].column.name;
             const sortOrder = sort[0].direction;
@@ -105,10 +107,11 @@
         const url = buildApiUrl(page, limit, sort, search);
         const response = await fetch(url);
         const json = await response.json();
+        // El API ahora devuelve { data: [...], total: N, columns?: [...] }
         if (json && Array.isArray(json.data)) {
             return {
                 data: json.data,
-                total: json.page.records
+                total: json.total
             };
         }
         throw new Error('Invalid API response');
