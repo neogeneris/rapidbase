@@ -1,10 +1,36 @@
-```
-# Dependencies
-vendor/
+# Dependencias
+/vendor/
 
-# Cache and temporary files
-.phpunit.result.cache
-
-# Logs
+# Archivos temporales de pruebas (SQLite, Logs, Caché)
+tests/tmp/
+tests/Integration/temp_db_integ/
+*.sqlite
+*.sqlite3
+*.db
 *.log
-```
+
+# Archivos generados por Meta (Schema Maps locales)
+**/schema_map_local.php
+**/schema_map.php.backup
+
+# Caché de aplicaciones y logs generales
+cache/
+logs/
+*.cache
+
+# IDEs y Editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Configuraciones locales específicas del entorno
+config.local.php
+.env.local
+.env.*.local
+
+# Composer lock (opcional, si prefieres no committearlo)
+# composer.lock
