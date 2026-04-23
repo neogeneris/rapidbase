@@ -104,17 +104,34 @@
                 name: 'Actions',
                 width: '150px',
                 sort: false,
-                // Usamos formatter que retorna un nodo DOM creado con gridjs.html
+                // Usamos una función que crea elementos DOM reales para garantizar que los data-id estén presentes
                 formatter: (_, row) => {
                     const userId = row.cells[0].data;
-                    const htmlString = `
-                        <div class="action-buttons">
-                            <button class="btn btn-warning btn-sm" data-action="edit" data-id="${userId}">✏️ Edit</button>
-                            <button class="btn btn-danger btn-sm" data-action="delete" data-id="${userId}">🗑️ Delete</button>
-                        </div>
-                    `;
-                    // gridjs.html convierte el string en un elemento HTML real
-                    return gridjs.html(htmlString);
+                    
+                    const container = document.createElement('div');
+                    container.className = 'action-buttons';
+                    container.style.display = 'flex';
+                    container.style.gap = '8px';
+                    container.style.justifyContent = 'center';
+
+                    // Botón Edit
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn btn-warning btn-sm';
+                    editBtn.textContent = '✏️ Edit';
+                    editBtn.setAttribute('data-action', 'edit');
+                    editBtn.setAttribute('data-id', userId);
+                    
+                    // Botón Delete
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn btn-danger btn-sm';
+                    deleteBtn.textContent = '🗑️ Delete';
+                    deleteBtn.setAttribute('data-action', 'delete');
+                    deleteBtn.setAttribute('data-id', userId);
+
+                    container.appendChild(editBtn);
+                    container.appendChild(deleteBtn);
+
+                    return container;
                 }
             }
         ];
