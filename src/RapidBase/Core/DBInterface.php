@@ -229,19 +229,18 @@ interface DBInterface {
     
     /** 
      * Motor para DHTMLX que retorna un objeto QueryResponse con datos y total.
-     * @param string|array $table
-     * @param array $where
-     * @param array $sort
-     * @param int $page Página (0=sin paginación, 1=primera página). Default: 0.
-     * @param string|array $sort Campo(s) de ordenamiento. Default: [].
+     * @param string|array|object $table
+     * @param array $conditions
+     * @param mixed $page Página (int), array [page, perPage], o sort (string/array) por compatibilidad.
+     * @param mixed $sort Campo(s) de ordenamiento o perPage (int).
      * @param int $perPage Registros por página. Default: 10.
      * @return QueryResponse
      */
     public static function grid(
-        string|array $table, 
-        array $where = [], 
-        int $page = 0, 
-        string|array $sort = [], 
+        string|array|object $table, 
+        array $conditions = [], 
+        mixed $page = 0, 
+        mixed $sort = [], 
         int $perPage = 10
     ): QueryResponse;
 
