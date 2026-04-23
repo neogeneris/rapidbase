@@ -8,6 +8,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/../../../vendor/RapidBase/Core/DB.php';
 require_once __DIR__ . '/../../../vendor/RapidBase/ORM/ActiveRecord/Model.php';
+require_once __DIR__ . '/../../../vendor/RapidBase/Infrastructure/UI/Adapters/GridjsAdapter.php';
 require_once __DIR__ . '/User.php';
 
 header('Content-Type: application/json');
