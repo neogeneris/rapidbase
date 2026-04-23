@@ -3,186 +3,432 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Users CRUD - RapidBase Example</title>
+    <title>Users CRUD - RapidBase + Grid.js</title>
     
-    <!-- DataTables CSS -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
+    <!-- Grid.js CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
     
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px; }
-        .btn-primary { background: #007bff; color: white; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-warning { background: #ffc107; color: #212529; }
-        .btn:hover { opacity: 0.9; }
-        #userModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
-        .modal-content { background: white; margin: 10% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        .close { float: right; font-size: 24px; cursor: pointer; }
-        table.dataTable tbody tr:hover { background-color: #f1f1f1; }
-        .loading { text-align: center; padding: 20px; color: #666; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            background: #f1f5f9;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.05);
+            overflow: hidden;
+            padding: 24px 28px;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sub {
+            color: #475569;
+            border-left: 3px solid #3b82f6;
+            padding-left: 12px;
+            margin-bottom: 28px;
+            font-size: 0.9rem;
+        }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-warning { background: #f59e0b; color: #1e293b; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+        
+        /* Modal */
+        #userModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 28px;
+            border-radius: 28px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.2);
+            animation: fadeUp 0.2s ease;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #94a3b8;
+            line-height: 0.8;
+        }
+        .close:hover { color: #1e293b; }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .loader {
+            text-align: center;
+            padding: 40px;
+            color: #475569;
+        }
+        /* Grid.js custom */
+        .gridjs-wrapper {
+            border-radius: 18px;
+            overflow: auto;
+        }
+        .gridjs-th {
+            background: #f8fafc;
+            font-weight: 600;
+        }
+        .gridjs-td {
+            vertical-align: middle;
+        }
+        @media (max-width: 700px) {
+            .container { padding: 16px; }
+            .btn-sm { padding: 4px 8px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>👥 Users Management</h1>
-        
-        <button class="btn btn-success" onclick="openModal()">+ New User</button>
-        
-        <table id="usersTable" class="display" style="width:100%; margin-top: 20px;">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td colspan="6" class="loading">Loading...</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- User Modal -->
-    <div id="userModal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">Add User</h2>
-            <form id="userForm">
-                <input type="hidden" id="userId">
-                <div class="form-group">
-                    <label for="name">Name *</label>
-                    <input type="text" id="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email *</label>
-                    <input type="email" id="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="role">Role</label>
-                    <select id="role">
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                        <option value="moderator">Moderator</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-                <button type="button" class="btn btn-warning" onclick="closeModal()">Cancel</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<div class="container">
+    <h1>👥 Users Management</h1>
+    <div class="sub">Powered by Grid.js · CRUD completo</div>
     
-    <script>
-        let table;
+    <div class="header-actions">
+        <button class="btn btn-success" id="newUserBtn">+ New User</button>
+        <div style="font-size: 13px; background: #eef2ff; padding: 6px 12px; border-radius: 40px;">✨ Búsqueda y paginación instantánea</div>
+    </div>
+    
+    <div id="usersGridContainer">
+        <div class="loader">Cargando usuarios...</div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="userModal">
+    <div class="modal-content">
+        <span class="close" id="closeModalBtn">&times;</span>
+        <h2 id="modalTitle">Add User</h2>
+        <form id="userForm">
+            <input type="hidden" id="userId">
+            <div class="form-group">
+                <label>Full Name *</label>
+                <input type="text" id="name" required placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" id="email" required placeholder="john@example.com">
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select id="role">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                    <option value="moderator">Moderator</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-warning" id="cancelModalBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary">💾 Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gridjs/dist/gridjs.umd.js"></script>
+<script>
+    // --- Global variables ---
+    let userGrid = null;
+    let allUsers = [];          // store latest user list locally
+    
+    // DOM elements
+    const modal = document.getElementById('userModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const userForm = document.getElementById('userForm');
+    const userIdInput = document.getElementById('userId');
+    const nameInput = document.getElementById('name');
+    const emailInput = document.getElementById('email');
+    const roleSelect = document.getElementById('role');
+    
+    // --- API helpers ---
+    async function fetchAllUsers() {
+        try {
+            // Request all records (adjust limit if needed)
+            const res = await fetch('api.php?action=list&limit=1000');
+            const json = await res.json();
+            if (json && Array.isArray(json.data)) {
+                return json.data; // each element: [id, name, email, role, created_at]
+            }
+            throw new Error('Invalid response structure');
+        } catch (err) {
+            console.error(err);
+            alert('Error loading users. Check API connection.');
+            return [];
+        }
+    }
+    
+    async function saveUser(userData) {
+        const { id, name, email, role } = userData;
+        const action = id ? 'update' : 'create';
+        const formBody = new URLSearchParams();
+        if (id) formBody.append('id', id);
+        formBody.append('name', name);
+        formBody.append('email', email);
+        formBody.append('role', role);
         
-        $(document).ready(function() {
-            // Initialize DataTable
-            table = $('#usersTable').DataTable({
-                ajax: {
-                    url: 'api.php?action=list',
-                    dataSrc: 'data'  // Grid format uses 'data' key
-                },
-                columns: [
-                    { data: 0 }, // ID (FETCH_NUM index 0)
-                    { data: 1 }, // Name
-                    { data: 2 }, // Email
-                    { data: 3 }, // Role
-                    { data: 4 }, // Created At
-                    { 
-                        data: 0,
-                        render: function(data) {
-                            return `
-                                <button class="btn btn-warning btn-sm" onclick="editUser(${data})">Edit</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteUser(${data})">Delete</button>
-                            `;
-                        }
-                    }
-                ],
-                pageLength: 10,
-                order: [[0, 'desc']]
-            });
+        const res = await fetch(`api.php?action=${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formBody.toString()
         });
+        return await res.json();
+    }
+    
+    async function deleteUserApi(id) {
+        const formBody = new URLSearchParams();
+        formBody.append('id', id);
+        const res = await fetch('api.php?action=delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formBody.toString()
+        });
+        return await res.json();
+    }
+    
+    // --- Grid rendering ---
+    function renderGrid(usersData) {
+        const container = document.getElementById('usersGridContainer');
+        if (!container) return;
         
-        function openModal(userId = null) {
-            $('#userModal').show();
-            if (userId) {
-                $('#modalTitle').text('Edit User');
-                $.get(`api.php?action=get&id=${userId}`, function(res) {
-                    if (res.success) {
-                        $('#userId').val(res.data.id);
-                        $('#name').val(res.data.name);
-                        $('#email').val(res.data.email);
-                        $('#role').val(res.data.role);
-                    }
+        const columns = [
+            { name: 'ID', width: '80px', sort: true },
+            { name: 'Name', sort: true },
+            { name: 'Email', sort: true },
+            { name: 'Role', sort: true },
+            { name: 'Created At', width: '170px', sort: true },
+            {
+                name: 'Actions',
+                width: '150px',
+                formatter: (_, row) => {
+                    const userId = row.cells[0].data; // ID from first column
+                    return `
+                        <div class="action-buttons">
+                            <button class="btn btn-warning btn-sm" data-action="edit" data-id="${userId}">✏️ Edit</button>
+                            <button class="btn btn-danger btn-sm" data-action="delete" data-id="${userId}">🗑️ Delete</button>
+                        </div>
+                    `;
+                }
+            }
+        ];
+        
+        if (userGrid) {
+            userGrid.updateConfig({ data: usersData }).forceRender();
+        } else {
+            userGrid = new gridjs.Grid({
+                columns,
+                data: usersData,
+                pagination: { enabled: true, limit: 10, summary: true },
+                search: { enabled: true, placeholder: '🔍 Search by name, email or role...' },
+                sort: true,
+                language: {
+                    search: '🔎',
+                    pagination: { previous: '⬅', next: '➡', showing: 'Showing', of: 'of', results: 'users' }
+                },
+                resizable: true
+            });
+            userGrid.render(container);
+        }
+        
+        // Attach event listeners after grid is fully rendered (delegation)
+        setTimeout(() => attachGridEvents(), 50);
+    }
+    
+    // Event delegation for dynamic buttons (edit/delete)
+    function attachGridEvents() {
+        const container = document.getElementById('usersGridContainer');
+        if (!container) return;
+        
+        // Remove previous listener to avoid duplicates
+        container.removeEventListener('click', gridClickHandler);
+        container.addEventListener('click', gridClickHandler);
+    }
+    
+    async function gridClickHandler(e) {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        
+        const action = btn.getAttribute('data-action');
+        const id = parseInt(btn.getAttribute('data-id'));
+        
+        if (action === 'edit') {
+            e.preventDefault();
+            const user = allUsers.find(u => u[0] === id);
+            if (user) {
+                openModalForEdit({
+                    id: user[0],
+                    name: user[1],
+                    email: user[2],
+                    role: user[3]
                 });
             } else {
-                $('#modalTitle').text('Add User');
-                $('#userForm')[0].reset();
-                $('#userId').val('');
+                alert('User not found locally');
             }
-        }
-        
-        function closeModal() {
-            $('#userModal').hide();
-        }
-        
-        $('#userForm').submit(function(e) {
+        } else if (action === 'delete') {
             e.preventDefault();
-            const data = {
-                id: $('#userId').val(),
-                name: $('#name').val(),
-                email: $('#email').val(),
-                role: $('#role').val()
-            };
-            
-            const action = data.id ? 'update' : 'create';
-            $.post('api.php?action=' + action, data, function(res) {
-                if (res.success) {
-                    closeModal();
-                    table.ajax.reload();
-                    alert(res.message);
+            if (confirm('⚠️ Delete this user permanently?')) {
+                const result = await deleteUserApi(id);
+                if (result.success === true) {
+                    alert('✅ User deleted');
+                    await refreshData();
                 } else {
-                    alert('Error: ' + res.error);
+                    alert('❌ Error: ' + (result.error || result.message));
                 }
-            }, 'json');
-        });
-        
-        function editUser(id) {
-            openModal(id);
-        }
-        
-        function deleteUser(id) {
-            if (confirm('Are you sure you want to delete this user?')) {
-                $.post('api.php?action=delete', { id: id }, function(res) {
-                    if (res.success) {
-                        table.ajax.reload();
-                        alert(res.message);
-                    } else {
-                        alert('Error: ' + res.error);
-                    }
-                }, 'json');
             }
         }
+    }
+    
+    // --- Modal logic ---
+    function openModalForEdit(user = null) {
+        modal.style.display = 'flex';
+        if (user) {
+            modalTitle.innerText = '✏️ Edit User';
+            userIdInput.value = user.id;
+            nameInput.value = user.name;
+            emailInput.value = user.email;
+            roleSelect.value = user.role;
+        } else {
+            modalTitle.innerText = '➕ New User';
+            userForm.reset();
+            userIdInput.value = '';
+            roleSelect.value = 'user';
+        }
+    }
+    
+    function closeModal() {
+        modal.style.display = 'none';
+        userForm.reset();
+        userIdInput.value = '';
+    }
+    
+    // --- Refresh grid from API ---
+    async function refreshData() {
+        const users = await fetchAllUsers();
+        allUsers = users;
+        renderGrid(users);
+    }
+    
+    // --- Form submit (create/update) ---
+    userForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = userIdInput.value;
+        const name = nameInput.value.trim();
+        const email = emailInput.value.trim();
+        const role = roleSelect.value;
         
-        // Close modal when clicking outside
-        $(window).click(function(e) {
-            if (e.target == document.getElementById('userModal')) {
-                closeModal();
-            }
-        });
-    </script>
+        if (!name || !email) {
+            alert('Name and email are required');
+            return;
+        }
+        
+        const result = await saveUser({ id: id || null, name, email, role });
+        if (result.success === true) {
+            alert(`✨ User ${id ? 'updated' : 'created'} successfully`);
+            closeModal();
+            await refreshData();
+        } else {
+            alert('❌ Operation failed: ' + (result.error || result.message));
+        }
+    });
+    
+    // --- Event listeners for modal controls ---
+    document.getElementById('newUserBtn').addEventListener('click', () => openModalForEdit(null));
+    document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    
+    // --- Initial load ---
+    (async () => {
+        allUsers = await fetchAllUsers();
+        renderGrid(allUsers);
+    })();
+</script>
 </body>
 </html>
