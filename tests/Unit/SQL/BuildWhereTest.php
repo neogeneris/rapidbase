@@ -2,7 +2,7 @@
 
 
 use RapidBase\Core\SQL;
-include_once "../../../src/RapidBase/Core/SQL.php";
+require_once __DIR__ . "/../../../src/RapidBase/Core/SQL.php";
 echo "--- Ejecutando: BuildWhereTest.php ---\n";
 
 /**

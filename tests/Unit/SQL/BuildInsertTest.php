@@ -2,7 +2,7 @@
 
 
 
-include_once "../../../src/RapidBase/Core/SQL.php";
+require_once __DIR__ . "/../../../src/RapidBase/Core/SQL.php";
 use RapidBase\Core\SQL;
 
 echo "--- Ejecutando: BuildInsertTest.php (Generación de INSERT) ---\n";

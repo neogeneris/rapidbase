@@ -3,7 +3,7 @@
 
 
 use RapidBase\Core\SQL;
-include_once "../../../src/RapidBase/Core/SQL.php";
+require_once __DIR__ . "/../../../src/RapidBase/Core/SQL.php";
 
 // Configuramos el mapa para la prueba (formato plano, sin 'relationships')
 SQL::setRelationsMap([
