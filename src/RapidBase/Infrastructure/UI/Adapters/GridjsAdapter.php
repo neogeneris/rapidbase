@@ -1,86 +1,84 @@
 <?php
 /**
  * Grid.js Adapter for RapidBase
- * Formats data for Grid.js server-side processing
+ * Bidirectional adapter: translates Grid.js inputs to RapidBase params
+ * and formats RapidBase outputs for Grid.js consumption.
  */
 
 namespace RapidBase\Infrastructure\UI\Adapters;
 
+use RapidBase\Core\QueryResponse;
+
 class GridjsAdapter
 {
     /**
-     * Format data for Grid.js response
+     * Normaliza la entrada (lo que Grid.js manda por GET)
+     * Traduce los parámetros de Grid.js al formato interno de RapidBase.
      * 
-     * @param array $data Array of records (numeric arrays)
-     * @param int $total Total number of records
-     * @param int $page Current page (1-based)
-     * @param int $limit Records per page
-     * @return array Formatted response for Grid.js
+     * @param array $input Parámetros recibidos (ej. $_GET)
+     * @return array Parámetros normalizados [page, limit, sort]
      */
-    public static function format(array $data, int $total, int $page = 1, int $limit = 10): array
+    public static function translateParams(array $input): array
     {
+        // Grid.js usa offset (0-based) y limit
+        $limit = (int)($input['limit'] ?? 10);
+        $offset = (int)($input['offset'] ?? 0);
+        
+        // Evitar división por cero
+        if ($limit <= 0) {
+            $limit = 10;
+        }
+        
+        // Convertir offset a page (1-based)
+        $page = (int)floor($offset / $limit) + 1;
+        
         return [
-            'data' => $data,
-            'page' => [
-                'current' => $page,
-                'size' => $limit,
-                'records' => $total
-            ]
+            'page'  => $page,
+            'limit' => $limit,
+            'sort'  => self::parseSort($input['sort'] ?? null)
         ];
     }
 
     /**
-     * Extract pagination parameters from request
-     * Grid.js uses 0-based page index
+     * Normaliza la salida (lo que Grid.js espera ver)
+     * Formatea la respuesta de RapidBase para Grid.js.
      * 
-     * @return array [page, limit]
+     * @param QueryResponse $response Respuesta de RapidBase
+     * @return array Formato esperado por Grid.js
      */
-    public static function getPaginationParams(): array
+    public static function format(QueryResponse $response): array
     {
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
-        
-        // Grid.js sends 0-based page, convert to 1-based
-        if ($page < 1) {
-            $page = 1;
-        }
-        
-        return [$page, $limit];
-    }
-
-    /**
-     * Extract sort parameters from request
-     * 
-     * @return array Sort configuration
-     */
-    public static function getSortParams(): array
-    {
-        $sortField = $_GET['sort'] ?? null;
-        $sortOrder = $_GET['order'] ?? 'asc';
-        
-        if (!$sortField) {
-            return [];
-        }
+        // Obtenemos los datos en formato RapidPack
+        $data = $response->toRapidPack();
         
         return [
-            $sortField => strtoupper($sortOrder) === 'DESC' ? 'DESC' : 'ASC'
+            'data'  => $data['data'],
+            'total' => $data['page']['records'] ?? count($data['data'])
         ];
     }
 
     /**
-     * Extract search parameters from request
+     * Parsea el parámetro de ordenamiento de Grid.js
+     * Grid.js envía un JSON con { column, direction }
      * 
-     * @return array Search conditions
+     * @param string|null $sortJson JSON de ordenamiento
+     * @return array|null ['column' => string, 'dir' => 'ASC'|'DESC'] o null
      */
-    public static function getSearchParams(): array
+    private static function parseSort($sortJson): ?array
     {
-        $search = $_GET['search'] ?? null;
-        
-        if (!$search) {
-            return [];
+        if (!$sortJson) {
+            return null;
         }
         
-        // Simple search across all fields (implementation depends on DB layer)
-        return ['_search' => $search];
+        $decoded = json_decode($sortJson, true);
+        
+        if (!is_array($decoded)) {
+            return null;
+        }
+        
+        return [
+            'column' => $decoded['column'] ?? null,
+            'dir'    => strtoupper($decoded['direction'] ?? 'ASC')
+        ];
     }
 }

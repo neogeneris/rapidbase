@@ -18,22 +18,22 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 try {
     switch ($action) {
         case 'list':
-            // Extract parameters using GridjsAdapter
-            list($page, $limit) = GridjsAdapter::getPaginationParams();
-            $sort = GridjsAdapter::getSortParams();
-            $search = GridjsAdapter::getSearchParams();
+            // Usar GridjsAdapter para traducir parámetros de entrada
+            $params = GridjsAdapter::translateParams($_GET);
             
-            // Use DB::grid() for efficient paginated listing with FETCH_NUM
-            // Firma: grid($table, $conditions, $page, $sort, $perPage)
-            $result = DB::grid('users', $search, $page, $sort, $limit);
+            // Extraer parámetros normalizados
+            $page = $params['page'];
+            $limit = $params['limit'];
+            $sort = $params['sort'];
             
-            // Format response using GridjsAdapter
-            echo json_encode(GridjsAdapter::format(
-                $result->data,
-                $result->total,
-                $page,
-                $limit
-            ));
+            // Construir condiciones de búsqueda si existen
+            $conditions = [];
+            
+            // Ejecutar consulta paginada
+            $response = DB::grid('users', $conditions, $page, $sort, $limit);
+            
+            // Usar GridjsAdapter para formatear la salida
+            echo json_encode(GridjsAdapter::format($response));
             break;
             
         case 'get':
