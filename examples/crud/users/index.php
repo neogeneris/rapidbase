@@ -174,11 +174,21 @@
         const action = btn.getAttribute('data-action');
         const id = parseInt(btn.getAttribute('data-id'));
 
+        console.log(`[DEBUG] Click capturado - Acción: ${action}, ID: ${id}, Elemento:`, btn);
+
+        if (isNaN(id)) {
+            console.error('[ERROR] ID inválido o no encontrado en el botón', btn);
+            alert('Error: no se pudo obtener el ID del usuario');
+            return;
+        }
+
         if (action === 'edit') {
             e.preventDefault();
+            console.log(`[DEBUG] Iniciando edición para usuario ID: ${id}`);
             await editUserById(id);
         } else if (action === 'delete') {
             e.preventDefault();
+            console.log(`[DEBUG] Iniciando eliminación para usuario ID: ${id}`);
             if (confirm('⚠️ Delete this user permanently?')) {
                 const result = await deleteUserApi(id);
                 if (result.success === true) {
