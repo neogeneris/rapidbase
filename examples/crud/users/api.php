@@ -7,6 +7,7 @@
 require_once 'config.php';
 
 use RapidBase\Core\DB;
+use RapidBase\Infrastructure\UI\Adapters\GridjsAdapter;
 use Example\User;
 
 header('Content-Type: application/json');
@@ -17,18 +18,22 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 try {
     switch ($action) {
         case 'list':
-            // Handle DataTables server-side processing or simple grid
-            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
-            $sort = isset($_GET['sort']) ? $_GET['sort'] : [];
-            $where = isset($_GET['where']) ? $_GET['where'] : [];
+            // Extract parameters using GridjsAdapter
+            list($page, $limit) = GridjsAdapter::getPaginationParams();
+            $sort = GridjsAdapter::getSortParams();
+            $search = GridjsAdapter::getSearchParams();
             
             // Use DB::grid() for efficient paginated listing with FETCH_NUM
             // Firma: grid($table, $conditions, $page, $sort, $perPage)
-            $result = DB::grid('users', $where, $page, $sort, $perPage);
+            $result = DB::grid('users', $search, $page, $sort, $limit);
             
-            // Convertir a formato Grid moderno para máxima compatibilidad
-            echo json_encode($result->toGridFormat());
+            // Format response using GridjsAdapter
+            echo json_encode(GridjsAdapter::format(
+                $result->data,
+                $result->total,
+                $page,
+                $limit
+            ));
             break;
             
         case 'get':
