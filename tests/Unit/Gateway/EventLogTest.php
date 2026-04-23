@@ -91,10 +91,14 @@ if (file_exists($logFile)) {
 echo str_repeat('-', 60) . "\n";
 
 // Verificar que se hayan escrito al menos 5 líneas (por los 4 éxitos + 1 error)
-$lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-$count = count($lines);
-if ($count >= 5) {
-    echo "\033[32m[OK]\033[0m Se registraron $count eventos en el log.\n";
+if (file_exists($logFile)) {
+    $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $count = count($lines);
+    if ($count >= 5) {
+        echo "\033[32m[OK]\033[0m Se registraron $count eventos en el log.\n";
+    } else {
+        echo "\033[31m[FAIL]\033[0m Solo se registraron $count eventos (se esperaban al menos 5).\n";
+    }
 } else {
-    echo "\033[31m[FAIL]\033[0m Solo se registraron $count eventos (se esperaban al menos 5).\n";
+    echo "\033[31m[FAIL]\033[0m El archivo de log no existe.\n";
 }
