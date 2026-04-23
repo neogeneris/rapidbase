@@ -5,7 +5,7 @@ namespace RapidBase\ORM\ActiveRecord;
 use RapidBase\Core\DB;
 use InvalidArgumentException;
 
-abstract class Model
+abstract class Model implements \JsonSerializable
 {
     protected static string $table = '';
     protected static string $primaryKey = 'id';
@@ -17,6 +17,23 @@ abstract class Model
         if (!empty($attributes)) {
             $this->fill($attributes);
         }
+    }
+
+    /**
+     * Especifica qué datos deben serializarse a JSON.
+     * Esto permite que json_encode($user) funcione automáticamente devolviendo los atributos.
+     */
+    public function jsonSerialize(): mixed
+    {
+        return $this->attributes;
+    }
+
+    /**
+     * Útil para obtener el modelo como array explícitamente
+     */
+    public function toArray(): array
+    {
+        return $this->attributes;
     }
 
     public static function getTable(): string
