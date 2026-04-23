@@ -195,13 +195,14 @@
         try {
             const res = await fetch(`api.php?action=get&id=${id}`);
             const json = await res.json();
-            if (json && Array.isArray(json.data) && json.data.length > 0) {
-                const user = json.data[0];
+            // La API devuelve { success: true, data: { id, name, email, role, created_at } }
+            if (json && json.success && json.data) {
+                const user = json.data;
                 openModalForEdit({
-                    id: user[0],
-                    name: user[1],
-                    email: user[2],
-                    role: user[3]
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role
                 });
             } else {
                 alert('Could not load user details');
