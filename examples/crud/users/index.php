@@ -88,6 +88,10 @@
     // Construye la URL con los parámetros de paginación, orden y búsqueda
     // Grid.js usa page (base 0), lo convertimos a offset para el backend
     function buildApiUrl(page, limit, sort, search) {
+        // Valores por defecto si son undefined o inválidos
+        if (typeof page !== 'number' || isNaN(page)) page = 0;
+        if (typeof limit !== 'number' || isNaN(limit)) limit = 10;
+        
         const offset = page * limit;
         let url = `api.php?action=list&limit=${limit}&offset=${offset}`;
         if (sort && sort.length > 0) {
@@ -104,7 +108,12 @@
     }
 
     async function fetchServerData(page, limit, sort, search) {
+        // Valores por defecto si son undefined o inválidos
+        if (typeof page !== 'number' || isNaN(page)) page = 0;
+        if (typeof limit !== 'number' || isNaN(limit)) limit = 10;
+        
         const url = buildApiUrl(page, limit, sort, search);
+        console.log('Fetching:', url);
         const response = await fetch(url);
         const json = await response.json();
         // El API ahora devuelve { data: [...], total: N, columns?: [...] }
