@@ -75,7 +75,8 @@ class ApiController {
             }
         }
 
-        $result = Gateway::select('*', $table, [], $sort, $page, $limit, true);
+        // Parámetros correctos: fields, table, where, groupBy, having, sort, page, perPage, withTotal, useFetchNum
+        $result = Gateway::select('*', $table, [], [], [], $sort, $page, $limit, true, false);
 
         // Adaptar salida para Grid.js
         $output = [
@@ -93,7 +94,8 @@ class ApiController {
         }
 
         // Usar FETCH_ASSOC (último parámetro false = no usa FETCH_NUM)
-        $result = Gateway::select('*', $table, ['id = ?' => $id], [], 1, 1, false, false);
+        // Parámetros: fields, table, where, groupBy, having, sort, page, perPage, withTotal, useFetchNum
+        $result = Gateway::select('*', $table, ['id = ?' => $id], [], [], [], 1, 1, false, false);
         
         if (empty($result['data'])) {
             throw new \Exception("Registro no encontrado");
