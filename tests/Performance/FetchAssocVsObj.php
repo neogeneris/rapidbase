@@ -18,6 +18,7 @@ include_once "$basePath/SQL.php";
 include_once "$basePath/Conn.php";
 include_once "$basePath/Executor.php";
 include_once "$basePath/Gateway.php";
+include_once "$basePath/DBInterface.php";
 include_once "$basePath/DB.php";
 
 use RapidBase\Core\Conn;

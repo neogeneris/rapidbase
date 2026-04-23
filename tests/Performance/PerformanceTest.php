@@ -7,6 +7,8 @@
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use RapidBase\Core\DB;
+use RapidBase\Core\SQL;
+use RapidBase\Core\Gateway;
 use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
 
@@ -106,15 +108,17 @@ $timePdoSimple = benchmark("PDO Native", function() use ($pdo) {
 
 $timeRbNoCache = benchmark("RapidBase (No Cache)", function() {
     CacheService::disable();
-    DB::read('users', [], [], 50);
+    SQL::setQueryCacheEnabled(false);
+    Gateway::select('*', 'users', [], [], [], [], 1, 50);
 });
 
 CacheService::enable();
-// Run once to populate cache
-DB::read('users', [], [], 50);
+SQL::setQueryCacheEnabled(true);
+// Warmup & Populate L3 and L2 cache
+Gateway::selectCached('*', 'users', [], [], [], [], 1, 50);
 
 $timeRbCache = benchmark("RapidBase (Cache Hit)", function() {
-    DB::read('users', [], [], 50);
+    Gateway::selectCached('*', 'users', [], [], [], [], 1, 50);
 });
 
 echo "\n--- SCENARIO 2: Join 2 Tables (50 iterations) ---\n";
@@ -127,19 +131,17 @@ $timePdoJoin2 = benchmark("PDO Native", function() use ($pdo) {
 
 $timeRbJoin2NoCache = benchmark("RapidBase (No Cache)", function() {
     CacheService::disable();
-    // Simulating join via relationship or raw query depending on API
-    // Using raw SQL for fair comparison of overhead
-    $stmt = DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50");
-    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
-});
+    SQL::setQueryCacheEnabled(false);
+    Gateway::select(['p.*', 'u.name as user_name'], ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]], [], [], [], [], 1, 50);
+}, 100);
 
 CacheService::enable();
-DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50")->fetchAll(\PDO::FETCH_ASSOC);
+SQL::setQueryCacheEnabled(true);
+Gateway::selectCached(['p.*', 'u.name as user_name'], ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]], [], [], [], [], 1, 50);
 
 $timeRbJoin2Cache = benchmark("RapidBase (Cache Hit)", function() {
-    $stmt = DB::query("SELECT p.*, u.name as user_name FROM posts p JOIN users u ON p.user_id = u.id LIMIT 50");
-    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
-});
+    Gateway::selectCached(['p.*', 'u.name as user_name'], ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]], [], [], [], [], 1, 50);
+}, 100);
 
 echo "\n--- SCENARIO 3: Join 3 Tables (20 iterations) ---\n";
 echo "Fetching posts with users and tags...\n";
@@ -158,39 +160,44 @@ $timePdoJoin3 = benchmark("PDO Native", function() use ($pdo) {
 
 $timeRbJoin3NoCache = benchmark("RapidBase (No Cache)", function() {
     CacheService::disable();
-    $stmt = DB::query("
-        SELECT p.*, u.name as user_name, t.name as tag_name 
-        FROM posts p 
-        JOIN users u ON p.user_id = u.id 
-        JOIN post_tag pt ON p.id = pt.post_id 
-        JOIN tags t ON pt.tag_id = t.id 
-        LIMIT 50
-    ");
-    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
-});
+    SQL::setQueryCacheEnabled(false);
+    Gateway::select(
+        ['p.*', 'u.name as user_name', 't.name as tag_name'],
+        [
+            'posts AS p',
+            ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']],
+            ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
+            ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
+        ],
+        [], [], [], [], 1, 50
+    );
+}, 100);
 
 CacheService::enable();
-$stmt = DB::query("
-    SELECT p.*, u.name as user_name, t.name as tag_name 
-    FROM posts p 
-    JOIN users u ON p.user_id = u.id 
-    JOIN post_tag pt ON p.id = pt.post_id 
-    JOIN tags t ON pt.tag_id = t.id 
-    LIMIT 50
-");
-$result = $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
+SQL::setQueryCacheEnabled(true);
+Gateway::selectCached(
+    ['p.*', 'u.name as user_name', 't.name as tag_name'],
+    [
+        'posts AS p',
+        ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']],
+        ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
+        ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
+    ],
+    [], [], [], [], 1, 50
+);
 
 $timeRbJoin3Cache = benchmark("RapidBase (Cache Hit)", function() {
-    $stmt = DB::query("
-        SELECT p.*, u.name as user_name, t.name as tag_name 
-        FROM posts p 
-        JOIN users u ON p.user_id = u.id 
-        JOIN post_tag pt ON p.id = pt.post_id 
-        JOIN tags t ON pt.tag_id = t.id 
-        LIMIT 50
-    ");
-    $stmt ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
-});
+    Gateway::selectCached(
+        ['p.*', 'u.name as user_name', 't.name as tag_name'],
+        [
+            'posts AS p',
+            ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']],
+            ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
+            ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
+        ],
+        [], [], [], [], 1, 50
+    );
+}, 100);
 
 echo "\n==================================================\n";
 echo "SUMMARY (Relative to PDO = 1.0x)\n";

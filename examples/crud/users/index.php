@@ -35,7 +35,7 @@
 <body>
 <div class="container">
     <h1>👥 Users Management</h1>
-    <div class="sub">Server-side pagination & sorting · 51 registros reales</div>
+    <div class="sub">Server-side pagination & sorting · RapidBase CRUD Example</div>
     <div class="header-actions">
         <button class="btn btn-success" id="newUserBtn">+ New User</button>
         <span style="font-size:13px; background:#eef2ff; padding:6px 12px; border-radius:40px;">⚡ Ordena y pagina en el servidor</span>
@@ -102,36 +102,19 @@
             { name: 'Created At', width: '170px', sort: true },
             {
                 name: 'Actions',
-                width: '150px',
+                width: '180px',
                 sort: false,
-                // Usamos una función que crea elementos DOM reales para garantizar que los data-id estén presentes
                 formatter: (_, row) => {
+                    // row.cells[0].data es el ID del usuario
                     const userId = row.cells[0].data;
-                    
-                    const container = document.createElement('div');
-                    container.className = 'action-buttons';
-                    container.style.display = 'flex';
-                    container.style.gap = '8px';
-                    container.style.justifyContent = 'center';
-
-                    // Botón Edit
-                    const editBtn = document.createElement('button');
-                    editBtn.className = 'btn btn-warning btn-sm';
-                    editBtn.textContent = '✏️ Edit';
-                    editBtn.setAttribute('data-action', 'edit');
-                    editBtn.setAttribute('data-id', userId);
-                    
-                    // Botón Delete
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = 'btn btn-danger btn-sm';
-                    deleteBtn.textContent = '🗑️ Delete';
-                    deleteBtn.setAttribute('data-action', 'delete');
-                    deleteBtn.setAttribute('data-id', userId);
-
-                    container.appendChild(editBtn);
-                    container.appendChild(deleteBtn);
-
-                    return container;
+                    // Usar gridjs.html() para inyectar HTML raw con onclick inline
+                    // Esto es la forma más confiable de que los botones funcionen en Grid.js
+                    return gridjs.html(
+                        `<div class="action-buttons">` +
+                            `<button class="btn btn-warning btn-sm" onclick="handleEdit(${userId})">✏️ Edit</button>` +
+                            `<button class="btn btn-danger btn-sm" onclick="handleDelete(${userId})">🗑️ Delete</button>` +
+                        `</div>`
+                    );
                 }
             }
         ];
@@ -167,8 +150,10 @@
                         if (!columns || columns.length === 0) return prev;
                         const col = columns[0];
                         const dir = col.direction === 1 ? 'ASC' : 'DESC';
-                        const colMap = { 'ID': 'id', 'Name': 'name', 'Email': 'email', 'Role': 'role', 'Created At': 'created_at' };
-                        const apiSortField = colMap[col.name] || 'id';
+                        // Grid.js server-side sort usa col.index (numérico, 0-based)
+                        // Mapear índice de columna al nombre real del campo en la DB
+                        const indexMap = ['id', 'name', 'email', 'role', 'created_at'];
+                        const apiSortField = indexMap[col.index] || 'id';
                         return `${prev}&sort=${apiSortField}&order=${dir}`;
                     }
                 }
@@ -181,48 +166,16 @@
         });
 
         userGrid.render(container);
-        container.addEventListener('click', gridClickHandler);
     }
 
-    // Manejador de eventos con delegación
-    async function gridClickHandler(e) {
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const action = btn.getAttribute('data-action');
-        const id = parseInt(btn.getAttribute('data-id'));
-
-        console.log(`[DEBUG] Click capturado - Acción: ${action}, ID: ${id}, Elemento:`, btn);
-
-        if (isNaN(id)) {
-            console.error('[ERROR] ID inválido o no encontrado en el botón', btn);
-            alert('Error: no se pudo obtener el ID del usuario');
-            return;
-        }
-
-        if (action === 'edit') {
-            e.preventDefault();
-            console.log(`[DEBUG] Iniciando edición para usuario ID: ${id}`);
-            await editUserById(id);
-        } else if (action === 'delete') {
-            e.preventDefault();
-            console.log(`[DEBUG] Iniciando eliminación para usuario ID: ${id}`);
-            if (confirm('⚠️ Delete this user permanently?')) {
-                const result = await deleteUserApi(id);
-                if (result.success === true) {
-                    alert('✅ User deleted');
-                    if (userGrid) userGrid.forceRender();
-                } else {
-                    alert('❌ Error: ' + (result.error || result.message));
-                }
-            }
-        }
-    }
-
-    async function editUserById(id) {
+    // ========== FUNCIONES GLOBALES para los botones de acción ==========
+    // Estas funciones son invocadas por los onclick inline en el HTML generado por gridjs.html()
+    
+    async function handleEdit(id) {
+        console.log(`[DEBUG] Edit clicked for user ID: ${id}`);
         try {
             const res = await fetch(`api.php?action=get&id=${id}`);
             const json = await res.json();
-            // La API devuelve { success: true, data: { id, name, email, role, created_at } }
             if (json && json.success && json.data) {
                 const user = json.data;
                 openModalForEdit({
@@ -232,13 +185,40 @@
                     role: user.role
                 });
             } else {
-                alert('Could not load user details');
+                alert('Could not load user details: ' + (json.error || 'Unknown error'));
             }
         } catch (err) {
             console.error(err);
             alert('Error fetching user');
         }
     }
+
+    async function handleDelete(id) {
+        console.log(`[DEBUG] Delete clicked for user ID: ${id}`);
+        if (!confirm('⚠️ Delete this user permanently?')) return;
+        
+        try {
+            const formBody = new URLSearchParams();
+            formBody.append('id', id);
+            const res = await fetch('api.php?action=delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formBody.toString()
+            });
+            const result = await res.json();
+            if (result.success === true) {
+                alert('✅ User deleted');
+                if (userGrid) userGrid.forceRender();
+            } else {
+                alert('❌ Error: ' + (result.error || result.message));
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error deleting user');
+        }
+    }
+
+    // ========== FUNCIONES DE MODAL Y FORMULARIO ==========
 
     async function saveUser(userData) {
         const { id, name, email, role } = userData;
@@ -249,17 +229,6 @@
         formBody.append('email', email);
         formBody.append('role', role);
         const res = await fetch(`api.php?action=${action}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formBody.toString()
-        });
-        return await res.json();
-    }
-
-    async function deleteUserApi(id) {
-        const formBody = new URLSearchParams();
-        formBody.append('id', id);
-        const res = await fetch('api.php?action=delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formBody.toString()

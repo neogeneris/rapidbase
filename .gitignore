@@ -1,1 +1,6 @@
-Nothing needs to be added to .gitignore since only a PHP source file was modified and no build artifacts, dependencies, or temporary files were included in the changes.
+/vendor/
+/tests/tmp/
+*.sqlite
+.DS_Store
+Thumbs.db
+/tests/data/*.sqlite

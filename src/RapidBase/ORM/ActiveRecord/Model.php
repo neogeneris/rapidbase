@@ -203,7 +203,7 @@ abstract class Model implements \JsonSerializable
     {
         $objectVars = get_object_vars($this);
         foreach ($objectVars as $key => $value) {
-            if (!in_array($key, ['attributes', 'original', 'table', 'primaryKey'], true)) {
+            if (!in_array($key, ['attributes', 'original', 'table', 'primaryKey', 'fillable', 'hidden', 'casts', 'guarded', 'timestamps', 'connection'], true)) {
                 $this->attributes[$key] = $value;
                 unset($this->$key);
             }

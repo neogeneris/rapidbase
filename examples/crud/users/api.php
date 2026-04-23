@@ -2,15 +2,52 @@
 /**
  * RESTful API for Users CRUD
  * Handles: list, create, update, delete, get
+ * 
+ * Incluye las clases manualmente sin autoloader.
  */
 
-// Incluir archivos manualmente para evitar problemas con el autoloader
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/../../../vendor/RapidBase/Core/DB.php';
-require_once __DIR__ . '/../../../vendor/RapidBase/ORM/ActiveRecord/Model.php';
-require_once __DIR__ . '/../../../vendor/RapidBase/Infrastructure/UI/Adapters/GridjsAdapter.php';
+// ========== INCLUDES MANUALES (sin autoloader) ==========
+// Orden de dependencias: Conn -> SQL -> Executor -> SchemaMap -> CacheService -> Gateway -> QueryResponse -> DB -> Model -> GridjsAdapter -> User
+
+$srcBase = __DIR__ . '/../../../src/RapidBase';
+
+require_once $srcBase . '/Core/Conn.php';
+require_once $srcBase . '/Core/SQL.php';
+require_once $srcBase . '/Core/Executor.php';
+require_once $srcBase . '/Core/SchemaMap.php';
+require_once $srcBase . '/Core/Cache/CacheService.php';
+require_once $srcBase . '/Core/Event.php';
+require_once $srcBase . '/Core/Gateway.php';
+require_once $srcBase . '/Core/QueryResponse.php';
+require_once $srcBase . '/Core/DBInterface.php';
+require_once $srcBase . '/Core/DB.php';
+require_once $srcBase . '/ORM/ActiveRecord/Model.php';
+require_once $srcBase . '/Infrastructure/UI/Adapters/GridjsAdapter.php';
 require_once __DIR__ . '/User.php';
 
+// ========== CONFIGURACIÓN DB ==========
+use RapidBase\Core\DB;
+use Example\User;
+
+// Configuración SQLite
+$dbPath = __DIR__ . '/database.sqlite';
+
+try {
+    DB::setup("sqlite:{$dbPath}", '', '', 'main');
+    
+    // Cargar schema_map si existe
+    $schemaFile = __DIR__ . '/schema_map.php';
+    if (file_exists($schemaFile)) {
+        DB::loadRelationsMap($schemaFile);
+    }
+} catch (Exception $e) {
+    header('Content-Type: application/json');
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'DB Connection Error: ' . $e->getMessage()]);
+    exit;
+}
+
+// ========== API HANDLER ==========
 header('Content-Type: application/json');
 
 // Get action from request
@@ -25,13 +62,39 @@ try {
             // Extraer parámetros normalizados
             $page = $params['page'];
             $limit = $params['limit'];
-            $sort = $params['sort'];
+            $sortInfo = $params['sort']; // puede ser null o ['column' => ..., 'dir' => ...]
+            
+            // Construir sort para DB::grid en formato que entiende SQL::buildSelect
+            $sort = [];
+            if ($sortInfo && !empty($sortInfo['column'])) {
+                $col = $sortInfo['column'];
+                $dir = strtoupper($sortInfo['dir'] ?? 'ASC');
+                // El formato de sort para DB::grid es prefix-based: '-column' = DESC, 'column' = ASC
+                $sort[] = ($dir === 'DESC' ? '-' : '') . $col;
+            }
+            
+            // Manejar sort desde URL params directamente (Grid.js server-side sorting)
+            if (empty($sort) && isset($_GET['sort']) && isset($_GET['order'])) {
+                $col = $_GET['sort'];
+                $dir = strtoupper($_GET['order'] ?? 'ASC');
+                $sort[] = ($dir === 'DESC' ? '-' : '') . $col;
+            }
             
             // Construir condiciones de búsqueda si existen
             $conditions = [];
             
+            // Búsqueda: Grid.js server-side search
+            if (!empty($_GET['search'])) {
+                $searchTerm = $_GET['search'];
+                // Buscar en name y email usando OR
+                $conditions = [
+                    ['name'  => ['LIKE' => "%{$searchTerm}%"]],
+                    ['email' => ['LIKE' => "%{$searchTerm}%"]]
+                ];
+            }
+            
             // Ejecutar consulta paginada
-            $response = \RapidBase\Core\DB::grid('users', $conditions, $page, $sort, $limit);
+            $response = DB::grid('users', $conditions, $page, $sort, $limit);
             
             // Usar GridjsAdapter para formatear la salida
             echo json_encode(\RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::format($response));
@@ -93,14 +156,21 @@ try {
             break;
             
         case 'update':
-            $id = $_POST['id'] ?? $_GET['id'] ?? 0;
-            if (!$id) {
-                throw new Exception('ID required');
+            // Leer el body raw ANTES de acceder a $_POST
+            $rawBody = file_get_contents('php://input');
+            $data = json_decode($rawBody, true);
+            if (!$data) {
+                // Si no es JSON, parsear como URL-encoded
+                parse_str($rawBody, $data);
+            }
+            // Fallback a $_POST
+            if (empty($data)) {
+                $data = $_POST;
             }
             
-            $data = json_decode(file_get_contents('php://input'), true);
-            if (!$data) {
-                $data = $_POST;
+            $id = $data['id'] ?? $_GET['id'] ?? 0;
+            if (!$id) {
+                throw new Exception('ID required');
             }
             
             $user = User::read($id);
@@ -130,7 +200,17 @@ try {
             break;
             
         case 'delete':
-            $id = $_POST['id'] ?? $_GET['id'] ?? 0;
+            // Leer el body raw
+            $rawBody = file_get_contents('php://input');
+            $data = json_decode($rawBody, true);
+            if (!$data) {
+                parse_str($rawBody, $data);
+            }
+            if (empty($data)) {
+                $data = $_POST;
+            }
+            
+            $id = $data['id'] ?? $_GET['id'] ?? 0;
             if (!$id) {
                 throw new Exception('ID required');
             }

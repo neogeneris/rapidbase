@@ -1,24 +1,31 @@
 <?php
 /**
- * Benchmark Comparativo: RapidBase vs RedBeanPHP vs PDO Nativo
+ * Benchmark Comparativo: RapidBase vs PDO Nativo
  * 
- * Compara el rendimiento de operaciones CRUD básicas y consultas con JOINs
+ * Compara el rendimiento de operaciones CRUD básicas y consultas con JOINs.
+ * PDO Nativo representa la velocidad base (1x).
  */
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+$basePath = __DIR__ . "/../../src/RapidBase/Core";
+require_once "$basePath/SQL.php";
+require_once "$basePath/Conn.php";
+require_once "$basePath/Executor.php";
+require_once "$basePath/Gateway.php";
+require_once "$basePath/DBInterface.php";
+require_once "$basePath/DB.php";
 
 use RapidBase\Core\DB;
 use RapidBase\Core\SQL;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\Conn;
-use RedBeanPHP\R;
 
-// Configurar SQLite para ambos
+// Configurar SQLite para el benchmark
 $dsn = 'sqlite:' . __DIR__ . '/../../tests/data/test_benchmark.sqlite';
 
-// Configurar RedBeanPHP
-R::setup($dsn);
-R::freeze(true); // Congelar esquema para mejor rendimiento
+// Asegurar que el directorio de datos existe
+if (!is_dir(dirname($dsn))) {
+    mkdir(dirname($dsn), 0777, true);
+}
 
 // Configurar RapidBase
 SQL::setDriver('sqlite');
@@ -30,7 +37,8 @@ class ComparativeBenchmark
     
     public function run(): void
     {
-        echo "🔥 Benchmark Comparativo: RapidBase vs RedBeanPHP vs PDO\n";
+        echo "🔥 Benchmark Comparativo: RapidBase vs PDO Nativo\n";
+        echo "PDO Nativo = 1.00x (Baseline)\n";
         echo str_repeat("=", 80) . "\n\n";
         
         $this->setupData();
@@ -49,31 +57,6 @@ class ComparativeBenchmark
     {
         echo "📦 Preparando datos de prueba...\n";
         
-        // Crear tablas para RedBeanPHP (auto-crea el esquema)
-        R::freeze(false); // Permitir creación automática de tablas
-        
-        // Crear categorías
-        $categories = [];
-        for ($i = 1; $i <= 10; $i++) {
-            $cat = R::dispense('category');
-            $cat->name = "Category $i";
-            $cat->description = "Description for category $i";
-            $categories[] = R::store($cat);
-        }
-        
-        // Crear productos
-        for ($i = 1; $i <= 100; $i++) {
-            $prod = R::dispense('product');
-            $prod->name = "Product $i";
-            $prod->price = rand(10, 1000) / 10;
-            $prod->category_id = ($i % 10) + 1;
-            $prod->stock = rand(0, 100);
-            R::store($prod);
-        }
-        
-        R::freeze(true); // Congelar después de crear
-        
-        // Crear tablas para RapidBase
         Conn::get()->exec("DROP TABLE IF EXISTS products");
         Conn::get()->exec("DROP TABLE IF EXISTS categories");
         
@@ -119,7 +102,7 @@ class ComparativeBenchmark
     
     private function testSimpleSelect(): void
     {
-        $iterations = 1000;
+        $iterations = 100;
         
         // PDO Nativo
         $start = microtime(true);
@@ -136,17 +119,9 @@ class ComparativeBenchmark
         }
         $rapidBaseTime = (microtime(true) - $start) / $iterations;
         
-        // RedBeanPHP
-        $start = microtime(true);
-        for ($i = 0; $i < $iterations; $i++) {
-            R::find('product', ['LIMIT' => '10']);
-        }
-        $redbeanTime = (microtime(true) - $start) / $iterations;
-        
         $this->results['Simple SELECT (10 rows)'] = [
             'PDO' => $pdoTime,
-            'RapidBase' => $rapidBaseTime,
-            'RedBeanPHP' => $redbeanTime
+            'RapidBase' => $rapidBaseTime
         ];
         
         echo "✅ Simple SELECT completado\n";
@@ -154,7 +129,7 @@ class ComparativeBenchmark
     
     private function testSelectWithWhere(): void
     {
-        $iterations = 1000;
+        $iterations = 100;
         
         // PDO Nativo
         $start = microtime(true);
@@ -175,17 +150,9 @@ class ComparativeBenchmark
         }
         $rapidBaseTime = (microtime(true) - $start) / $iterations;
         
-        // RedBeanPHP
-        $start = microtime(true);
-        for ($i = 0; $i < $iterations; $i++) {
-            R::find('product', 'price > ? AND stock > ?', [50, 10]);
-        }
-        $redbeanTime = (microtime(true) - $start) / $iterations;
-        
         $this->results['SELECT with WHERE'] = [
             'PDO' => $pdoTime,
-            'RapidBase' => $rapidBaseTime,
-            'RedBeanPHP' => $redbeanTime
+            'RapidBase' => $rapidBaseTime
         ];
         
         echo "✅ SELECT with WHERE completado\n";
@@ -193,7 +160,7 @@ class ComparativeBenchmark
     
     private function testJoinQuery(): void
     {
-        $iterations = 500;
+        $iterations = 50;
         
         // PDO Nativo
         $start = microtime(true);
@@ -213,35 +180,19 @@ class ComparativeBenchmark
         // RapidBase
         $start = microtime(true);
         for ($i = 0; $i < $iterations; $i++) {
-            SQL::buildSelect(
-                'p.name, p.price, c.name as category_name',
-                'products',
-                ['price' => ['>' => 50]],
-                [],
-                [],
-                [],
-                1,
-                10,
-                [['table' => 'categories', 'on' => 'products.category_id = categories.id', 'alias' => 'c']]
-            );
-            // Nota: buildSelect solo construye el SQL, necesitamos ejecutarlo
-            // Para este benchmark usaremos una consulta directa
-        }
-        $rapidBaseTime = (microtime(true) - $start) / $iterations;
-        
-        // Simular ejecución real de RapidBase con JOIN
-        $start = microtime(true);
-        for ($i = 0; $i < $iterations; $i++) {
+            SQL::reset();
             [$sql, $params] = SQL::buildSelect(
                 'p.name, p.price, c.name as category_name',
-                'products',
-                ['price' => ['>' => 50]],
+                [
+                    'products AS p', 
+                    ['categories' => ['local_key' => 'category_id', 'foreign_key' => 'id', 'as' => 'c']]
+                ],
+                ['p.price' => ['>' => 50]],
                 [],
                 [],
                 [],
                 1,
-                10,
-                [['table' => 'categories', 'on' => 'products.category_id = categories.id', 'alias' => 'c']]
+                10
             );
             $stmt = Conn::get()->prepare($sql);
             $stmt->execute($params);
@@ -249,18 +200,9 @@ class ComparativeBenchmark
         }
         $rapidBaseTime = (microtime(true) - $start) / $iterations;
         
-        // RedBeanPHP (los JOINs son más verbosos en RedBean)
-        $start = microtime(true);
-        for ($i = 0; $i < $iterations; $i++) {
-            R::find('product', 'price > ? LIMIT 10', [50]);
-            // RedBean no tiene JOINs nativos simples, hay que usar query personalizado
-        }
-        $redbeanTime = (microtime(true) - $start) / $iterations;
-        
-        $this->results['JOIN Query'] = [
+        $this->results['JOIN Query (SQL Builder + Exec)'] = [
             'PDO' => $pdoTime,
-            'RapidBase' => $rapidBaseTime,
-            'RedBeanPHP' => $redbeanTime
+            'RapidBase' => $rapidBaseTime
         ];
         
         echo "✅ JOIN Query completado\n";
@@ -268,7 +210,7 @@ class ComparativeBenchmark
     
     private function testInsert(): void
     {
-        $iterations = 500;
+        $iterations = 50;
         
         // PDO Nativo
         $start = microtime(true);
@@ -292,23 +234,9 @@ class ComparativeBenchmark
         }
         $rapidBaseTime = (microtime(true) - $start) / $iterations;
         
-        // RedBeanPHP
-        $start = microtime(true);
-        for ($i = 0; $i < $iterations; $i++) {
-            $prod = R::dispense('product');
-            $prod->name = "RedBean Test Product $i";
-            $prod->price = 99.99;
-            $prod->category_id = 1;
-            $prod->stock = 50;
-            R::store($prod);
-            R::trash(R::load('product', $prod->id));
-        }
-        $redbeanTime = (microtime(true) - $start) / $iterations;
-        
         $this->results['INSERT Single Row'] = [
             'PDO' => $pdoTime,
-            'RapidBase' => $rapidBaseTime,
-            'RedBeanPHP' => $redbeanTime
+            'RapidBase' => $rapidBaseTime
         ];
         
         echo "✅ INSERT completado\n";
@@ -316,7 +244,7 @@ class ComparativeBenchmark
     
     private function testUpdate(): void
     {
-        $iterations = 500;
+        $iterations = 50;
         
         // PDO Nativo
         $start = microtime(true);
@@ -333,19 +261,9 @@ class ComparativeBenchmark
         }
         $rapidBaseTime = (microtime(true) - $start) / $iterations;
         
-        // RedBeanPHP
-        $start = microtime(true);
-        for ($i = 0; $i < $iterations; $i++) {
-            $prod = R::load('product', 1);
-            $prod->price = 99.99;
-            R::store($prod);
-        }
-        $redbeanTime = (microtime(true) - $start) / $iterations;
-        
         $this->results['UPDATE Single Row'] = [
             'PDO' => $pdoTime,
-            'RapidBase' => $rapidBaseTime,
-            'RedBeanPHP' => $redbeanTime
+            'RapidBase' => $rapidBaseTime
         ];
         
         echo "✅ UPDATE completado\n";
@@ -354,32 +272,23 @@ class ComparativeBenchmark
     private function printResults(): void
     {
         echo "\n" . str_repeat("=", 80) . "\n";
-        echo "📊 RESULTADOS COMPARATIVOS (tiempo promedio por operación en ms)\n";
+        echo "📊 RESULTADOS COMPARATIVOS (PDO Nativo = 1.0x)\n";
         echo str_repeat("=", 80) . "\n\n";
         
+        printf("  %-35s | %-12s | %-12s | %-10s\n", "Prueba", "PDO (ms)", "RapidBase (ms)", "Factor");
+        echo str_repeat("-", 80) . "\n";
+        
         foreach ($this->results as $testName => $times) {
-            echo "📌 $testName\n";
-            echo str_repeat("-", 60) . "\n";
+            $pdoMs = $times['PDO'] * 1000;
+            $rbMs = $times['RapidBase'] * 1000;
+            $factor = $rbMs / $pdoMs;
             
-            $min = min($times);
-            $winner = array_search($min, $times);
-            
-            printf("  %-15s %10.4f ms", "PDO:", $times['PDO'] * 1000);
-            if ($winner === 'PDO') echo " 🏆 WINNER";
-            echo "\n";
-            
-            printf("  %-15s %10.4f ms", "RapidBase:", $times['RapidBase'] * 1000);
-            if ($winner === 'RapidBase') echo " 🏆 WINNER";
-            echo "\n";
-            
-            printf("  %-15s %10.4f ms", "RedBeanPHP:", $times['RedBeanPHP'] * 1000);
-            if ($winner === 'RedBeanPHP') echo " 🏆 WINNER";
-            echo "\n";
-            
-            // Calcular mejora vs RedBean
-            $rbImprovement = (($times['RedBeanPHP'] - $times['RapidBase']) / $times['RedBeanPHP']) * 100;
-            echo "  → RapidBase es " . number_format(abs($rbImprovement), 1) . "% " . 
-                 ($rbImprovement > 0 ? "MÁS RÁPIDO" : "MÁS LENTO") . " que RedBeanPHP\n\n";
+            printf("  %-35s | %12.4f | %12.4f | %9.2fx\n", 
+                $testName, 
+                $pdoMs, 
+                $rbMs,
+                $factor
+            );
         }
         
         echo str_repeat("=", 80) . "\n";
