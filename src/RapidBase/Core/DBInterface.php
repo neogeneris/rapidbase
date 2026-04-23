@@ -232,16 +232,17 @@ interface DBInterface {
      * @param string|array $table
      * @param array $where
      * @param array $sort
-     * @param int $page
-     * @param int $perPage
+     * @param int $page Página (0=sin paginación, 1=primera página). Default: 0.
+     * @param string|array $sort Campo(s) de ordenamiento. Default: [].
+     * @param int $perPage Registros por página. Default: 10.
      * @return QueryResponse
      */
     public static function grid(
         string|array $table, 
         array $where = [], 
-        array $sort = [], 
-        int $page = 1, 
-        int $perPage = 50
+        int $page = 0, 
+        string|array $sort = [], 
+        int $perPage = 10
     ): QueryResponse;
 
     // ========== STREAMING ==========

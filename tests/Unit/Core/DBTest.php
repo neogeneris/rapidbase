@@ -60,6 +60,12 @@ function deleteDirectory($dir) {
 
 function resetDB() {
     global $testCachePath;
+    
+    // Asegurar que la ruta sea válida antes de usarla
+    if (empty($testCachePath) || !is_string($testCachePath)) {
+        $testCachePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'rapidbase_cache_test';
+    }
+    
     DB::exec("DELETE FROM players");
     DB::exec("DELETE FROM sqlite_sequence WHERE name='players'");
     CacheService::clear();

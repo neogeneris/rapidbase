@@ -376,17 +376,25 @@ class DB implements DBInterface {
      *   "stats": { "exec_ms": 0.08, "cache": true, ... }
      * }
      * 
-     * @param string|array $table
-     * @param array $where
-     * @param array $sort
-     * @param int $page
-     * @param int $perPage
+     * ## Firma:
+     * DB::grid($table, $conditions, $page = 0, $sort = [])
+     * 
+     * @param string|array $table Tabla, Model, array de tablas o SQL.
+     * @param array $conditions Where matricial.
+     * @param int $page Página (0=sin paginación, 1=primera página). Default: 0.
+     * @param string|array $sort Campo(s) de ordenamiento. Default: [].
+     * @param int $perPage Registros por página. Default: 10.
      * @return QueryResponse
      */
-    public static function grid(string|array $table, array $where = [], array $sort = [], int $page = 1, int $perPage = 50): QueryResponse {
+    public static function grid(string|array $table, array $conditions = [], int $page = 0, string|array $sort = [], int $perPage = 10): QueryResponse {
+        // Normalizar $sort a array si es string
+        if (is_string($sort)) {
+            $sort = [$sort];
+        }
+        
         // CRÍTICO: useFetchNum = true para obtener arrays numéricos (FETCH_NUM)
         // Firma: selectCached(fields, table, where, groupBy, having, sort, page, perPage, withTotal, ttl, useFetchNum)
-        $res = Gateway::selectCached('*', $table, $where, [], [], $sort, $page, $perPage, true, 3600, true);
+        $res = Gateway::selectCached('*', $table, $conditions, [], [], $sort, $page, $perPage, true, 3600, true);
         
         // Obtener nombre de la tabla (si es array, tomar la primera)
         $tableName = is_array($table) ? key($table) : $table;
