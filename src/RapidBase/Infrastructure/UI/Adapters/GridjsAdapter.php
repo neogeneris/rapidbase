@@ -49,11 +49,11 @@ class GridjsAdapter
     public static function format(QueryResponse $response): array
     {
         // Obtenemos los datos en formato RapidPack
-        $data = $response->toRapidPack();
+        $rapidPack = $response->toRapidPack();
         
         return [
-            'data'  => $data['data'],
-            'total' => $data['page']['records'] ?? count($data['data'])
+            'data'  => $rapidPack['body'] ?? [],
+            'total' => $rapidPack['meta']['total'] ?? count($rapidPack['body'] ?? [])
         ];
     }
 
