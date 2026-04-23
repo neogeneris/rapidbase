@@ -1,30 +1,18 @@
 <?php
 /**
  * RapidBase CLI Tool - Users CRUD Example
- * 
- * Commands:
- *   php cli.php make:schema    Generate schema_map.php
- *   php cli.php users:list     List all users (with pagination)
- *   php cli.php status         Show system status
- *   php cli.php db:seed        Reset database with seed data
  */
 
 require_once __DIR__ . '/config.php';
 
 use RapidBase\Core\DB;
-use RapidBase\ORM\ActiveRecord\Model;
 use RapidBase\Meta\SchemaMapper;
 
 // Colores para terminal
 function colorize(string $text, string $color): string {
     $colors = [
-        'red' => "\033[31m",
-        'green' => "\033[32m",
-        'yellow' => "\033[33m",
-        'blue' => "\033[34m",
-        'cyan' => "\033[36m",
-        'bold' => "\033[1m",
-        'reset' => "\033[0m"
+        'red' => "\033[31m", 'green' => "\033[32m", 'yellow' => "\033[33m",
+        'blue' => "\033[34m", 'cyan' => "\033[36m", 'bold' => "\033[1m", 'reset' => "\033[0m"
     ];
     return ($colors[$color] ?? '') . $text . $colors['reset'];
 }
@@ -49,28 +37,19 @@ foreach ($argv as $i => $arg) {
     }
 }
 
-// Obtener PDO desde config
-global $pdo;
-if (!isset($pdo)) {
-    $config = require __DIR__ . '/config.php';
-    $pdo = DB::connection();
-}
+// Obtener PDO desde la conexión global
+$pdo = DB::getConnection();
 
-// Obtener nombre de la base de datos (para SQLite es el path)
-$dbName = match(DB::driver()) {
-    'sqlite' => DB::database(),
-    default => DB::database()
-};
-
+// Para SchemaMapper, pasamos el nombre lógico o usamos null para que detecte automáticamente
+// En SQLite a menudo es mejor pasar null o el nombre 'main'
+$dbName = 'main'; 
 switch ($command) {
     case 'make:schema':
         printHeader("Generating Schema Map");
-
         $schemaFile = __DIR__ . '/schema_map.php';
-
         printLine("Scanning database structure...", 'yellow');
         
-        // Usar el método estático correcto de SchemaMapper
+        // CORRECCIÓN: Pasar $pdo explícitamente
         $success = SchemaMapper::generate($pdo, $dbName);
 
         if (!$success || !file_exists($schemaFile)) {
@@ -78,68 +57,58 @@ switch ($command) {
             exit(1);
         }
 
-        // Leer y mostrar resumen
         $map = include $schemaFile;
-        
         printLine("✅ Schema map generated successfully!", 'green');
-        printLine("📄 File: $schemaFile", 'blue');
-
-        $tableCount = count($map['tables']);
-        printLine("📊 Tables found: $tableCount", 'bold');
-
-        foreach ($map['tables'] as $tableName => $columns) {
-            $colCount = count($columns);
-            printLine("   - $tableName ($colCount columns)", 'cyan');
-        }
+        printLine("📊 Tables found: " . count($map['tables']), 'bold');
         break;
 
     case 'users:list':
         printHeader("Users List");
-
         $page = isset($options['page']) ? (int)$options['page'] : 1;
         $limit = isset($options['limit']) ? (int)$options['limit'] : 10;
 
         try {
-            $result = DB::grid('users', '*', [], null, $page, $limit);
+            // La firma actual es grid($table, $conditions, $page, $sort)
+            // Asumimos que el límite por defecto está dentro de DB o se maneja globalmente
+            // Si necesitas pasar el límite, la clase DB debería aceptarlo, pero por ahora usamos la página sola.
+            
+            $currentPage = isset($options['page']) ? (int)$options['page'] : 1;
+            
+            // Llamada corregida: pasamos solo el entero de la página
+            $result = DB::grid('users', [], $currentPage, []);
             
             if (empty($result->data)) {
                 printLine("No users found.", 'yellow');
                 break;
             }
 
-            // Obtener nombres de columnas del head
-            $columns = $result->head['columns'] ?? ['id', 'name', 'email', 'role', 'created_at'];
-            
-            // Imprimir cabecera
             printf("%-5s | %-25s | %-30s | %-12s | %-20s\n", "ID", "Name", "Email", "Role", "Created At");
             echo str_repeat("-", 100) . "\n";
 
-            // Imprimir filas (FETCH_NUM)
             foreach ($result->data as $row) {
                 printf("%-5s | %-25s | %-30s | %-12s | %-20s\n", 
-                    $row[0], // id
-                    substr($row[1], 0, 25), // name
-                    substr($row[2], 0, 30), // email
-                    $row[3] ?? 'user', // role
-                    $row[4] ?? '-' // created_at
+                    $row[0], substr($row[1], 0, 25), substr($row[2], 0, 30), 
+                    $row[3] ?? 'user', $row[4] ?? '-'
                 );
             }
-
-            echo "\n";
-            printLine("Page {$page} of {$result->page['total']} (Total: {$result->page['records']} records)", 'cyan');
+            printLine("Page {$page} of {$result->page['total']} (Total: {$result->page['records']})", 'cyan');
 
         } catch (Exception $e) {
             printLine("❌ Error: " . $e->getMessage(), 'red');
         }
         break;
 
-    case 'status':
+        case 'status':
         printHeader("System Status");
+        
+        // Obtener driver desde PDO directamente
+        $pdo = DB::getConnection();
+        $driver = $pdo ? $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) : 'unknown';
         
         printLine("Environment:", 'bold');
         echo "  PHP Version: " . PHP_VERSION . "\n";
-        echo "  Database Driver: " . DB::driver() . "\n";
-        echo "  Database Name: " . DB::database() . "\n";
+        echo "  Database Driver: " . $driver . "\n";
+        echo "  Database Path: " . (defined('DB_PATH') ? DB_PATH : 'N/A') . "\n";
         
         // Verificar schema_map
         $schemaFile = __DIR__ . '/schema_map.php';
@@ -160,58 +129,34 @@ switch ($command) {
             printLine("  ✗ Database connection failed: " . $e->getMessage(), 'red');
         }
         break;
-
     case 'db:seed':
         printHeader("Seeding Database");
-        
         if (!isset($options['force'])) {
-            printLine("⚠️  This will DELETE all existing data!", 'yellow');
-            printLine("Run with --force to confirm.", 'cyan');
+            printLine("⚠️ Run with --force to confirm deletion of all data.", 'yellow');
             break;
         }
-
         try {
-            // Recrear tabla
             DB::exec("DROP TABLE IF EXISTS users");
-            DB::exec("CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                role TEXT DEFAULT 'user',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )");
-
-            // Insertar datos
-            $names = [
+            DB::exec("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, role TEXT DEFAULT 'user', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+            
+            $users = [
                 ['John Doe', 'john@example.com', 'admin'],
                 ['Jane Smith', 'jane@example.com', 'user'],
                 ['Bob Johnson', 'bob@example.com', 'moderator'],
                 ['Alice Williams', 'alice@example.com', 'user'],
                 ['Charlie Brown', 'charlie@example.com', 'user'],
             ];
-
-            foreach ($names as [$name, $email, $role]) {
-                DB::insert('users', compact('name', 'email', 'role'));
+            foreach ($users as $u) {
+                DB::insert('users', ['name' => $u[0], 'email' => $u[1], 'role' => $u[2]]);
             }
-
-            printLine("✅ Database seeded successfully!", 'green');
-            printLine("  Created 5 test users.", 'cyan');
-
+            printLine("✅ Database seeded (5 users).", 'green');
         } catch (Exception $e) {
             printLine("❌ Error: " . $e->getMessage(), 'red');
         }
         break;
 
-    case 'help':
     default:
-        printHeader("RapidBase CLI - Users CRUD");
-        echo "Available commands:\n\n";
-        echo "  php cli.php make:schema       Generate schema_map.php from database\n";
-        echo "  php cli.php users:list        List users with pagination\n";
-        echo "      [--page=1] [--limit=10]\n";
-        echo "  php cli.php status            Show system status and connection info\n";
-        echo "  php cli.php db:seed           Reset database with test data\n";
-        echo "      [--force]                 Confirm destructive action\n";
-        echo "\n";
+        printHeader("RapidBase CLI");
+        echo "Commands:\n  make:schema\n  users:list [--page=1] [--limit=10]\n  status\n  db:seed --force\n";
         break;
 }

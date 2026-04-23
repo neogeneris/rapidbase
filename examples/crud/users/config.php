@@ -1,30 +1,32 @@
 <?php
 /**
- * Configuration for Users CRUD Example
+ * RapidBase Example Configuration
+ * Solo configura la DB y carga el autoload. Sin funciones extra.
  */
 
-// Enable error reporting for development
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Evitar redefinición de constantes
+if (!defined('BASE_PATH')) {
+    define('BASE_PATH', dirname(__DIR__, 3));
+}
 
-// Define base path
-define('BASE_PATH', dirname(__DIR__, 3));
-
-// Load Composer autoloader
 require_once BASE_PATH . '/vendor/autoload.php';
 
 use RapidBase\Core\DB;
-use RapidBase\Core\Conn;
 
-// Database configuration
-define('DB_DRIVER', 'sqlite');
-define('DB_PATH', __DIR__ . '/database.sqlite');
+// Configuración SQLite
+$driver = 'sqlite';
+$dbPath = __DIR__ . '/database.sqlite';
 
-// Initialize database connection
-DB::setup('sqlite:' . DB_PATH, '', '', 'main');
-
-// Load schema map for metadata (columns, titles, relationships)
-$schemaMapFile = __DIR__ . '/schema_map_local.php';
-if (file_exists($schemaMapFile)) {
-    \RapidBase\Core\SchemaMap::loadFromFile($schemaMapFile, 'main');
+try {
+    // Firma correcta: setup(dsn, user, pass, name)
+    // Para SQLite: dsn = "sqlite:path", user/pass vacíos
+    DB::setup("sqlite:{$dbPath}", '', '', 'main');
+    
+    // Cargar schema_map si existe
+    $schemaFile = __DIR__ . '/schema_map.php';
+    if (file_exists($schemaFile)) {
+        DB::loadRelationsMap($schemaFile);
+    }
+} catch (Exception $e) {
+    die("DB Connection Error: " . $e->getMessage());
 }
