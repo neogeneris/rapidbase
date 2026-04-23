@@ -9,25 +9,60 @@ class ApiController {
 
     public function get($f3, $params) {
         $table = $params['table'];
+        $action = $f3->get('GET.action') ?: 'list';
 
-        // 1. Validación: ¿La tabla existe en nuestro esquema de Venon?
-        // Usamos una pequeña reflexión para leer la propiedad privada 'schema'
+        // 1. ValidaciÃ³n: Â¿La tabla existe en nuestro esquema de Venon?
         $reflect = new \ReflectionClass(SQL::class);
         $prop = $reflect->getProperty('schema');
         $prop->setAccessible(true);
         $schema = $prop->getValue();
 
         if (!isset($schema[$table])) {
-            $f3->error(404, "La tabla [$table] no está registrada en Venon.");
+            $f3->error(404, "La tabla [$table] no estÃ¡ registrada en Venon.");
             return;
         }
 
-        // 2. Captura de parámetros de la URL
-        $page = $f3->get('GET.page') ?: 1;
-        $limit = $f3->get('GET.limit') ?: 20;
-        $sortRaw = $f3->get('GET.sort') ?: ''; // Ej: -id,nombre
+        header('Content-Type: application/json');
+
+        try {
+            switch ($action) {
+                case 'list':
+                    $this->handleList($f3, $table);
+                    break;
+                case 'get':
+                    $this->handleGetOne($f3, $table);
+                    break;
+                case 'delete':
+                    $this->handleDelete($f3, $table);
+                    break;
+                case 'create':
+                    $this->handleCreate($f3, $table);
+                    break;
+                case 'update':
+                    $this->handleUpdate($f3, $table);
+                    break;
+                default:
+                    $f3->error(400, "AcciÃ³n '$action' no soportada.");
+            }
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+    private function handleList($f3, $table) {
+        // Soporte para paginaciÃ³n con offset (Grid.js) o page (estÃ¡ndar)
+        $limit = (int)($f3->get('GET.limit') ?: 10);
+        $offset = $f3->get('GET.offset');
         
-        // Procesar el sort con la lógica de +/- que hablamos
+        if ($offset !== null) {
+            $page = ((int)$offset / $limit) + 1;
+        } else {
+            $page = (int)($f3->get('GET.page') ?: 1);
+        }
+
+        $sortRaw = $f3->get('GET.sort') ?: '';
+        
         $sort = [];
         if ($sortRaw) {
             foreach (explode(',', $sortRaw) as $s) {
@@ -40,21 +75,78 @@ class ApiController {
             }
         }
 
-        // 3. Ejecución en el Gateway
-        // El último parámetro 'true' es para que nos devuelva el conteo total (paginación)
         $result = Gateway::select('*', $table, [], $sort, $page, $limit, true);
 
-        // 4. Respuesta JSON
-        header('Content-Type: application/json');
+        // Adaptar salida para Grid.js
+        $output = [
+            'data' => $result['data'],
+            'total' => $result['total']
+        ];
+        
+        echo json_encode($output);
+    }
+
+    private function handleGetOne($f3, $table) {
+        $id = $f3->get('GET.id');
+        if (!$id) {
+            throw new \Exception("ID requerido");
+        }
+
+        // Usar FETCH_ASSOC (Ãºltimo parÃ¡metro false = no usa FETCH_NUM)
+        $result = Gateway::select('*', $table, ['id = ?' => $id], [], 1, 1, false, false);
+        
+        if (empty($result['data'])) {
+            throw new \Exception("Registro no encontrado");
+        }
+
+        echo json_encode($result['data'][0]);
+    }
+
+    private function handleDelete($f3, $table) {
+        // Leer JSON del body o parÃ¡metros GET/POST
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = $input['id'] ?? $f3->get('POST.id') ?? $f3->get('GET.id');
+        
+        if (!$id) {
+            throw new \Exception("ID requerido para eliminar");
+        }
+
+        $affected = Gateway::delete($table, ['id = ?' => $id]);
+        
         echo json_encode([
-            'status' => 'success',
-            'meta' => [
-                'table' => $table,
-                'total' => $result['total'],
-                'page' => $page,
-                'limit' => $limit
-            ],
-            'data' => $result['data']
+            'success' => $affected > 0,
+            'deleted' => $affected
+        ]);
+    }
+
+    private function handleCreate($f3, $table) {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input) {
+            throw new \Exception("Datos requeridos");
+        }
+
+        $id = Gateway::insert($table, $input);
+        
+        echo json_encode([
+            'success' => true,
+            'id' => $id
+        ]);
+    }
+
+    private function handleUpdate($f3, $table) {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = $input['id'] ?? null;
+        
+        if (!$id) {
+            throw new \Exception("ID requerido para actualizar");
+        }
+
+        unset($input['id']); // No actualizar el ID
+        $affected = Gateway::update($table, $input, ['id = ?' => $id]);
+        
+        echo json_encode([
+            'success' => $affected > 0,
+            'updated' => $affected
         ]);
     }
 }

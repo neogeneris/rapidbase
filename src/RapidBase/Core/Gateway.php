@@ -412,4 +412,38 @@ class Gateway {
     private static function logError(Exception $e, string $sql, array $params, ?string $type = null, ?string $table = null, ?float $duration = null): void {
         self::logStatus(false, $sql, $params, $e->getMessage(), ['code' => $e->getCode()], $type, $table, $duration);
     }
+
+    /**
+     * Inserta un registro en la tabla.
+     * @param string $table
+     * @param array $data Datos asociativos.
+     * @return int|false El ID del nuevo registro o false si falla.
+     */
+    public static function insert(string $table, array $data) {
+        $result = self::action('insert', $table, $data);
+        return $result['success'] ? $result['lastId'] : false;
+    }
+
+    /**
+     * Actualiza registros en la tabla.
+     * @param string $table
+     * @param array $data Datos a actualizar.
+     * @param array $where Condiciones WHERE.
+     * @return int Número de filas afectadas.
+     */
+    public static function update(string $table, array $data, array $where = []): int {
+        $result = self::action('update', $table, $data, $where);
+        return $result['count'];
+    }
+
+    /**
+     * Elimina registros de la tabla.
+     * @param string $table
+     * @param array $where Condiciones WHERE.
+     * @return int Número de filas afectadas.
+     */
+    public static function delete(string $table, array $where = []): int {
+        $result = self::action('delete', $table, $where);
+        return $result['count'];
+    }
 }
