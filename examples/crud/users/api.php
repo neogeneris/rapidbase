@@ -4,11 +4,11 @@
  * Handles: list, create, update, delete, get
  */
 
-require_once 'config.php';
-
-use RapidBase\Core\DB;
-use RapidBase\Infrastructure\UI\Adapters\GridjsAdapter;
-use Example\User;
+// Incluir archivos manualmente para evitar problemas con el autoloader
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../../../vendor/RapidBase/Core/DB.php';
+require_once __DIR__ . '/../../../vendor/RapidBase/ORM/ActiveRecord/Model.php';
+require_once __DIR__ . '/User.php';
 
 header('Content-Type: application/json');
 
@@ -19,7 +19,7 @@ try {
     switch ($action) {
         case 'list':
             // Usar GridjsAdapter para traducir parámetros de entrada
-            $params = GridjsAdapter::translateParams($_GET);
+            $params = \RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::translateParams($_GET);
             
             // Extraer parámetros normalizados
             $page = $params['page'];
@@ -30,10 +30,10 @@ try {
             $conditions = [];
             
             // Ejecutar consulta paginada
-            $response = DB::grid('users', $conditions, $page, $sort, $limit);
+            $response = \RapidBase\Core\DB::grid('users', $conditions, $page, $sort, $limit);
             
             // Usar GridjsAdapter para formatear la salida
-            echo json_encode(GridjsAdapter::format($response));
+            echo json_encode(\RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::format($response));
             break;
             
         case 'get':
