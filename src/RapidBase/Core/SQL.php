@@ -445,7 +445,7 @@ class SQL
                 . implode(',', $groupBy) . '|' 
                 . self::getWhereKeysString($having) . '|' 
                 . $sortStr . '|' 
-                . ($page > 0 ? '1' : '0') . '|' . $perPage;
+                . $page . '|' . $perPage;
             
             $cacheKey = 'select_' . crc32($structureKey);
             
@@ -483,7 +483,7 @@ class SQL
                 . implode(',', $groupBy) . '|'
                 . self::getWhereKeysString($having) . '|'
                 . $sortStr . '|'
-                . ($page > 0 ? '1' : '0') . '|' . $perPage;
+                . $page . '|' . $perPage;
             $cacheKey = 'select_' . crc32($structureKey);
         }
         
@@ -561,8 +561,8 @@ class SQL
         if ($havingClause !== '') $sqlParts[] = $havingClause;
         if ($orderByClause !== '') $sqlParts[] = $orderByClause;
         
-        // Solo agregar LIMIT/OFFSET si hay paginación (perPage > 0)
-        if ($parts['limit'] > 0) {
+        // Solo agregar LIMIT/OFFSET si hay paginación (page > 0)
+        if ($page > 0 && $parts['limit'] > 0) {
             $sqlParts[] = "LIMIT {$parts['limit']} OFFSET {$parts['offset']}";
         }
         
