@@ -383,77 +383,63 @@ class DB implements DBInterface {
      *   "stats": { "exec_ms": 0.08, "cache": true, ... }
      * }
      * 
-     * ## Firma:
-     * DB::grid($table, $conditions, $page = 0, $sort = [])
+     * ## Firma optimizada:
+     * DB::grid(table, conditions, page, sort)
+     * $page puede ser: 
+     * - int: Número de página (perPage por defecto 10)
+     * - array: [page, perPage] ej: [1, 50]
+     * - 0: Sin límites (fetchAll)
      * 
      * @param string|array|object $table Tabla, Model, array de tablas o SQL.
      * @param array $conditions Where matricial.
-     * @param mixed $page Página (int), array [page, perPage], o sort (string/array) por compatibilidad.
-     * @param mixed $sort Campo(s) de ordenamiento o perPage (int).
-     * @param int $perPage Registros por página.
+     * @param mixed $page Página (int), array [page, perPage], o 0 para sin límites.
+     * @param mixed $sort Campo(s) de ordenamiento (string o array).
      * @return QueryResponse
      */
-    public static function grid(string|array|object $table, array $conditions = [], mixed $page = 0, mixed $sort = [], int $perPage = 10): QueryResponse {
-        $actualPage = 0;
-        $actualPerPage = $perPage;
-        $actualSort = [];
+    public static function grid(
+        string|array|object $table, 
+        array $conditions = [], 
+        mixed $page = 1, 
+        mixed $sort = []
+    ): QueryResponse {
         
-        // Detección polimórfica de parámetros
-        // Si $page parece un sort (es string que empieza con - o es array con strings que empiezan con -)
-        if (is_string($page) && str_starts_with($page, '-')) {
-            // El usuario pasó sort en la posición de page
-            $actualSort = [$page];
-            // Si $sort es un entero, lo tratamos como page
-            if (is_int($sort)) {
-                $actualPage = $sort;
-            } elseif (is_array($sort) && count($sort) >= 1 && is_numeric($sort[0])) {
-                // $sort es en realidad [page, perPage]
-                $actualPage = $sort[0];
-                $actualPerPage = $sort[1] ?? $perPage;
-            }
-            // $perPage se queda como está
-        } elseif (is_array($page) && count($page) > 0) {
-            // Verificar si es un array de sort (strings que empiezan con -)
-            $firstElem = reset($page);
-            if (is_string($firstElem) && str_starts_with($firstElem, '-')) {
-                // Es un array de sort
-                $actualSort = $page;
-                // $sort podría ser page (int) o [page, perPage]
-                if (is_int($sort)) {
-                    $actualPage = $sort;
-                    $actualPerPage = $perPage;
-                } elseif (is_array($sort) && count($sort) >= 1 && is_numeric($sort[0])) {
-                    $actualPage = $sort[0];
-                    $actualPerPage = $sort[1] ?? $perPage;
-                }
-            } elseif (is_numeric($firstElem)) {
-                // Es un array [page, perPage]
-                $actualPage = $page[0] ?? 0;
-                $actualPerPage = $page[1] ?? $perPage;
-                // $sort sería el sort real
-                $actualSort = is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []);
+        $actualPage = 1;
+        $actualPerPage = 10;
+        $actualSort = is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []);
+
+        // --- Lógica Polimórfica de Paginación ---
+        if (is_int($page)) {
+            if ($page === 0) {
+                $actualPage = 0; // El Gateway debería interpretar 0 como "sin límite"
+                $actualPerPage = 0;
             } else {
-                // Array desconocido, tratar como sort
-                $actualSort = $page;
-                if (is_int($sort)) {
-                    $actualPage = $sort;
-                }
+                $actualPage = $page;
             }
-        } elseif (is_int($page)) {
-            // Page es un entero normal
-            $actualPage = $page;
-            $actualSort = is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []);
+        } elseif (is_array($page)) {
+            // Caso: [page, perPage] -> [1, 25]
+            $actualPage = $page[0] ?? 1;
+            $actualPerPage = $page[1] ?? 10;
+        } elseif (empty($page)) {
+            // Caso: null, [], false -> Valores por defecto
+            $actualPage = 1;
+            $actualPerPage = 10;
         }
-        
-        // Normalizar $sort a array si es string
-        if (is_string($actualSort)) {
-            $actualSort = [$actualSort];
-        }
-        
-        // CRÍTICO: useFetchNum = true para obtener arrays numéricos (FETCH_NUM)
-        // Firma: selectCached(fields, table, where, groupBy, having, sort, page, perPage, withTotal, ttl, useFetchNum)
-        $res = Gateway::selectCached('*', $table, $conditions, [], [], $actualSort, $actualPage, $actualPerPage, true, 3600, true);
-        
+
+        // --- Ejecución ---
+        // Mantenemos useFetchNum = true para performance (evita duplicar memoria por claves de strings)
+        $res = Gateway::selectCached(
+            '*', 
+            $table, 
+            $conditions, 
+            [], [], 
+            $actualSort, 
+            $actualPage, 
+            $actualPerPage, 
+            true, 
+            3600, 
+            true
+        );
+
         // Obtener nombre de la tabla (si es array, tomar la primera)
         $tableName = is_array($table) ? key($table) : $table;
         
@@ -498,7 +484,7 @@ class DB implements DBInterface {
         }
         
         // Calcular información de paginación
-        $lastPage = $perPage > 0 ? (int) ceil($res['total'] / $perPage) : 1;
+        $lastPage = $actualPerPage > 0 ? (int) ceil($res['total'] / $actualPerPage) : 1;
         
         return new QueryResponse(
             data: $res['data'],

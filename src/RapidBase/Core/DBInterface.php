@@ -227,21 +227,26 @@ interface DBInterface {
 
     // ========== RESULTADOS ESTRUCTURADOS Y GRID ==========
     
-    /** 
+    /**
      * Motor para DHTMLX que retorna un objeto QueryResponse con datos y total.
-     * @param string|array|object $table
-     * @param array $conditions
-     * @param mixed $page Página (int), array [page, perPage], o sort (string/array) por compatibilidad.
-     * @param mixed $sort Campo(s) de ordenamiento o perPage (int).
-     * @param int $perPage Registros por página. Default: 10.
+     * 
+     * Firma optimizada: DB::grid(table, conditions, page, sort)
+     * $page puede ser: 
+     * - int: Número de página (perPage por defecto 10)
+     * - array: [page, perPage] ej: [1, 50]
+     * - 0: Sin límites (fetchAll)
+     * 
+     * @param string|array|object $table Tabla, Model, array de tablas o SQL.
+     * @param array $conditions Where matricial.
+     * @param mixed $page Página (int), array [page, perPage], o 0 para sin límites.
+     * @param mixed $sort Campo(s) de ordenamiento (string o array).
      * @return QueryResponse
      */
     public static function grid(
         string|array|object $table, 
         array $conditions = [], 
-        mixed $page = 0, 
-        mixed $sort = [], 
-        int $perPage = 10
+        mixed $page = 1, 
+        mixed $sort = []
     ): QueryResponse;
 
     // ========== STREAMING ==========
