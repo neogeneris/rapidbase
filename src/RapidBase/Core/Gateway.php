@@ -44,8 +44,7 @@ class Gateway {
      * @param mixed $table Nombre de la tabla (string) o array de tablas para JOIN.
      * @param array $where Condiciones.
      * @param array $sort Ordenamiento [columna => ASC|DESC].
-     * @param int $page Número de página.
-     * @param int $perPage Registros por página.
+     * @param mixed $page Número de página (0 = sin límite, n = página n, [n, m] = página n con m registros).
      * @param bool $withTotal Si es true, incluye el total de registros (sin paginación).
      * @param bool $useFetchNum Si es true, usa PDO::FETCH_NUM con mapa de proyección (más rápido).
      * @return array Con claves: data, total, page, limit, source, timestamp, projectionMap.
@@ -54,17 +53,16 @@ class Gateway {
         mixed $fields   = '*', 
         mixed $table    = '', 
         array $where    = [],
-		array $groupBy  = [],
-        array $having   = [],		
+        array $groupBy  = [],
+        array $having   = [],      
         array $sort     = [], 
-        int $page       = 1, 
-        int $perPage    = 10,
+        mixed $page     = 1, 
         bool $withTotal = false,
         bool $useFetchNum = false
     ): array {
         
         // Construir SQL de datos
-        [$sql, $params] = SQL::buildSelect($fields, $table, $where, $groupBy,$having , $sort, $page, $perPage);
+        [$sql, $params] = SQL::buildSelect($fields, $table, $where, $groupBy, $having, $sort, $page);
 
         $total = 0;
         if ($withTotal) {
@@ -93,11 +91,16 @@ class Gateway {
             $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logStatus(true, $sql, $params, null, [], 'select', $tableName, $duration);
 
+            // Extraer información de paginación real
+            $pageInfo = SQL::getLastPaginationInfo();
+            $returnedPage = $pageInfo['page'] ?? ($page === 0 ? 0 : (is_array($page) ? $page[0] : $page));
+            $returnedLimit = $pageInfo['limit'] ?? ($page === 0 ? 0 : (is_array($page) && isset($page[1]) ? $page[1] : 10));
+
             return [
                 'data'           => $data,
                 'total'          => $withTotal ? $total : count($data),
-                'page'           => $page,
-                'limit'          => $perPage,
+                'page'           => $returnedPage,
+                'limit'          => $returnedLimit,
                 'source'         => 'database',
                 'timestamp'      => microtime(true),
                 'projectionMap'  => $projectionMap,
@@ -111,7 +114,7 @@ class Gateway {
         }
     }
 
-/**
+    /**
      * CAPA 2 (Caché): Consulta con persistencia en L1/L2.
      * Ahora soporta agrupamiento dinámico para reportes y listas.
      */
@@ -120,10 +123,9 @@ class Gateway {
         mixed $table    = '', 
         array $where    = [], 
         array $groupBy  = [], 
-		array $having   = [],
+        array $having   = [],
         array $sort     = [], 
-        int $page       = 1, 
-        int $perPage    = 10,
+        mixed $page     = 1, 
         bool $withTotal = false,
         int $ttl        = 3600,
         bool $useFetchNum = false
@@ -132,7 +134,7 @@ class Gateway {
         $tableName = is_array($table) ? implode('_', $table) : (string)$table;
         
         // CRÍTICO: Incluir $groupBy en el hash para evitar colisiones de caché
-        $queryHash = md5(json_encode([$fields, $where, $groupBy,$having, $sort, $page, $perPage, $withTotal, $useFetchNum]));
+        $queryHash = md5(json_encode([$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $useFetchNum]));
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         // Intentar recuperar de caché
@@ -146,7 +148,7 @@ class Gateway {
         }
 
         // Si no está en caché, llamamos a select() pasando el nuevo parámetro
-        $result = self::select($fields, $table, $where, $groupBy,$having, $sort, $page, $perPage, $withTotal, $useFetchNum);
+        $result = self::select($fields, $table, $where, $groupBy, $having, $sort, $page, $withTotal, $useFetchNum);
         
         // Guardar en caché
         if ($result && !empty($result['data']) && (self::$hasCacheService ?? true)) {

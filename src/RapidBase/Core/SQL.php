@@ -40,6 +40,8 @@ class SQL
     // ========== PROJECTION MAP FOR FETCH_NUM ==========
     private static array $lastProjectionMap = [];
     
+    // ========== PAGINATION INFO ==========
+    private static array $lastPaginationInfo = ['page' => 0, 'limit' => 0];
     // ========== TELEMETRY / METRICS ==========
     private static bool $telemetryEnabled = false;  // Disabled by default
     private static array $metrics = [];
@@ -61,6 +63,21 @@ class SQL
         self::$lastProjectionMap = $map;
     }
 
+    /**
+     * Get the last pagination info (page and limit) used in buildSelect
+     */
+    public static function getLastPaginationInfo(): array
+    {
+        return self::$lastPaginationInfo;
+    }
+
+    /**
+     * Set the pagination info (called internally by buildSelect)
+     */
+    public static function setLastPaginationInfo(int $page, int $limit): void
+    {
+        self::$lastPaginationInfo = ['page' => $page, 'limit' => $limit];
+    }
     // ========== DRIVER CONFIGURATION ==========
 
     public static function setDriver(string $driver): void
@@ -375,8 +392,7 @@ class SQL
         array $groupBy = [],
         array $having = [],
         array $sort = [],
-        $page = 0,
-        int $perPage = 10,
+        mixed $page = 1,
         bool $collectMetrics = false
     ): array {
         // ========== TELEMETRY INITIALIZATION ==========
@@ -404,8 +420,21 @@ class SQL
             $mStep = $mNow;
         };
         // ========== END TELEMETRY INIT ==========
+        // Normalizar page: puede ser 0, n, o [n, m]
+        $pageNum = 0;
+        $pageSize = 10; // default
         
-        // Normalize page: null, [], 0, or false -> 0 (No pagination)
+        if (is_array($page) && count($page) === 2) {
+            // Formato [página, límite]
+            $pageNum = max(0, (int)$page[0]);
+            $pageSize = (int)$page[1];
+        } elseif (is_numeric($page)) {
+            // Formato simple: número de página
+            $pageNum = max(0, (int)$page);
+        }
+        // Si es null, false, o array vacío, pageNum queda en 0 (sin paginación)
+        
+        self::reset();
         $page = empty($page) ? 0 : (int)$page;
         self::reset();
         
@@ -585,6 +614,8 @@ class SQL
         
         // Guardar el mapa de proyección para FETCH_NUM
         self::$lastProjectionMap = $parts['projectionMap'];
+        // Guardar información de paginación
+        self::setLastPaginationInfo($parts['page'], $parts['limit']);
         return [$sql, $whereData['params'], $parts['projectionMap']];
     }
 
