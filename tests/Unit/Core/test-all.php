@@ -28,6 +28,8 @@ $coreTests = [
     'JoinTest.php',
     'SortTest.php',
     'PaginationTest.php',
+    'SQLSortTest.php',
+    'SQLPaginationTest.php',
 ];
 
 foreach ($coreTests as $test) {

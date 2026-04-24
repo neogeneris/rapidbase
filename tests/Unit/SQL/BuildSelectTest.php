@@ -5,6 +5,9 @@ use RapidBase\Core\SQL;
 
 echo "--- Ejecutando: BuildSelectTest.php (Ensamblaje Final) ---\n";
 
+// Configurar driver para usar comillas de MySQL
+SQL::setDriver('mysql');
+
 function assert_select($name, $expectedSql, $expectedParams, $actual) {
     $actualSql = preg_replace('/\s+/', ' ', trim($actual[0]));
     $expectedSql = preg_replace('/\s+/', ' ', trim($expectedSql));
