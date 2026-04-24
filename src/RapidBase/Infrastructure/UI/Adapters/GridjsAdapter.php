@@ -12,73 +12,57 @@ use RapidBase\Core\QueryResponse;
 class GridjsAdapter
 {
     /**
-     * Normaliza la entrada (lo que Grid.js manda por GET)
-     * Traduce los parámetros de Grid.js al formato interno de RapidBase.
+     * Prepara los argumentos para DB::grid(table, conditions, page, sort)
      * 
-     * @param array $input Parámetros recibidos (ej. $_GET)
-     * @return array Parámetros normalizados [page, limit, sort]
+     * @param array $input Datos crudos (ej. $_GET)
+     * @param array $searchableColumns Columnas donde se aplicará el LIKE
+     * @return array [conditions, page, sort] listos para pasar a DB::grid
      */
-    public static function translateParams(array $input): array
+    public static function build(array $input, array $searchableColumns = []): array
     {
-        // Grid.js usa offset (0-based) y limit
+        // 1. Paginación -> [page, limit]
         $limit = (int)($input['limit'] ?? 10);
         $offset = (int)($input['offset'] ?? 0);
         
-        // Evitar división por cero
-        if ($limit <= 0) {
-            $limit = 10;
+        // Calcula página actual (1-based) o usa 1 si no hay límite
+        $pageInfo = [$limit > 0 ? (int)floor($offset / $limit) + 1 : 1, $limit];
+
+        // 2. Búsqueda (LIKE con lógica OR)
+        $conditions = [];
+        if (!empty($input['search']) && !empty($searchableColumns)) {
+            $term = "%{$input['search']}%";
+            foreach ($searchableColumns as $col) {
+                // El motor de RapidBase interpretará esto como un grupo OR
+                $conditions['OR'][] = [$col => ['LIKE' => $term]];
+            }
         }
-        
-        // Convertir offset a page (1-based)
-        $page = (int)floor($offset / $limit) + 1;
-        
+
+        // 3. Ordenamiento (Formato compacto: '-field' para DESC, 'field' para ASC)
+        $sort = [];
+        if (!empty($input['sort'])) {
+            $sortData = json_decode($input['sort'], true);
+            if (isset($sortData['column'])) {
+                $prefix = (strtoupper($sortData['direction'] ?? 'ASC') === 'DESC') ? '-' : '';
+                $sort[] = $prefix . $sortData['column'];
+            }
+        }
+
         return [
-            'page'  => $page,
-            'limit' => $limit,
-            'sort'  => self::parseSort($input['sort'] ?? null)
+            'conditions' => $conditions,
+            'page'       => $pageInfo, 
+            'sort'       => $sort      
         ];
     }
 
     /**
-     * Normaliza la salida (lo que Grid.js espera ver)
-     * Formatea la respuesta de RapidBase para Grid.js.
-     * 
-     * @param QueryResponse $response Respuesta de RapidBase
-     * @return array Formato esperado por Grid.js
+     * Formatea la respuesta de RapidBase para Grid.js
      */
     public static function format(QueryResponse $response): array
     {
-        // Obtenemos los datos en formato RapidPack
-        $rapidPack = $response->toRapidPack();
-        
+        $pack = $response->toRapidPack();
         return [
-            'data'  => $rapidPack['body'] ?? [],
-            'total' => $rapidPack['meta']['total'] ?? count($rapidPack['body'] ?? [])
-        ];
-    }
-
-    /**
-     * Parsea el parámetro de ordenamiento de Grid.js
-     * Grid.js envía un JSON con { column, direction }
-     * 
-     * @param string|null $sortJson JSON de ordenamiento
-     * @return array|null ['column' => string, 'dir' => 'ASC'|'DESC'] o null
-     */
-    private static function parseSort($sortJson): ?array
-    {
-        if (!$sortJson) {
-            return null;
-        }
-        
-        $decoded = json_decode($sortJson, true);
-        
-        if (!is_array($decoded)) {
-            return null;
-        }
-        
-        return [
-            'column' => $decoded['column'] ?? null,
-            'dir'    => strtoupper($decoded['direction'] ?? 'ASC')
+            'data'  => $pack['body'],
+            'total' => $pack['meta']['total']
         ];
     }
 }

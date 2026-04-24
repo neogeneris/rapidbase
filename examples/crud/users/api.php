@@ -56,45 +56,14 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 try {
     switch ($action) {
         case 'list':
-            // Usar GridjsAdapter para traducir parámetros de entrada
-            $params = \RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::translateParams($_GET);
+            // Usar GridjsAdapter::build() para traducir todos los parámetros de entrada
+            $params = \RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::build(
+                $_GET, 
+                ['name', 'email'] // Columnas donde se aplicará la búsqueda
+            );
             
-            // Extraer parámetros normalizados
-            $page = $params['page'];
-            $limit = $params['limit'];
-            $sortInfo = $params['sort']; // puede ser null o ['column' => ..., 'dir' => ...]
-            
-            // Construir sort para DB::grid en formato que entiende SQL::buildSelect
-            $sort = [];
-            if ($sortInfo && !empty($sortInfo['column'])) {
-                $col = $sortInfo['column'];
-                $dir = strtoupper($sortInfo['dir'] ?? 'ASC');
-                // El formato de sort para DB::grid es prefix-based: '-column' = DESC, 'column' = ASC
-                $sort[] = ($dir === 'DESC' ? '-' : '') . $col;
-            }
-            
-            // Manejar sort desde URL params directamente (Grid.js server-side sorting)
-            if (empty($sort) && isset($_GET['sort']) && isset($_GET['order'])) {
-                $col = $_GET['sort'];
-                $dir = strtoupper($_GET['order'] ?? 'ASC');
-                $sort[] = ($dir === 'DESC' ? '-' : '') . $col;
-            }
-            
-            // Construir condiciones de búsqueda si existen
-            $conditions = [];
-            
-            // Búsqueda: Grid.js server-side search
-            if (!empty($_GET['search'])) {
-                $searchTerm = $_GET['search'];
-                // Buscar en name y email usando OR
-                $conditions = [
-                    ['name'  => ['LIKE' => "%{$searchTerm}%"]],
-                    ['email' => ['LIKE' => "%{$searchTerm}%"]]
-                ];
-            }
-            
-            // Ejecutar consulta paginada
-            $response = DB::grid('users', $conditions, $page, $sort, $limit);
+            // Ejecutar consulta con la nueva firma optimizada
+            $response = DB::grid('users', $params['conditions'], $params['page'], $params['sort']);
             
             // Usar GridjsAdapter para formatear la salida
             echo json_encode(\RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::format($response));

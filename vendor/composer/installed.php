@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'rapidbase/rapidbase',
-        'pretty_version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
-        'version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
-        'reference' => '336c05909ce4a810b47de246481b1ab122364191',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '28f559b74c955286e65ce39866ad329ed27d76e7',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -110,9 +110,9 @@
             'dev_requirement' => true,
         ),
         'rapidbase/rapidbase' => array(
-            'pretty_version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
-            'version' => 'dev-qwen-code-c706fe77-25c7-4269-844f-3e81bcaca90a',
-            'reference' => '336c05909ce4a810b47de246481b1ab122364191',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '28f559b74c955286e65ce39866ad329ed27d76e7',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
