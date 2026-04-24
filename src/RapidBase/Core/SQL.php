@@ -435,11 +435,16 @@ class SQL
                 ? (is_string(key($fields)) ? implode(',', array_keys($fields)) : implode(',', $fields)) 
                 : (string)$fields;
             
+            // Serialize sort properly: use values for numeric arrays, keys for associative
+            $sortStr = !empty($sort) && !is_numeric(key($sort)) 
+                ? implode(',', array_keys($sort)) . ':' . implode(',', array_values($sort))
+                : implode(',', $sort);
+            
             $structureKey = $fieldsStr . '|' . $tableStr . '|' 
                 . self::getWhereKeysString($where) . '|' 
                 . implode(',', $groupBy) . '|' 
                 . self::getWhereKeysString($having) . '|' 
-                . implode(',', array_keys($sort)) . '|' 
+                . $sortStr . '|' 
                 . ($page > 0 ? '1' : '0') . '|' . $perPage;
             
             $cacheKey = 'select_' . crc32($structureKey);
@@ -467,11 +472,17 @@ class SQL
             $fieldsStr = is_array($fields)
                 ? (is_string(key($fields)) ? implode(',', array_keys($fields)) : implode(',', $fields))
                 : (string)$fields;
+            
+            // Serialize sort properly: use values for numeric arrays, keys for associative
+            $sortStr = !empty($sort) && !is_numeric(key($sort)) 
+                ? implode(',', array_keys($sort)) . ':' . implode(',', array_values($sort))
+                : implode(',', $sort);
+            
             $structureKey = $fieldsStr . '|' . $tableStr . '|'
                 . self::getWhereKeysString($where) . '|'
                 . implode(',', $groupBy) . '|'
                 . self::getWhereKeysString($having) . '|'
-                . implode(',', array_keys($sort)) . '|'
+                . $sortStr . '|'
                 . ($page > 0 ? '1' : '0') . '|' . $perPage;
             $cacheKey = 'select_' . crc32($structureKey);
         }
