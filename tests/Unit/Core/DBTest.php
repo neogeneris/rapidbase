@@ -180,7 +180,7 @@ assert_db("list respeta límite", count($list) == 2);
 assert_db("list es array", is_array($list));
 assert_db("list tiene 2 elementos", count($list) === 2);
 
-$grid = DB::grid('players', [], ['-points'], 1, 2);
+$grid = DB::grid('players', [], 1, ['-points']);
 assert_db("grid es QueryResponse", $grid instanceof \RapidBase\Core\QueryResponse);
 assert_db("grid contiene total", $grid->total == 3);
 assert_db("grid datos paginados", count($grid->data) == 2);

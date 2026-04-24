@@ -6,6 +6,9 @@ use RapidBase\Core\SQL;
 
 echo "--- Ejecutando: BuildOrderByTest.php (Sintaxis Compacta) ---\n";
 
+// Configurar driver MySQL para usar backticks
+SQL::setDriver('mysql');
+
 function assert_order($name, $expected, $actual) {
     if ($expected === $actual) {
         echo "[OK] $name\n";
@@ -18,12 +21,12 @@ function assert_order($name, $expected, $actual) {
 }
 
 // Caso 1: Sintaxis de prefijos (La nueva "Ley" de RapidBase)
-assert_order("Descendente con '-'", " ORDER BY `id` DESC", SQL::buildOrderBy(['-id']));
-assert_order("Ascendente sin prefijo", " ORDER BY `name` ASC", SQL::buildOrderBy(['name']));
-SQL::setDriver('mysql');
+assert_order("Descendente con '-'", "ORDER BY `id` DESC", SQL::buildOrderBy(['-id']));
+assert_order("Ascendente sin prefijo", "ORDER BY `name` ASC", SQL::buildOrderBy(['name']));
+
 // Caso 2: Múltiples campos combinados
 $res = SQL::buildOrderBy(['-priority', 'name', '-created_at']);
-assert_order("Múltiples campos mixtos", " ORDER BY `priority` DESC, `name` ASC, `created_at` DESC", $res);
+assert_order("Múltiples campos mixtos", "ORDER BY `priority` DESC, `name` ASC, `created_at` DESC", $res);
 
 // Caso 3: Manejo de vacíos
 assert_order("Array vacío", "", SQL::buildOrderBy([]));
