@@ -350,10 +350,9 @@ class DB implements DBInterface {
         string|array $table, 
         array $where = [], 
         array $sort = [], 
-        int $page = 1, 
-        int $perPage = 50
+        mixed $page = 0
     ): array {
-        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page, $perPage);
+        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page);
         
         $data = $res['data'] ?? [];
         if (empty($data)) return [];
@@ -399,32 +398,14 @@ class DB implements DBInterface {
     public static function grid(
         string|array|object $table, 
         array $conditions = [], 
-        mixed $page = 1, 
+        mixed $page = 0, 
         mixed $sort = []
     ): QueryResponse {
         
-        $actualPage = 1;
-        $actualPerPage = 10;
-        $actualSort = is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []);
-
         // --- Lógica Polimórfica de Paginación ---
-        if (is_int($page)) {
-            if ($page === 0) {
-                $actualPage = 0; // El Gateway debería interpretar 0 como "sin límite"
-                $actualPerPage = 0;
-            } else {
-                $actualPage = $page;
-            }
-        } elseif (is_array($page)) {
-            // Caso: [page, perPage] -> [1, 25]
-            $actualPage = $page[0] ?? 1;
-            $actualPerPage = $page[1] ?? 10;
-        } elseif (empty($page)) {
-            // Caso: null, [], false -> Valores por defecto
-            $actualPage = 1;
-            $actualPerPage = 10;
-        }
-
+        // El nuevo formato soporta: 0 (sin limite), n (pagina n con default perPage), [n, m] (pagina n, limite m)
+        $actualPage = $page;
+        
         // --- Ejecución ---
         // Mantenemos useFetchNum = true para performance (evita duplicar memoria por claves de strings)
         $res = Gateway::selectCached(
@@ -432,9 +413,8 @@ class DB implements DBInterface {
             $table, 
             $conditions, 
             [], [], 
-            $actualSort, 
+            is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []), 
             $actualPage, 
-            $actualPerPage, 
             true, 
             3600, 
             true
@@ -484,7 +464,8 @@ class DB implements DBInterface {
         }
         
         // Calcular información de paginación
-        $lastPage = $actualPerPage > 0 ? (int) ceil($res['total'] / $actualPerPage) : 1;
+        $limit = $res['limit'] ?? 10;
+        $lastPage = $limit > 0 ? (int) ceil($res['total'] / $limit) : 1;
         
         return new QueryResponse(
             data: $res['data'],

@@ -177,8 +177,7 @@ interface DBInterface {
         string|array $table, 
         array $where = [], 
         array $sort = [], 
-        int $page = 1, 
-        int $perPage = 50
+        mixed $page = 0
     ): array;
 
     // ========== OPERACIONES CRUD (ESCRITURA) ==========
@@ -245,7 +244,7 @@ interface DBInterface {
     public static function grid(
         string|array|object $table, 
         array $conditions = [], 
-        mixed $page = 1, 
+        mixed $page = 0, 
         mixed $sort = []
     ): QueryResponse;
 
