@@ -172,7 +172,7 @@ $all = DB::all('players', [], ['points']);
 assert_db("all devuelve array de 3 registros", count($all) == 3);
 assert_db("all respeta orden", $all[0]['points'] == 10 && $all[2]['points'] == 30);
 
-$list = DB::list('players', [], ['-points'], 1, 2);
+$list = DB::list('players', [], ['-points'], [1, 2]);
 assert_db("list respeta límite", count($list) == 2);
 // list retorna array asociativo [id => points] o lista plana según columnas
 // Con '*', las primeras 2 columnas son id y name (o id y points según orden)
@@ -180,7 +180,7 @@ assert_db("list respeta límite", count($list) == 2);
 assert_db("list es array", is_array($list));
 assert_db("list tiene 2 elementos", count($list) === 2);
 
-$grid = DB::grid('players', [], 1, ['-points']);
+$grid = DB::grid('players', [], [1, 2], ['-points']);
 assert_db("grid es QueryResponse", $grid instanceof \RapidBase\Core\QueryResponse);
 assert_db("grid contiene total", $grid->total == 3);
 assert_db("grid datos paginados", count($grid->data) == 2);

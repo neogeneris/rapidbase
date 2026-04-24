@@ -392,7 +392,7 @@ class SQL
         array $groupBy = [],
         array $having = [],
         array $sort = [],
-        mixed $page = 1,
+        mixed $page = 0,
         bool $collectMetrics = false
     ): array {
         // ========== TELEMETRY INITIALIZATION ==========
@@ -435,8 +435,6 @@ class SQL
         // Si es null, false, o array vacío, pageNum queda en 0 (sin paginación)
         
         self::reset();
-        $page = empty($page) ? 0 : (int)$page;
-        self::reset();
         
         // Array estructurado simple (sin clases)
         $parts = [
@@ -446,8 +444,8 @@ class SQL
             'groupBy' => $groupBy,
             'having' => $having,
             'orderBy' => $sort,
-            'limit' => $perPage,
-            'offset' => $page > 0 ? ($page - 1) * $perPage : 0,
+            'limit' => $pageNum > 0 ? $pageSize : null,
+            'offset' => $pageNum > 0 ? ($pageNum - 1) * $pageSize : 0,
             'params' => [],
             'tables' => [],
             'projectionMap' => []
@@ -474,7 +472,7 @@ class SQL
                 . implode(',', $groupBy) . '|' 
                 . self::getWhereKeysString($having) . '|' 
                 . $sortStr . '|' 
-                . $page . '|' . $perPage;
+                . $pageNum . '|' . $pageSize;
             
             $cacheKey = 'select_' . crc32($structureKey);
             
@@ -615,7 +613,7 @@ class SQL
         // Guardar el mapa de proyección para FETCH_NUM
         self::$lastProjectionMap = $parts['projectionMap'];
         // Guardar información de paginación
-        self::setLastPaginationInfo($parts['page'], $parts['limit']);
+        self::setLastPaginationInfo($pageNum, $pageSize);
         return [$sql, $whereData['params'], $parts['projectionMap']];
     }
 
