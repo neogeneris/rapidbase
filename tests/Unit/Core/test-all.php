@@ -26,6 +26,8 @@ function assert_core($name, $condition, $details = "") {
 $coreTests = [
     'DBTest.php',
     'JoinTest.php',
+    'SortTest.php',
+    'PaginationTest.php',
 ];
 
 foreach ($coreTests as $test) {
