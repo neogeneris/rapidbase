@@ -549,7 +549,11 @@ class SQL
         if ($groupByClause !== '') $sqlParts[] = $groupByClause;
         if ($havingClause !== '') $sqlParts[] = $havingClause;
         if ($orderByClause !== '') $sqlParts[] = $orderByClause;
-        $sqlParts[] = "LIMIT {$parts['limit']} OFFSET {$parts['offset']}";
+        
+        // Solo agregar LIMIT/OFFSET si hay paginación (perPage > 0)
+        if ($parts['limit'] > 0) {
+            $sqlParts[] = "LIMIT {$parts['limit']} OFFSET {$parts['offset']}";
+        }
         
         $sql = implode(' ', $sqlParts);
         $record('assembly', $sql);
