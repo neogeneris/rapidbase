@@ -37,8 +37,7 @@ $actual = SQL::buildSelect(
     ['d.category'],                    
     ['total' => ['>' => 5]],           
     ['u.name'],                   
-    2,                                 
-    15                                 
+    [2, 15]                            // Nuevo formato: [página, límite]
 );
 
 $expectedSql = "SELECT `u`.`name`, `d`.`license` FROM `users` LEFT JOIN `drivers` ON `users`.`id` = `drivers`.`user_id` WHERE `u`.`active` = :p0 GROUP BY `d`.`category` HAVING `total` > :p1 ORDER BY `u`.`name` ASC LIMIT 15 OFFSET 15";

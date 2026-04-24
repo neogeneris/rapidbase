@@ -510,7 +510,7 @@ class SQL
                 . implode(',', $groupBy) . '|'
                 . self::getWhereKeysString($having) . '|'
                 . $sortStr . '|'
-                . $page . '|' . $perPage;
+                . $pageNum . '|' . $pageSize;
             $cacheKey = 'select_' . crc32($structureKey);
         }
         
