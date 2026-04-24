@@ -16,9 +16,10 @@ class GridjsAdapter
      * 
      * @param array $input Datos crudos (ej. $_GET)
      * @param array $searchableColumns Columnas donde se aplicará el LIKE
+     * @param array $exactFilters Filtros exactos (WHERE campo = valor)
      * @return array [conditions, page, sort] listos para pasar a DB::grid
      */
-    public static function build(array $input, array $searchableColumns = []): array
+    public static function build(array $input, array $searchableColumns = [], array $exactFilters = []): array
     {
         // 1. Paginación -> [page, limit]
         $limit = (int)($input['limit'] ?? 10);
@@ -37,13 +38,28 @@ class GridjsAdapter
             }
         }
 
-        // 3. Ordenamiento (Formato compacto: '-field' para DESC, 'field' para ASC)
+        // Aplicar filtros exactos
+        if (!empty($exactFilters)) {
+            foreach ($exactFilters as $column => $value) {
+                $conditions[$column] = $value;
+            }
+        }
+
+        // 3. Ordenamiento (Soporta formato JSON y formato plano de Grid.js)
         $sort = [];
         if (!empty($input['sort'])) {
-            $sortData = json_decode($input['sort'], true);
-            if (isset($sortData['column'])) {
-                $prefix = (strtoupper($sortData['direction'] ?? 'ASC') === 'DESC') ? '-' : '';
-                $sort[] = $prefix . $sortData['column'];
+            // DETECCIÓN: Si es un JSON (empieza con {)
+            if (str_starts_with($input['sort'], '{')) {
+                $sortData = json_decode($input['sort'], true);
+                if (isset($sortData['column'])) {
+                    $dir = strtoupper($sortData['direction'] ?? 'ASC');
+                    $sort[] = ($dir === 'DESC' ? '-' : '') . $sortData['column'];
+                }
+            } else {
+                // DETECCIÓN: Formato plano de Grid.js (sort=field&order=ASC)
+                $column = $input['sort'];
+                $dir = strtoupper($input['order'] ?? 'ASC');
+                $sort[] = ($dir === 'DESC' ? '-' : '') . $column;
             }
         }
 
