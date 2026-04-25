@@ -353,7 +353,8 @@ class Gateway {
         
         try {
             // Usamos select con límite 1 y obtenemos el primer resultado
-            $result = self::select($fields, $table, $where, [], [], [], [0, 1], false, \PDO::FETCH_ASSOC, $class);
+            // [1, 1] significa: página 1, con 1 registro por página → LIMIT 1 OFFSET 0
+            $result = self::select($fields, $table, $where, [], [], [], [1, 1], false, \PDO::FETCH_ASSOC, $class);
             $row = $result['data'][0] ?? null;
             
             $duration = (microtime(true) - $start) * 1000;
