@@ -80,12 +80,22 @@ interface DBInterface {
     public static function query(string $sql, array $params = []): \PDOStatement|false;
 
     /** 
-     * Obtiene una única fila como array asociativo.
-     * @param string $sql
-     * @param array $params
-     * @return array|false
+     * Obtiene una única fila como array asociativo o instancia de clase.
+     * Versión expresiva: DB::one(table, where, fields, class, fail)
+     * @param string|array $table Nombre de la tabla o array de tablas para JOIN.
+     * @param array $where Condiciones WHERE.
+     * @param string|array $fields Campos a seleccionar (default: '*').
+     * @param string|null $class Clase para hidratar o null para FETCH_ASSOC.
+     * @param bool $fail Si es true, lanza excepción si no existe el registro.
+     * @return array|object|null Registro encontrado o null si no existe.
      */
-    public static function one(string $sql, array $params = []): array|false;
+    public static function one(
+        string|array $table, 
+        array $where, 
+        string|array $fields = '*', 
+        ?string $class = null,
+        bool $fail = false
+    ): array|object|null;
 
     /** 
      * Obtiene múltiples filas como array de arrays asociativos.
