@@ -88,7 +88,7 @@ echo "SQL: $sql\n";
 $projectionMap = SQL::getLastProjectionMap();
 echo "Projection Map: " . json_encode($projectionMap, JSON_PRETTY_PRINT) . "\n";
 
-$stmt = Executor::query($sql, $params, Conn::get());
+$stmt = Executor::query($sql, $params);
 $dataNum = $stmt->fetchAll(PDO::FETCH_NUM);
 $dataAssoc = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -112,7 +112,7 @@ echo "Params: " . json_encode($params) . "\n";
 $projectionMap = SQL::getLastProjectionMap();
 echo "Projection Map: " . json_encode($projectionMap, JSON_PRETTY_PRINT) . "\n";
 
-$stmt = Executor::query($sql, $params, Conn::get());
+$stmt = Executor::query($sql, $params);
 $dataNum = $stmt->fetchAll(PDO::FETCH_NUM);
 
 echo "FETCH_NUM result:\n";
@@ -146,7 +146,7 @@ echo "SQL: $sql\n";
 $projectionMap = SQL::getLastProjectionMap();
 echo "Projection Map: " . json_encode($projectionMap, JSON_PRETTY_PRINT) . "\n";
 
-$stmt = Executor::query($sql, $params, Conn::get());
+$stmt = Executor::query($sql, $params);
 $dataNum = $stmt->fetchAll(PDO::FETCH_NUM);
 
 echo "FETCH_NUM result (first row):\n";
@@ -183,7 +183,7 @@ SQL::setRelationsMap(['tables' => $schema]);
 $start = microtime(true);
 for ($i = 0; $i < $iterations; $i++) {
     [$sql, $params] = SQL::buildSelect(['id', 'name', 'email'], 'users', []);
-    $stmt = Executor::query($sql, $params, Conn::get());
+    $stmt = Executor::query($sql, $params);
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 $timeAssoc = (microtime(true) - $start) * 1000;
@@ -194,7 +194,7 @@ for ($i = 0; $i < $iterations; $i++) {
     $result = SQL::buildSelect(['id', 'name', 'email'], 'users', []);
     $sql = $result[0];
     $params = $result[1] ?? [];
-    $stmt = Executor::query($sql, $params, Conn::get());
+    $stmt = Executor::query($sql, $params);
     $data = $stmt->fetchAll(PDO::FETCH_NUM);
 }
 $timeNum = (microtime(true) - $start) * 1000;
@@ -228,7 +228,7 @@ try {
     }
     
     // Ejecutar con FETCH_NUM
-    $stmt = Executor::query($sql, $params, Conn::get());
+    $stmt = Executor::query($sql, $params);
     $dataNum = $stmt->fetchAll(PDO::FETCH_NUM);
     
     echo "\nResultados RapidBase (FETCH_NUM + Mapa):\n";

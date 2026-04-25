@@ -32,7 +32,7 @@ class DB implements DBInterface {
 	 * @return array
 	 */
 	public static function exec(string $sql, array $params = []): array {
-        return Executor::action($sql, $params, Conn::get());
+        return Executor::action($sql, $params);
     }
 	
 	/**
@@ -43,7 +43,7 @@ class DB implements DBInterface {
      */
     public static function query(string $sql, array $params = []): \PDOStatement|false
     {
-       return Executor::query($sql, $params, Conn::get());
+       return Executor::query($sql, $params);
     }
 
     // ========== ESTADO Y METADATOS ==========
@@ -135,7 +135,7 @@ class DB implements DBInterface {
      * @return array|false
      */
     public static function one(string $sql, array $params = []): array|false {
-        $stmt = Executor::query($sql, $params, Conn::get());
+        $stmt = Executor::query($sql, $params);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
@@ -146,7 +146,7 @@ class DB implements DBInterface {
      * @return array
      */
     public static function many(string $sql, array $params = []): array {
-        $stmt = Executor::query($sql, $params, Conn::get());
+        $stmt = Executor::query($sql, $params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -513,7 +513,7 @@ class DB implements DBInterface {
      * @return Generator
      */
     public static function stream(string $sql, array $params = []): Generator {
-        $stmt = Executor::query($sql, $params, Conn::get());
+        $stmt = Executor::query($sql, $params);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             yield $row;
         }
@@ -527,7 +527,7 @@ class DB implements DBInterface {
      * @return mixed
      */
     public static function transaction(callable $callback): mixed {
-        return Executor::transaction($callback, Conn::get());
+        return Executor::transaction($callback);
     }
 
     /**

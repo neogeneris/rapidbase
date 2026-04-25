@@ -68,13 +68,13 @@ class Gateway {
         if ($withTotal) {
             // Consulta de conteo (sin LIMIT/OFFSET)
             [$countSql, $countParams] = SQL::buildSelect('COUNT(*) as total', $table, $where);
-            $countStmt = Executor::query($countSql, $countParams, Conn::get());
+            $countStmt = Executor::query($countSql, $countParams);
             $total = (int) $countStmt->fetchColumn();
         }
 
         $start = microtime(true);
         try {
-            $stmt = Executor::query($sql, $params, Conn::get());
+            $stmt = Executor::query($sql, $params);
             
             // Usar FETCH_NUM si está habilitado, de lo contrario FETCH_ASSOC
             if ($useFetchNum) {
@@ -179,7 +179,7 @@ class Gateway {
 
         $start = microtime(true);
         try {
-            $res = Executor::action($sql, $params, Conn::get());
+            $res = Executor::action($sql, $params);
             $duration = (microtime(true) - $start) * 1000;
             
             if ($res['success']) {
@@ -211,7 +211,7 @@ class Gateway {
         
         $start = microtime(true);
         try {
-            $count = Executor::batch($sql, $paramsList, Conn::get());
+            $count = Executor::batch($sql, $paramsList);
             $duration = (microtime(true) - $start) * 1000;
             
             if ($count > 0) {
@@ -310,7 +310,7 @@ class Gateway {
         [$sql, $params] = SQL::buildExists($table, $where);
 
         try {
-            $stmt = Executor::query($sql, $params, Conn::get());
+            $stmt = Executor::query($sql, $params);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             $exists = (bool)($row['check'] ?? false);
             
@@ -332,7 +332,7 @@ class Gateway {
         [$sql, $params] = SQL::buildCount($table, $where);
 		
         try {
-            $stmt = Executor::query($sql, $params, Conn::get());
+            $stmt = Executor::query($sql, $params);
             $count = (int)($stmt->fetchColumn() ?: 0);
             
             $duration = (microtime(true) - $start) * 1000;

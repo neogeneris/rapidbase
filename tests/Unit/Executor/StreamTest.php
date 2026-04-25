@@ -14,9 +14,9 @@ $pdo = Conn::get("test");
 $pdo->exec("CREATE TABLE data (val TEXT)");
 
 // Insertamos varios
-foreach (['A', 'B', 'C'] as $v) Executor::action("INSERT INTO data VALUES (?)", [$v],$pdo);
+foreach (['A', 'B', 'C'] as $v) Executor::action("INSERT INTO data VALUES (?)", [$v]);
 
-$cursor = Executor::stream( "SELECT * FROM data", [],$pdo);
+$cursor = Executor::stream( "SELECT * FROM data", []);
 
 $results = [];
 foreach ($cursor as $row) {
