@@ -12,15 +12,13 @@ class Executor {
      * Ejecuta una sentencia SELECT y retorna el PDOStatement.
      * @param string $sql
      * @param array $params
-     * @param int $fetchMode Tipo de fetch (por defecto PDO::FETCH_ASSOC)
      * @return \PDOStatement
      */
-    public static function query(string $sql, array $params = [], int $fetchMode = \PDO::FETCH_ASSOC): \PDOStatement {
+    public static function query(string $sql, array $params = []): \PDOStatement {
         $pdo = Conn::get();
         try {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            $stmt->setFetchMode($fetchMode);
             return $stmt;
         } catch (\PDOException $e) {
             throw new \RuntimeException("Error de Lectura (Query): " . $e->getMessage() . " | SQL: $sql");
