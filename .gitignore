@@ -1,1 +1,10 @@
-(src/RapidBase/Core/Executor.php)
+```
+# Dependencies
+vendor/
+
+# Test artifacts
+.tests/phpUnit/
+
+# Cache files
+**/.phpunit.result.cache
+```

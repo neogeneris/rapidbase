@@ -101,7 +101,7 @@ $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 assert_db("query ejecuta correctamente", $row['num'] == 1);
 
 DB::insert('players', ['name' => 'OneTest', 'points' => 10]);
-$one = DB::one("SELECT * FROM players WHERE name = ?", ['OneTest']);
+$one = DB::one('players', ['name' => 'OneTest']);
 assert_db("one retorna array asociativo", is_array($one) && $one['name'] == 'OneTest');
 
 $many = DB::many("SELECT * FROM players");

@@ -38,7 +38,7 @@ class Gateway {
     }
     /**
      * CAPA 1 (Núcleo): Consulta Pura a la DB.
-     * Ahora soporta FETCH_NUM con mapa de proyección para máxima eficiencia.
+     * Soporta diferentes modos de fetch e instanciación de clases.
      *
      * @param mixed $fields Columnas a seleccionar (string o array).
      * @param mixed $table Nombre de la tabla (string) o array de tablas para JOIN.
@@ -46,7 +46,8 @@ class Gateway {
      * @param array $sort Ordenamiento [columna => ASC|DESC].
      * @param mixed $page Número de página (0 = sin límite, n = página n, [n, m] = página n con m registros).
      * @param bool $withTotal Si es true, incluye el total de registros (sin paginación).
-     * @param bool $useFetchNum Si es true, usa PDO::FETCH_NUM con mapa de proyección (más rápido).
+     * @param int $fetchMode Modo de fetch PDO (default: PDO::FETCH_ASSOC).
+     * @param string|null $class Nombre de la clase para instanciar (solo si $fetchMode = PDO::FETCH_CLASS).
      * @return array Con claves: data, total, page, limit, source, timestamp, projectionMap.
      */
     public static function select(
@@ -58,7 +59,8 @@ class Gateway {
         array $sort     = [], 
         mixed $page     = 1, 
         bool $withTotal = false,
-        bool $useFetchNum = false
+        int $fetchMode = \PDO::FETCH_ASSOC,
+        ?string $class = null
     ): array {
         
         // Construir SQL de datos
@@ -76,15 +78,15 @@ class Gateway {
         try {
             $stmt = Executor::query($sql, $params);
             
-            // Usar FETCH_NUM si está habilitado, de lo contrario FETCH_ASSOC
-            if ($useFetchNum) {
-                // Obtener el mapa de proyección desde SQL
-                $projectionMap = SQL::getLastProjectionMap();
-                $data = $stmt->fetchAll(\PDO::FETCH_NUM);
+            // Aplicar modo de fetch según corresponda
+            if ($fetchMode === \PDO::FETCH_CLASS && $class !== null) {
+                $data = $stmt->fetchAll($fetchMode, $class);
             } else {
-                $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                $projectionMap = [];
+                $data = $stmt->fetchAll($fetchMode);
             }
+            
+            // Obtener mapa de proyección solo si es FETCH_NUM
+            $projectionMap = ($fetchMode === \PDO::FETCH_NUM) ? SQL::getLastProjectionMap() : [];
             
             $duration = (microtime(true) - $start) * 1000; // milisegundos
             
@@ -104,7 +106,8 @@ class Gateway {
                 'source'         => 'database',
                 'timestamp'      => microtime(true),
                 'projectionMap'  => $projectionMap,
-                'useFetchNum'    => $useFetchNum
+                'fetchMode'      => $fetchMode,
+                'class'          => $class
             ];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
@@ -128,13 +131,14 @@ class Gateway {
         mixed $page     = 1, 
         bool $withTotal = false,
         int $ttl        = 3600,
-        bool $useFetchNum = false
+        int $fetchMode = \PDO::FETCH_ASSOC,
+        ?string $class = null
     ): array {
         
         $tableName = is_array($table) ? implode('_', $table) : (string)$table;
         
-        // CRÍTICO: Incluir $groupBy en el hash para evitar colisiones de caché
-        $queryHash = md5(json_encode([$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $useFetchNum]));
+        // CRÍTICO: Incluir $fetchMode y $class en el hash para evitar colisiones de caché
+        $queryHash = md5(json_encode([$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class]));
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         // Intentar recuperar de caché
@@ -147,8 +151,8 @@ class Gateway {
             }
         }
 
-        // Si no está en caché, llamamos a select() pasando el nuevo parámetro
-        $result = self::select($fields, $table, $where, $groupBy, $having, $sort, $page, $withTotal, $useFetchNum);
+        // Si no está en caché, llamamos a select() pasando los nuevos parámetros
+        $result = self::select($fields, $table, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class);
         
         // Guardar en caché
         if ($result && !empty($result['data']) && (self::$hasCacheService ?? true)) {
@@ -324,6 +328,52 @@ class Gateway {
             $duration = (microtime(true) - $start) * 1000;
             self::logError($e, $sql, $params, 'exists', $table, $duration);
             return false;
+        }
+    }
+
+    /**
+     * Obtiene un único registro que cumpla las condiciones.
+     *
+     * @param string|array $table Nombre de la tabla o array de tablas para JOIN.
+     * @param array $where Condiciones WHERE.
+     * @param string|array $fields Campos a seleccionar (default: '*').
+     * @param string|null $class Clase para hidratar o null para FETCH_ASSOC.
+     * @param bool $fail Si es true, lanza excepción si no existe el registro.
+     * @return array|object|null Registro encontrado o null si no existe.
+     * @throws \RuntimeException Si $fail es true y no se encuentra el registro.
+     */
+    public static function one(
+        string|array $table, 
+        array $where, 
+        string|array $fields = '*', 
+        ?string $class = null,
+        bool $fail = false
+    ): array|object|null {
+        $start = microtime(true);
+        
+        try {
+            // Usamos select con límite 1 y obtenemos el primer resultado
+            $result = self::select($fields, $table, $where, [], [], [], [0, 1], false, \PDO::FETCH_ASSOC, $class);
+            $row = $result['data'][0] ?? null;
+            
+            $duration = (microtime(true) - $start) * 1000;
+            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
+            
+            if ($row === null && $fail) {
+                $whereStr = json_encode($where);
+                throw new \RuntimeException("No se encontró ningún registro en '$tableName' con condiciones: $whereStr");
+            }
+            
+            self::logStatus(true, "SELECT ONE", $params ?? [], null, ['rows' => $row ? 1 : 0], 'one', $tableName, $duration);
+            
+            return $row;
+        } catch (\RuntimeException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            $duration = (microtime(true) - $start) * 1000;
+            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
+            self::logError($e, "SELECT ONE", $params ?? [], 'one', $tableName, $duration);
+            throw $e;
         }
     }
 

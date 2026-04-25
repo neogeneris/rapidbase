@@ -1,0 +1,30 @@
+{"event":"db.success","type":"insert","table":"test_log","duration":0.02002716064453125,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p1)","timestamp":1777092977.463041}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.02002716064453125,"timestamp":1777092977.463148}
+{"event":"db.success","type":"insert","table":"test_log","duration":0.0209808349609375,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (:p2)","timestamp":1777092977.463199}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.0209808349609375,"timestamp":1777092977.463212}
+{"event":"db.success","type":"update","table":"test_log","duration":0.019073486328125,"sql":"UPDATE \"test_log\" SET \"nombre\" = :p3 WHERE \"id\" = :p4","timestamp":1777092977.463256}
+{"event":"db.log","type":"update","table":"test_log","success":true,"duration":0.019073486328125,"timestamp":1777092977.463267}
+{"event":"db.success","type":"delete","table":"test_log","duration":0.013828277587890625,"sql":"DELETE FROM \"test_log\" WHERE \"id\" = :p5","timestamp":1777092977.463299}
+{"event":"db.log","type":"delete","table":"test_log","success":true,"duration":0.013828277587890625,"timestamp":1777092977.46331}
+{"event":"db.error","type":"select","table":"test_log","error":"Error de Escritura (Action): SQLSTATE[HY000]: General error: 1 no such table: 1 | SQL: SELECT test_log FROM \"1\"","sql":"SELECT test_log FROM \"1\"","timestamp":1777092977.463455}
+{"event":"db.log","type":"select","table":"test_log","success":false,"duration":0.026941299438476562,"timestamp":1777092977.463473}
+{"event":"db.success","type":"insert","table":"sensores","duration":0.02002716064453125,"sql":"INSERT INTO \"sensores\" (\"tipo\") VALUES (:p0)","timestamp":1777092977.463989}
+{"event":"db.log","type":"insert","table":"sensores","success":true,"duration":0.02002716064453125,"timestamp":1777092977.464025}
+{"event":"db.success","type":"insert","table":"sensores","duration":0.015020370483398438,"sql":"INSERT INTO \"sensores\" (\"tipo\") VALUES (:p1)","timestamp":1777092977.46406}
+{"event":"db.log","type":"insert","table":"sensores","success":true,"duration":0.015020370483398438,"timestamp":1777092977.464081}
+{"event":"db.success","type":"update","table":"sensores","duration":0.034809112548828125,"sql":"UPDATE \"sensores\" SET \"tipo\" = :p2 WHERE \"id\" = :p3","timestamp":1777092977.464139}
+{"event":"db.log","type":"update","table":"sensores","success":true,"duration":0.034809112548828125,"timestamp":1777092977.464163}
+{"event":"db.success","type":"delete","table":"sensores","duration":0.015974044799804688,"sql":"DELETE FROM \"sensores\" WHERE \"id\" = :p4","timestamp":1777092977.4642}
+{"event":"db.log","type":"delete","table":"sensores","success":true,"duration":0.015974044799804688,"timestamp":1777092977.46422}
+{"event":"db.error","type":"select","table":"sensores","error":"Error de Escritura (Action): SQLSTATE[HY000]: General error: 1 no such table: 1 | SQL: SELECT sensores FROM \"1\"","sql":"SELECT sensores FROM \"1\"","timestamp":1777092977.464273}
+{"event":"db.log","type":"select","table":"sensores","success":false,"duration":0.018835067749023438,"timestamp":1777092977.464294}
+{"event":"db.success","type":"exists","table":"partners","duration":0.051975250244140625,"sql":"SELECT EXISTS(SELECT 1 FROM \"partners\" WHERE \"slug\" = :p0) AS `check`","timestamp":1777092977.465968}
+{"event":"db.log","type":"exists","table":"partners","success":true,"duration":0.051975250244140625,"timestamp":1777092977.46601}
+{"event":"db.success","type":"exists","table":"partners","duration":0.031948089599609375,"sql":"SELECT EXISTS(SELECT 1 FROM \"partners\" WHERE \"slug\" = :p0) AS `check`","timestamp":1777092977.466068}
+{"event":"db.log","type":"exists","table":"partners","success":true,"duration":0.031948089599609375,"timestamp":1777092977.46609}
+{"event":"db.success","type":"exists","table":"partners","duration":0.041961669921875,"sql":"SELECT EXISTS(SELECT 1 FROM \"partners\" WHERE \"slug\" = :p0 AND \"active\" = :p1) AS `check`","timestamp":1777092977.466154}
+{"event":"db.log","type":"exists","table":"partners","success":true,"duration":0.041961669921875,"timestamp":1777092977.466181}
+{"event":"db.success","type":"select","table":"leads","duration":0.0400543212890625,"sql":"SELECT source, COUNT(*) as total FROM \"leads\" GROUP BY \"source\" LIMIT 10 OFFSET 0","timestamp":1777092977.467677}
+{"event":"db.log","type":"select","table":"leads","success":true,"duration":0.0400543212890625,"timestamp":1777092977.467723}
+{"event":"db.success","type":"select","table":"leads","duration":0.04100799560546875,"sql":"SELECT source, COUNT(*) as total FROM \"leads\" WHERE \"status\" = :p0 GROUP BY \"source\" LIMIT 10 OFFSET 0","timestamp":1777092977.467827}
+{"event":"db.log","type":"select","table":"leads","success":true,"duration":0.04100799560546875,"timestamp":1777092977.467853}

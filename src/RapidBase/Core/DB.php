@@ -129,14 +129,23 @@ class DB implements DBInterface {
     // ========== CONSULTAS EXPRESIVAS (SQL Crudo) ==========
 
     /**
-     * Obtiene una única fila como array asociativo.
-     * @param string $sql
-     * @param array $params
-     * @return array|false
+     * Obtiene un único registro que cumpla las condiciones.
+     * @param string|array $table Nombre de la tabla o array de tablas para JOIN.
+     * @param array $where Condiciones WHERE.
+     * @param string|array $fields Campos a seleccionar (default: '*').
+     * @param string|null $class Clase para hidratar o null para FETCH_ASSOC.
+     * @param bool $fail Si es true, lanza excepción si no existe el registro.
+     * @return array|object|null Registro encontrado o null si no existe.
+     * @throws \RuntimeException Si $fail es true y no se encuentra el registro.
      */
-    public static function one(string $sql, array $params = []): array|false {
-        $stmt = Executor::query($sql, $params);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+    public static function one(
+        string|array $table, 
+        array $where, 
+        string|array $fields = '*', 
+        ?string $class = null,
+        bool $fail = false
+    ): array|object|null {
+        return Gateway::one($table, $where, $fields, $class, $fail);
     }
 
     /**
@@ -407,7 +416,7 @@ class DB implements DBInterface {
         $actualPage = $page;
         
         // --- Ejecución ---
-        // Mantenemos useFetchNum = true para performance (evita duplicar memoria por claves de strings)
+        // Usamos FETCH_NUM para máximo rendimiento (evita duplicar memoria por claves de strings)
         $res = Gateway::selectCached(
             '*', 
             $table, 
@@ -417,7 +426,7 @@ class DB implements DBInterface {
             $actualPage, 
             true, 
             3600, 
-            true
+            \PDO::FETCH_NUM
         );
 
         // Obtener nombre de la tabla (si es array, tomar la primera)

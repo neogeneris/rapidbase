@@ -170,7 +170,7 @@ class DBTest extends TestCase
     {
         DB::insert('users', ['name' => 'One User', 'email' => 'one@test.com', 'age' => 27]);
 
-        $user = DB::one("SELECT * FROM users WHERE email = ?", ['one@test.com']);
+        $user = DB::one('users', ['email' => 'one@test.com']);
         
         $this->assertNotFalse($user);
         $this->assertEquals('One User', $user['name']);
@@ -251,7 +251,9 @@ class DBTest extends TestCase
             ]);
         }
 
-        $response = DB::grid('users', [], ['id' => 'ASC'], 1, 10);
+        // La firma actual es: grid(table, conditions, page, sort)
+        // donde page puede ser: int (pagina n), array [page, perPage], o 0 (sin limites)
+        $response = DB::grid('users', [], [1, 10], ['id' => 'ASC']);
         
         $this->assertInstanceOf(\RapidBase\Core\QueryResponse::class, $response);
         $this->assertCount(10, $response->data);
