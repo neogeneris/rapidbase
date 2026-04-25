@@ -237,11 +237,13 @@ class DB implements DBInterface {
             $table = $class::getTable();
         }
 
-        $result = Gateway::select('*', $table, $where, [],[],[], 1, 1, false);
-        $row = $result['data'][0] ?? null;
+        // Usar Gateway::one que está optimizado para obtener un único registro
+        $row = Gateway::one($table, $where, '*', null, false);
+        
         if (!$row) {
             return false;
         }
+        
         // Hidratar objeto
         $object = new $class();
         foreach ($row as $key => $value) {
