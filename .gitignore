@@ -12,6 +12,8 @@ target/
 .venv/
 venv/
 node_modules/
+.julia/
+zig*/
 .mypy_cache/
 .pytest_cache/
 .gradle/
@@ -30,8 +32,6 @@ node_modules/
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # System files
 .DS_Store

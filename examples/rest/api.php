@@ -75,22 +75,21 @@ try {
         $conditions[] = "name LIKE '%$search%' OR email LIKE '%$search%'";
     }
     
-    // Parsear página: soporta "offset" o "offset,limit"
+    // Parsear página: formato polimórfico [pagina, per_page]
+    // Según estándar RapidBase: page=[numero_pagina, registros_por_pagina]
+    // Ejemplo: page=1,10 significa "Página 1, mostrando 10 registros"
     $parsedPage = 0;
     if (is_string($pageParam) && strpos($pageParam, ',') !== false) {
-        // Formato: "offset,limit" ej: "2,10" → offset=2, limit=10
+        // Formato: "pagina,per_page" ej: "2,10" → Página 2, 10 regs por página
         $parts = explode(',', $pageParam);
-        $offset = (int)($parts[0] ?? 0);
-        $limit = (int)($parts[1] ?? 10);
-        // DB::grid espera [offset, limit] cuando se usa paginación custom
-        $parsedPage = [$offset, $limit];
-    } elseif (is_numeric($pageParam)) {
-        // Número de página (1-based desde UI) → convertir a offset
-        $pageNum = (int)$pageParam;
-        // Página 1 = offset 0, Página 2 = offset 10, etc.
-        $offset = ($pageNum - 1) * 10; // Default 10 items por página
-        $parsedPage = $offset > 0 ? $offset : 0;
+        $pageNum = max(0, (int)($parts[0] ?? 0));
+        $perPage = (int)($parts[1] ?? 10);
+        $parsedPage = [$pageNum, $perPage];
+    } elseif (is_numeric($pageParam) && $pageParam > 0) {
+        // Solo número de página: usar default 10 regs por página
+        $parsedPage = [(int)$pageParam, 10];
     }
+    // Si es 0 o null, $parsedPage queda en 0 (sin paginación)
     
     // Ejecutar consulta con DB::grid() - usa FETCH_NUM por defecto (máximo rendimiento)
     // Si se pasara $class='StdClass' usaría FETCH_OBJ, o una clase específica usaría FETCH_CLASS
