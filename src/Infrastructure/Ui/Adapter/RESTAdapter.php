@@ -43,9 +43,6 @@ class RESTAdapter
     
     // Columns to search when 'search' parameter is used
     private array $searchableColumns = [];
-    
-    // Column names for transforming FETCH_NUM to associative (optional)
-    private array $columnNames = [];
 
     /**
      * Constructor
@@ -53,13 +50,11 @@ class RESTAdapter
      * @param QueryResponse $response The query response from DB::grid()
      *                                Contiene datos en formato FETCH_NUM para máximo rendimiento
      * @param array $searchableColumns Columns to include in global search
-     * @param array $columnNames Optional column names to transform numeric data to associative
      */
-    public function __construct(QueryResponse $response, array $searchableColumns = [], array $columnNames = [])
+    public function __construct(QueryResponse $response, array $searchableColumns = [])
     {
         $this->response = $response;
         $this->searchableColumns = $searchableColumns;
-        $this->columnNames = $columnNames;
     }
 
     /**
@@ -77,67 +72,21 @@ class RESTAdapter
      * Este método NO ejecuta consultas - la consulta ya fue ejecutada por DB::grid()
      * y los datos están en $this->response en formato FETCH_NUM.
      * 
+     * Retorna el formato compacto de QueryResponse::toGridFormat():
+     * - head.columns: índices numéricos [0, 1, 2, ...]
+     * - head.titles: nombres de columnas ['id', 'name', 'email', ...]
+     * - data: arrays numéricos [[1, "Alice", "alice@example.com"], ...]
+     * - page: información de paginación
+     * - stats: estadísticas de la consulta
+     * 
      * @param array $params GET parameters for pagination, sorting, filtering (applied at DB level)
-     * @return array Standardized REST response with data and metadata
+     * @return array Formato compacto con head, data (FETCH_NUM), page y stats
      */
     public function handle(array $params = []): array
     {
-        // 1. Handle Pagination (for metadata calculation)
-        // Soporta: &page=2 (solo página) o &page=0,25 (offset,limit) o &page=25,25
-        $offset = 0;
-        $limit = $this->defaultPerPage;
-        
-        if (isset($params['page'])) {
-            $pageParam = (string)$params['page'];
-            
-            // Dividir por coma para soportar offset,limit
-            if (strpos($pageParam, ',') !== false) {
-                $parts = explode(',', $pageParam);
-                $offset = (int)($parts[0] ?? 0);
-                $limit = isset($parts[1]) ? (int)$parts[1] : $this->defaultPerPage;
-            } else {
-                // Solo número: tratar como offset directo (más simple para APIs REST)
-                $offset = max(0, (int)$pageParam);
-            }
-        }
-        
-        // Ensure valid values
-        $offset = max(0, $offset);
-        $limit = max(1, min($limit, 1000)); // Safety limit
-
-        // 2. Get data from QueryResponse (already executed with FETCH_NUM)
-        // $this->response->data contiene arrays numéricos: [[1, "Alice", "alice@example.com"], ...]
-        $gridFormat = $this->response->toGridFormat();
-        $numericData = $gridFormat['data'];
-        
-        // 3. Transform FETCH_NUM to associative ONLY if column names are provided
-        // This is the ONLY place where we convert to associative format
-        if (!empty($this->columnNames) && !empty($numericData)) {
-            $associativeData = [];
-            foreach ($numericData as $row) {
-                $associativeData[] = array_combine($this->columnNames, $row);
-            }
-            $finalData = $associativeData;
-        } else {
-            // Keep numeric format if no column names provided
-            $finalData = $numericData;
-        }
-
-        // 4. Build REST response with standardized metadata
-        $pageInfo = $gridFormat['page'] ?? [];
-        $totalRecords = $pageInfo['records'] ?? count($finalData);
-        $totalPages = $pageInfo['total'] ?? max(1, (int)ceil($totalRecords / $limit));
-        $currentPage = max(0, (int)floor($offset / $limit));
-        
-        return [
-            'data' => $finalData,
-            'meta' => [
-                'page' => $currentPage, // Page 0-based for API
-                'per_page' => $limit,
-                'total' => $totalRecords,
-                'total_pages' => $totalPages,
-            ]
-        ];
+        // Los parámetros de paginación, sort, search ya fueron aplicados en DB::grid()
+        // Solo retornamos el formato compacto con FETCH_NUM preservado
+        return $this->response->toGridFormat();
     }
 
     /**
@@ -146,14 +95,5 @@ class RESTAdapter
     public function getResponse(): QueryResponse
     {
         return $this->response;
-    }
-
-    /**
-     * Set column names for transforming FETCH_NUM to associative format.
-     */
-    public function setColumnNames(array $columnNames): self
-    {
-        $this->columnNames = $columnNames;
-        return $this;
     }
 }

@@ -126,7 +126,7 @@
             const page = document.getElementById('page').value;
             const perPage = document.getElementById('perPage').value;
             if (page !== '1' || perPage !== '25') {
-                params.append('page', `${page}:${perPage}`);
+                params.append('page', `${page},${perPage}`);
             } else {
                 params.append('page', page);
             }

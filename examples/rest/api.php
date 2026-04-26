@@ -64,7 +64,7 @@ try {
     $columns = ['id', 'name', 'email', 'role', 'created_at'];
     
     // Parsear parámetros desde URL
-    $page = $_GET['page'] ?? 1;
+    $pageParam = $_GET['page'] ?? 0;
     $sort = $_GET['sort'] ?? [];
     $search = $_GET['search'] ?? null;
     $filter = $_GET['filter'] ?? null;
@@ -75,25 +75,41 @@ try {
         $conditions[] = "name LIKE '%$search%' OR email LIKE '%$search%'";
     }
     
+    // Parsear página: soporta "offset" o "offset,limit"
+    $parsedPage = 0;
+    if (is_string($pageParam) && strpos($pageParam, ',') !== false) {
+        // Formato: "offset,limit" ej: "2,10" → offset=2, limit=10
+        $parts = explode(',', $pageParam);
+        $offset = (int)($parts[0] ?? 0);
+        $limit = (int)($parts[1] ?? 10);
+        // DB::grid espera [offset, limit] cuando se usa paginación custom
+        $parsedPage = [$offset, $limit];
+    } elseif (is_numeric($pageParam)) {
+        // Número de página (1-based desde UI) → convertir a offset
+        $pageNum = (int)$pageParam;
+        // Página 1 = offset 0, Página 2 = offset 10, etc.
+        $offset = ($pageNum - 1) * 10; // Default 10 items por página
+        $parsedPage = $offset > 0 ? $offset : 0;
+    }
+    
     // Ejecutar consulta con DB::grid() - usa FETCH_NUM por defecto (máximo rendimiento)
     // Si se pasara $class='StdClass' usaría FETCH_OBJ, o una clase específica usaría FETCH_CLASS
     $response = DB::grid(
         table: 'users',
         conditions: $conditions,
-        page: $page,
+        page: $parsedPage,  // Offset o [offset, limit]
         sort: $sort
         // $class = null por defecto → PDO::FETCH_NUM
     );
     
     // Usar RESTAdapter para transformar la respuesta
-    // El adapter recibe QueryResponse con datos FETCH_NUM
+    // El adapter recibe QueryResponse con datos FETCH_NUM y retorna formato compacto
     $adapter = new RESTAdapter(
         response: $response,
-        searchableColumns: ['name', 'email'], // Columnas para búsqueda global
-        columnNames: $columns // Nombres para transformar a asociativo en la salida JSON
+        searchableColumns: ['name', 'email'] // Columnas para búsqueda global
     );
     
-    // Procesar parámetros y generar respuesta REST estándar
+    // Procesar parámetros y generar respuesta REST en formato compacto
     $result = $adapter->handle($_GET);
     
     // Retornar JSON
