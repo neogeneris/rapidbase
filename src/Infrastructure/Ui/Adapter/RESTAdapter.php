@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace RapidBase\Infrastructure\Ui\Adapter;
 
-use RapidBase\Core\QueryExecutor;
+use RapidBase\Core\QueryResponse;
 
 /**
  * RESTAdapter
  * 
- * Adapts RapidBase query results for standard REST API consumption.
- * Unlike Grid adapters, this returns data directly with standard pagination metadata.
+ * Adapta los resultados de consultas RapidBase para consumo de API REST estándar.
+ * A diferencia de los adapters de Grid, esto retorna datos con metadatos de paginación estándar.
+ * 
+ * IMPORTANTE: Este adapter usa toGridFormat() que trabaja con FETCH_NUM (índices numéricos)
+ * para máximo rendimiento, evitando el overhead de memoria de FETCH_ASSOC.
  * 
  * URL Parameters Supported:
  * - page: Page number (e.g., &page=2) or Page:Limit (e.g., &page=2:50)
@@ -23,7 +26,7 @@ use RapidBase\Core\QueryExecutor;
  */
 class RESTAdapter
 {
-    private QueryExecutor $executor;
+    private QueryResponse $response;
     
     // Default pagination settings
     private int $defaultPerPage = 20;
@@ -34,12 +37,12 @@ class RESTAdapter
     /**
      * Constructor
      * 
-     * @param QueryExecutor $executor The query executor instance
+     * @param QueryResponse $response The query response from DB::grid()
      * @param array $searchableColumns Columns to include in global search
      */
-    public function __construct(QueryExecutor $executor, array $searchableColumns = [])
+    public function __construct(QueryResponse $response, array $searchableColumns = [])
     {
-        $this->executor = $executor;
+        $this->response = $response;
         $this->searchableColumns = $searchableColumns;
     }
 
