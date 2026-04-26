@@ -88,8 +88,8 @@ class RESTAdapter
      * y los datos están en $this->response en formato FETCH_NUM.
      * 
      * Retorna el formato compacto de QueryResponse::toGridFormat():
-     * - head.columns: índices numéricos [0, 1, 2, ...]
-     * - head.titles: nombres de columnas ['id', 'name', 'email', ...]
+     * - head.columns: nombres de columnas ['id', 'name', 'email', ...]
+     * - head.titles: títulos de columnas ['Id', 'Name', 'Email', ...]
      * - data: arrays numéricos [[1, "Alice", "alice@example.com"], ...]
      * - page: información de paginación
      * - stats: estadísticas de la consulta
@@ -102,11 +102,24 @@ class RESTAdapter
         // Obtener formato base desde QueryResponse
         $result = $this->response->toGridFormat();
         
-        // Si tenemos schema map y nombre de tabla, agregar definición de columnas
+        // Si tenemos schema map y nombre de tabla, actualizar definición de columnas
         if (!empty($this->schemaMap) && !empty($this->tableName) && !empty($this->schemaMap['tables'][$this->tableName])) {
             $tableSchema = $this->schemaMap['tables'][$this->tableName];
             
-            // Agregar columnas al resultado
+            // Obtener nombres de columnas del schema map
+            $columnNames = array_keys($tableSchema);
+            
+            // Actualizar head.columns con los nombres reales desde schema_map
+            $result['head']['columns'] = $columnNames;
+            
+            // Actualizar head.titles usando descripción o nombre formateado
+            $columnTitles = [];
+            foreach ($tableSchema as $colName => $colDef) {
+                $columnTitles[] = $colDef['description'] ?? self::formatTitle($colName);
+            }
+            $result['head']['titles'] = $columnTitles;
+            
+            // Agregar definición detallada de columnas
             $result['columns'] = [];
             foreach ($tableSchema as $columnName => $columnDef) {
                 $result['columns'][$columnName] = [
@@ -119,6 +132,14 @@ class RESTAdapter
         }
         
         return $result;
+    }
+    
+    /**
+     * Format column name to title case
+     */
+    private static function formatTitle(string $name): string
+    {
+        return ucwords(str_replace('_', ' ', $name));
     }
 
     /**
