@@ -72,13 +72,25 @@ class GridjsAdapter
 
     /**
      * Formatea la respuesta de RapidBase para Grid.js
+     * Usa toGridFormat() que mantiene los datos en formato FETCH_NUM (compacto)
+     * Grid.js transforma internamente a asociativo usando head.columns
      */
     public static function format(QueryResponse $response): array
     {
-        $pack = $response->toRapidPack();
+        // Usar toGridFormat() que retorna estructura completa con head, data (FETCH_NUM), page, stats
+        return $response->toGridFormat();
+    }
+    
+    /**
+     * Formatea la respuesta para Grid.js compatible con server.total
+     * Retorna solo data y total para compatibilidad con Grid.js básico
+     */
+    public static function formatSimple(QueryResponse $response): array
+    {
+        $pack = $response->toGridFormat();
         return [
-            'data'  => $pack['body'],
-            'total' => $pack['meta']['total']
+            'data'  => $pack['data'],  // Datos en formato FETCH_NUM
+            'total' => $pack['page']['records']
         ];
     }
 }

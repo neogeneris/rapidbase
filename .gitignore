@@ -1,22 +1,24 @@
-```
 # Dependencies
 vendor/
 composer.lock
 
-# Logs and temp files
+# Database
+database.sqlite
+*.sqlite
+*.db
+
+# Logs
 *.log
-*.tmp
 
 # Environment
 .env
 .env.local
 .env.*
 
-# Editors
+# IDE
 .vscode/
 .idea/
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
-```
