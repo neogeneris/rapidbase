@@ -138,7 +138,10 @@ class Gateway {
         $tableName = is_array($table) ? implode('_', $table) : (string)$table;
         
         // CRÍTICO: Incluir $fetchMode y $class en el hash para evitar colisiones de caché
-        $queryHash = md5(json_encode([$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class]));
+        $queryData = [$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class];
+        $jsonEncoded = json_encode($queryData);
+        // Usar XXH128 si está disponible (PHP 8.1+), sino fallback a MD5
+        $queryHash = function_exists('xxh128') ? xxh128($jsonEncoded) : md5($jsonEncoded);
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         // Intentar recuperar de caché

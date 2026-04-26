@@ -144,7 +144,8 @@ class DirectoryCacheAdapter
 
     private function getStoragePath(string $key): string
     {
-        $hash = md5($key);
+        // Usar XXH128 si está disponible (PHP 8.1+), sino fallback a MD5
+        $hash = function_exists('xxh128') ? xxh128($key) : md5($key);
         return $this->basePath .
                substr($hash, 0, 2) . DIRECTORY_SEPARATOR .
                substr($hash, 2, 2) . DIRECTORY_SEPARATOR .

@@ -1,79 +1,42 @@
 ```
-# Database files
-*.db
-
-# Environment files
-.env
-.env.local
-*.env.*
+# Compiled and build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
 # Dependencies
 vendor/
+node_modules/
+*.lock
 
-# Build artifacts
-dist/
-build/
-target/
-
-# Logs
+# Logs and temp files
 *.log
-
-# Temporary files
 *.tmp
-*.temp
+*.swp
 
-# OS generated files
-.DS_Store
-Thumbs.db
+# Environment
+.env
+.env.local
+.env.*
 
-# Editor files
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Node.js
-node_modules/
-
-# Java
-*.class
-*.jar
-*.war
-*.ear
-.META-INF/
-
-# C/C++
-*.o
-*.obj
-*.so
-*.a
-*.dll
-*.exe
-
-# Ruby
-*.gem
-.bundle/
-Gemfile.lock
-
-# Go
-*.out
-
-# PHP
-composer.phar
-
-# Coverage
+# Coverage and testing
 coverage/
 htmlcov/
 .coverage
+*.gcda
+*.gcno
 
-# Cache
-.mypy_cache/
-.pytest_cache/
-.gradle/
+# Distribution and build
+dist/
+build/
+target/
+*.phar
 ```
