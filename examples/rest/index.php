@@ -166,9 +166,9 @@
                 metaDiv.style.display = 'block';
                 metaDiv.innerHTML = `
                     <strong>Pagination Info:</strong> 
-                    Showing ${result.data.length} of ${result.meta.total} records | 
-                    Page ${result.meta.page + 1} of ${result.meta.total_pages} | 
-                    ${result.meta.per_page} items per page
+                    Showing ${result.data.length} of ${result.page.records} records | 
+                    Page ${result.page.current} of ${result.page.total} | 
+                    ${result.page.limit} items per page
                 `;
 
                 // Guardar todos los usuarios para referencia
