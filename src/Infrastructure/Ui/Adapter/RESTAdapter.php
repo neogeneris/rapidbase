@@ -43,6 +43,12 @@ class RESTAdapter
     
     // Columns to search when 'search' parameter is used
     private array $searchableColumns = [];
+    
+    // Schema map for column definitions
+    private array $schemaMap = [];
+    
+    // Table name for schema lookup
+    private string $tableName = '';
 
     /**
      * Constructor
@@ -50,11 +56,20 @@ class RESTAdapter
      * @param QueryResponse $response The query response from DB::grid()
      *                                Contiene datos en formato FETCH_NUM para máximo rendimiento
      * @param array $searchableColumns Columns to include in global search
+     * @param array $schemaMap Schema map con definición de columnas
+     * @param string $tableName Nombre de la tabla para buscar en el schema map
      */
-    public function __construct(QueryResponse $response, array $searchableColumns = [])
+    public function __construct(
+        QueryResponse $response, 
+        array $searchableColumns = [],
+        array $schemaMap = [],
+        string $tableName = ''
+    )
     {
         $this->response = $response;
         $this->searchableColumns = $searchableColumns;
+        $this->schemaMap = $schemaMap;
+        $this->tableName = $tableName;
     }
 
     /**
@@ -84,9 +99,26 @@ class RESTAdapter
      */
     public function handle(array $params = []): array
     {
-        // Los parámetros de paginación, sort, search ya fueron aplicados en DB::grid()
-        // Solo retornamos el formato compacto con FETCH_NUM preservado
-        return $this->response->toGridFormat();
+        // Obtener formato base desde QueryResponse
+        $result = $this->response->toGridFormat();
+        
+        // Si tenemos schema map y nombre de tabla, agregar definición de columnas
+        if (!empty($this->schemaMap) && !empty($this->tableName) && !empty($this->schemaMap['tables'][$this->tableName])) {
+            $tableSchema = $this->schemaMap['tables'][$this->tableName];
+            
+            // Agregar columnas al resultado
+            $result['columns'] = [];
+            foreach ($tableSchema as $columnName => $columnDef) {
+                $result['columns'][$columnName] = [
+                    'type' => $columnDef['type'] ?? 'TEXT',
+                    'primary' => $columnDef['primary'] ?? false,
+                    'nullable' => $columnDef['nullable'] ?? true,
+                    'default' => $columnDef['default'] ?? null
+                ];
+            }
+        }
+        
+        return $result;
     }
 
     /**

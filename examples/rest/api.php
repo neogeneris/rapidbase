@@ -60,8 +60,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 try {
-    // Definir columnas de la tabla users
-    $columns = ['id', 'name', 'email', 'role', 'created_at'];
+    // Cargar schema map para obtener definición de columnas
+    $schemaMapFile = __DIR__ . '/schema_map.php';
+    $schemaMap = file_exists($schemaMapFile) ? require $schemaMapFile : [];
+    
+    // Obtener columnas de la tabla users desde el schema map
+    $tableColumns = [];
+    if (!empty($schemaMap['tables']['users'])) {
+        $tableColumns = array_keys($schemaMap['tables']['users']);
+    } else {
+        // Fallback por si no hay schema map
+        $tableColumns = ['id', 'name', 'email', 'role', 'created_at'];
+    }
     
     // Parsear parámetros desde URL
     $pageParam = $_GET['page'] ?? 0;
@@ -105,7 +115,9 @@ try {
     // El adapter recibe QueryResponse con datos FETCH_NUM y retorna formato compacto
     $adapter = new RESTAdapter(
         response: $response,
-        searchableColumns: ['name', 'email'] // Columnas para búsqueda global
+        searchableColumns: ['name', 'email'], // Columnas para búsqueda global
+        schemaMap: $schemaMap,  // Pasar schema map para obtener definición de columnas
+        tableName: 'users'      // Nombre de la tabla consultada
     );
     
     // Procesar parámetros y generar respuesta REST en formato compacto
