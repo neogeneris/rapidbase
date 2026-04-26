@@ -105,10 +105,9 @@
                 width: '180px',
                 sort: false,
                 formatter: (_, row) => {
-                    // row.cells[0].data es el ID del usuario
+                    // row.cells[0].data es el ID del usuario (FETCH_NUM: índice 0)
                     const userId = row.cells[0].data;
                     // Usar gridjs.html() para inyectar HTML raw con onclick inline
-                    // Esto es la forma más confiable de que los botones funcionen en Grid.js
                     return gridjs.html(
                         `<div class="action-buttons">` +
                             `<button class="btn btn-warning btn-sm" onclick="handleEdit(${userId})">✏️ Edit</button>` +
@@ -123,7 +122,11 @@
             columns,
             server: {
                 url: 'api.php?action=list',
-                then: data => data.data,
+                then: data => {
+                    // data.data viene en formato FETCH_NUM: [[1, "Alice", ...], ...]
+                    // Grid.js necesita transformar a filas usando las column definitions
+                    return data.data;
+                },
                 total: data => data.total
             },
             pagination: {

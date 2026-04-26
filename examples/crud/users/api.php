@@ -65,8 +65,9 @@ try {
             // Ejecutar consulta con la nueva firma optimizada
             $response = DB::grid('users', $params['conditions'], $params['page'], $params['sort']);
             
-            // Usar GridjsAdapter para formatear la salida
-            echo json_encode(\RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::format($response));
+            // Usar GridjsAdapter::formatSimple() para compatibilidad con Grid.js server-side
+            // Esto retorna {data: [[1, "Alice", ...], ...], total: 50} en formato FETCH_NUM
+            echo json_encode(\RapidBase\Infrastructure\UI\Adapters\GridjsAdapter::formatSimple($response));
             break;
             
         case 'get':

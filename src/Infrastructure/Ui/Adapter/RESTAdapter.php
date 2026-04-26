@@ -121,11 +121,12 @@ class RESTAdapter
 
         // 4. Build REST response with standardized metadata
         $pageInfo = $gridFormat['page'] ?? [];
+        $currentPage = $pageInfo['current'] ?? $page;
         
         return [
             'data' => $finalData,
             'meta' => [
-                'page' => $pageInfo['current'] ?? $page,
+                'page' => max(0, $currentPage - 1), // Page 0-based for API (ensure non-negative)
                 'per_page' => $pageInfo['limit'] ?? $perPage,
                 'total' => $pageInfo['records'] ?? count($finalData),
                 'total_pages' => $pageInfo['total'] ?? 1,
