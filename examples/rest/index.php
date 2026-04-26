@@ -149,9 +149,10 @@
          */
         async function updatePreview() {
             const url = buildURL();
-            const apiUrl = '/examples/rest/api.php' + url;
+            // Usar ruta relativa desde la ubicación actual del index.php
+            const apiUrl = 'api.php' + url;
             
-            document.getElementById('urlDisplay').textContent = window.location.origin + apiUrl;
+            document.getElementById('urlDisplay').textContent = window.location.origin + '/examples/rest/' + apiUrl;
 
             try {
                 const response = await fetch(apiUrl);
