@@ -7,15 +7,13 @@ composer.phar
 *.phar
 
 # ---------------------------------------------------------
-# Temporary Files (Requested)
+# Temporary Files & Test Artifacts
 # ---------------------------------------------------------
-tmp/*
-!tmp/.gitkeep
-temp/
-*.tmp
-*.swp
-*.swo
-*~
+# Ignorar cualquier carpeta llamada 'tmp' en cualquier nivel
+**/tmp/
+**/tmp/*
+!**/tmp/.gitkeep
+
 
 # ---------------------------------------------------------
 # Logs & Cache
