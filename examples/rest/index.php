@@ -112,49 +112,11 @@
     </div>
 
     <script>
-        /**
-         * Datos simulados en formato FETCH_NUM (compacto, índices numéricos)
-         * Esto es lo que realmente devuelve DB::grid() con PDO::FETCH_NUM
-         * 
-         * Estructura: {head: {columns: [...], titles: [...]}, data: [[1, "Alice", ...], ...], page: {...}, stats: {...}}
-         * Los nombres de columnas están en metadata.head.columns
-         */
-        const mockResponse = {
-            head: {
-                columns: ["id", "name", "email", "role", "created_at"],
-                titles: ["Id", "Name", "Email", "Role", "Created At"]
-            },
-            data: [
-                [1, "John Doeg", "john@example.com", "admin", "2026-02-25 22:47:41"],
-                [2, "Jane Smith", "jane@example.com", "user", "2025-08-11 22:47:41"],
-                [3, "Bob Johnson", "bob@example.com", "moderator", "2025-10-22 22:47:41"],
-                [4, "Alice Williams", "alice@example.com", "user", "2026-04-13 22:47:41"],
-                [5, "Charlie Brown", "charlie@example.com", "moderator", "2026-03-11 22:47:41"],
-                [6, "Diana Prince", "diana@example.com", "admin", "2025-12-05 22:47:41"],
-                [7, "Edward Norton", "edward@example.com", "user", "2025-09-18 22:47:41"],
-                [8, "Fiona Apple", "fiona@example.com", "moderator", "2026-01-22 22:47:41"],
-                [9, "George Lucas", "george@example.com", "user", "2025-07-30 22:47:41"],
-                [10, "Hannah Montana", "hannah@example.com", "user", "2026-05-14 22:47:41"]
-            ],
-            page: {
-                current: 1,
-                total: 6,
-                limit: 10,
-                records: 51,
-                next: 2,
-                prev: null,
-                first: 1,
-                last: 6
-            },
-            stats: {
-                exec_ms: 0.0868,
-                cache: false,
-                cache_type: null,
-                memory_kb: 124.5,
-                queries: 1
-            }
-        };
+        let allUsers = [];
 
+        /**
+         * Construye URL con parámetros actuales
+         */
         function buildURL() {
             const params = new URLSearchParams();
             
@@ -182,38 +144,48 @@
             return '?' + params.toString();
         }
 
-        function updatePreview() {
+        /**
+         * Carga datos reales desde la API REST
+         */
+        async function updatePreview() {
             const url = buildURL();
-            document.getElementById('urlDisplay').textContent = window.location.origin + '/api/users' + url;
+            const apiUrl = '/examples/rest/api.php' + url;
+            
+            document.getElementById('urlDisplay').textContent = window.location.origin + apiUrl;
 
-            // Simular respuesta API en formato toGridFormat() (datos compactos FETCH_NUM)
-            // En producción esto viene directamente de QueryResponse->toGridFormat()
-            const response = mockResponse;
+            try {
+                const response = await fetch(apiUrl);
+                const result = await response.json();
 
-            // Display JSON - Formato completo con head, data (FETCH_NUM), page, stats
-            document.getElementById('jsonOutput').value = JSON.stringify(response, null, 2);
+                // Mostrar JSON completo de la respuesta API
+                document.getElementById('jsonOutput').value = JSON.stringify(result, null, 2);
 
-            // Display Meta Info
-            const metaDiv = document.getElementById('metaInfo');
-            metaDiv.style.display = 'block';
-            metaDiv.innerHTML = `
-                <strong>Pagination Info:</strong> 
-                Showing ${response.data.length} of ${response.page.records} records | 
-                Page ${response.page.current} of ${response.page.total} | 
-                ${response.page.limit} items per page |
-                <strong>Format: FETCH_NUM (compact arrays)</strong>
-            `;
+                // Mostrar información de paginación
+                const metaDiv = document.getElementById('metaInfo');
+                metaDiv.style.display = 'block';
+                metaDiv.innerHTML = `
+                    <strong>Pagination Info:</strong> 
+                    Showing ${result.data.length} of ${result.meta.total} records | 
+                    Page ${result.meta.page + 1} of ${result.meta.total_pages} | 
+                    ${result.meta.per_page} items per page
+                `;
 
-            // Render Table desde datos numéricos usando column names del head
-            renderTable(response.data, response.head.columns);
+                // Guardar todos los usuarios para referencia
+                allUsers = result.data;
+
+                // Renderizar tabla con datos asociativos
+                renderTable(result.data);
+            } catch (error) {
+                document.getElementById('jsonOutput').value = 'Error loading data: ' + error.message;
+                document.getElementById('metaInfo').style.display = 'none';
+            }
         }
 
         /**
-         * Renderiza tabla desde datos en formato FETCH_NUM
-         * @param {Array<Array>} data - Arrays numéricos: [[1, "Alice", ...], ...]
-         * @param {Array<string>} columns - Nombres de columnas: ["id", "name", ...]
+         * Renderiza tabla desde datos asociativos
+         * @param {Array<Object>} data - Objetos asociativos: [{id: 1, name: "Alice", ...}, ...]
          */
-        function renderTable(data, columns) {
+        function renderTable(data) {
             const thead = document.querySelector('#dataPreview thead');
             const tbody = document.querySelector('#dataPreview tbody');
             
@@ -221,25 +193,26 @@
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="' + columns.length + '" style="text-align:center;color:#999;">No data found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">No data found</td></tr>';
                 return;
             }
 
-            // Headers desde column names
+            // Headers desde las claves del primer objeto
+            const columns = Object.keys(data[0]);
             const headerRow = document.createElement('tr');
             columns.forEach(col => {
                 const th = document.createElement('th');
-                th.textContent = col;
+                th.textContent = col.replace('_', ' ').toUpperCase();
                 headerRow.appendChild(th);
             });
             thead.appendChild(headerRow);
 
-            // Rows desde arrays numéricos
+            // Rows desde objetos asociativos
             data.forEach(row => {
                 const tr = document.createElement('tr');
-                row.forEach(cell => {
+                columns.forEach(col => {
                     const td = document.createElement('td');
-                    td.textContent = cell;
+                    td.textContent = row[col];
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
