@@ -120,7 +120,16 @@ class RESTAdapter
             $result['head']['titles'] = $columnTitles;
         }
         
-        return $result;
+        // Remover cualquier dato adicional que no sea necesario para la respuesta REST
+        // Mantener solo: head, data, page, stats
+        $filteredResult = [
+            'head' => $result['head'],
+            'data' => $result['data'],
+            'page' => $result['page'],
+            'stats' => $result['stats'] ?? []
+        ];
+        
+        return $filteredResult;
     }
     
     /**

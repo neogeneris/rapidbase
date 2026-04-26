@@ -1,80 +1,38 @@
-```php
-# Compiled and build artifacts
-*.pyc
-*.o
-*.obj
-*.class
-*.exe
-*.dll
-*.so
-*.a
-*.out
+```
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
 
 # Dependencies
 node_modules/
 vendor/
 composer.lock
-*.lock
-**/vendor/
 
-# Build directories
+# Build artifacts
 dist/
 build/
-target/
-release/
-debug/
-
-# Python specific
-__pycache__/
-*.py[cod]
-*$py.class
+*.phar
 *.so
-.Python
-env/
-venv/
-.venv/
-.env
-.env.local
-.env.*
-.env~*
-.venv.bak
-venv.bak
+*.dll
+*.exe
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-*.bak
-*.backup
-*~
-
-# Environment variables
-.env
-.env.local
-.env.*
-
-# Editors
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Coverage
-.coverage
-coverage/
-htmlcov/
-.nyc_output
-istanbul.out
-
-# OS generated
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Cache
+.cache/
+.php_cs.cache
 ```

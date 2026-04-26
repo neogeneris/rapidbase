@@ -136,7 +136,10 @@
             }
 
             const filter = document.getElementById('filter').value.trim();
-            if (filter) params.append('filter', filter);
+            if (filter) {
+                // Codificar JSON para URL
+                params.append('filter', encodeURIComponent(filter));
+            }
 
             return '?' + params.toString();
         }
