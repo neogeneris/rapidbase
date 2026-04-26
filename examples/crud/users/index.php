@@ -121,7 +121,11 @@
         userGrid = new gridjs.Grid({
             columns,
             server: {
-                url: 'api.php?action=list',
+                url: (prev) => {
+                    // Eliminar parámetros previos para evitar duplicación
+                    const baseUrl = 'api.php?action=list';
+                    return baseUrl;
+                },
                 then: data => {
                     // data.data viene en formato FETCH_NUM: [[1, "Alice", ...], ...]
                     // Grid.js necesita transformar a filas usando las column definitions
@@ -135,8 +139,14 @@
                 summary: true,
                 server: {
                     url: (prev, page, limit) => {
+                        // Grid.js page es 0-based (0, 1, 2, ...)
+                        // El backend espera offset basado en página 0
                         const offset = page * limit;
-                        return `${prev}&limit=${limit}&offset=${offset}`;
+                        const url = new URL('api.php', window.location.href);
+                        url.searchParams.set('action', 'list');
+                        url.searchParams.set('limit', limit.toString());
+                        url.searchParams.set('offset', offset.toString());
+                        return url.toString();
                     }
                 }
             },
@@ -144,20 +154,34 @@
                 enabled: true, 
                 placeholder: '🔍 Search...',
                 server: {
-                    url: (prev, keyword) => `${prev}&search=${encodeURIComponent(keyword)}`
+                    url: (prev, keyword) => {
+                        // Construir URL base con pagination params si existen
+                        const url = new URL('api.php', window.location.href);
+                        url.searchParams.set('action', 'list');
+                        if (keyword) url.searchParams.set('search', keyword);
+                        return url.toString();
+                    }
                 }
             },
             sort: {
                 server: {
                     url: (prev, columns) => {
-                        if (!columns || columns.length === 0) return prev;
+                        if (!columns || columns.length === 0) {
+                            const url = new URL('api.php', window.location.href);
+                            url.searchParams.set('action', 'list');
+                            return url.toString();
+                        }
                         const col = columns[0];
                         const dir = col.direction === 1 ? 'ASC' : 'DESC';
                         // Grid.js server-side sort usa col.index (numérico, 0-based)
                         // Mapear índice de columna al nombre real del campo en la DB
                         const indexMap = ['id', 'name', 'email', 'role', 'created_at'];
                         const apiSortField = indexMap[col.index] || 'id';
-                        return `${prev}&sort=${apiSortField}&order=${dir}`;
+                        const url = new URL('api.php', window.location.href);
+                        url.searchParams.set('action', 'list');
+                        url.searchParams.set('sort', apiSortField);
+                        url.searchParams.set('order', dir);
+                        return url.toString();
                     }
                 }
             },
