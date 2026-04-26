@@ -588,8 +588,8 @@ class SQL
         if ($havingClause !== '') $sqlParts[] = $havingClause;
         if ($orderByClause !== '') $sqlParts[] = $orderByClause;
         
-        // Solo agregar LIMIT/OFFSET si hay paginación (page > 0)
-        if ($page > 0 && $parts['limit'] > 0) {
+        // Solo agregar LIMIT/OFFSET si hay paginación (pageNum > 0)
+        if ($pageNum > 0 && $parts['limit'] > 0) {
             $sqlParts[] = "LIMIT {$parts['limit']} OFFSET {$parts['offset']}";
         }
         

@@ -64,7 +64,7 @@ try {
     $columns = ['id', 'name', 'email', 'role', 'created_at'];
     
     // Parsear parámetros desde URL
-    $page = $_GET['page'] ?? 1;
+    $pageParam = $_GET['page'] ?? 0;
     $sort = $_GET['sort'] ?? [];
     $search = $_GET['search'] ?? null;
     $filter = $_GET['filter'] ?? null;
@@ -75,25 +75,40 @@ try {
         $conditions[] = "name LIKE '%$search%' OR email LIKE '%$search%'";
     }
     
+    // Parsear página: formato polimórfico [pagina, per_page]
+    // Según estándar RapidBase: page=[numero_pagina, registros_por_pagina]
+    // Ejemplo: page=1,10 significa "Página 1, mostrando 10 registros"
+    $parsedPage = 0;
+    if (is_string($pageParam) && strpos($pageParam, ',') !== false) {
+        // Formato: "pagina,per_page" ej: "2,10" → Página 2, 10 regs por página
+        $parts = explode(',', $pageParam);
+        $pageNum = max(0, (int)($parts[0] ?? 0));
+        $perPage = (int)($parts[1] ?? 10);
+        $parsedPage = [$pageNum, $perPage];
+    } elseif (is_numeric($pageParam) && $pageParam > 0) {
+        // Solo número de página: usar default 10 regs por página
+        $parsedPage = [(int)$pageParam, 10];
+    }
+    // Si es 0 o null, $parsedPage queda en 0 (sin paginación)
+    
     // Ejecutar consulta con DB::grid() - usa FETCH_NUM por defecto (máximo rendimiento)
     // Si se pasara $class='StdClass' usaría FETCH_OBJ, o una clase específica usaría FETCH_CLASS
     $response = DB::grid(
         table: 'users',
         conditions: $conditions,
-        page: $page,
+        page: $parsedPage,  // Offset o [offset, limit]
         sort: $sort
         // $class = null por defecto → PDO::FETCH_NUM
     );
     
     // Usar RESTAdapter para transformar la respuesta
-    // El adapter recibe QueryResponse con datos FETCH_NUM
+    // El adapter recibe QueryResponse con datos FETCH_NUM y retorna formato compacto
     $adapter = new RESTAdapter(
         response: $response,
-        searchableColumns: ['name', 'email'], // Columnas para búsqueda global
-        columnNames: $columns // Nombres para transformar a asociativo en la salida JSON
+        searchableColumns: ['name', 'email'] // Columnas para búsqueda global
     );
     
-    // Procesar parámetros y generar respuesta REST estándar
+    // Procesar parámetros y generar respuesta REST en formato compacto
     $result = $adapter->handle($_GET);
     
     // Retornar JSON
