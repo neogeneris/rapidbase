@@ -125,11 +125,8 @@
 
             const page = document.getElementById('page').value;
             const perPage = document.getElementById('perPage').value;
-            if (page !== '1' || perPage !== '25') {
-                params.append('page', `${page},${perPage}`);
-            } else {
-                params.append('page', page);
-            }
+            // Siempre usar formato pageNum,recordsPerPage (ej: "1,25")
+            params.append('page', `${page},${perPage}`);
 
             const sortColumn = document.getElementById('sortColumn').value;
             if (sortColumn) {

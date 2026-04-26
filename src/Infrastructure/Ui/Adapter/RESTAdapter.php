@@ -118,17 +118,6 @@ class RESTAdapter
                 $columnTitles[] = $colDef['description'] ?? self::formatTitle($colName);
             }
             $result['head']['titles'] = $columnTitles;
-            
-            // Agregar definición detallada de columnas
-            $result['columns'] = [];
-            foreach ($tableSchema as $columnName => $columnDef) {
-                $result['columns'][$columnName] = [
-                    'type' => $columnDef['type'] ?? 'TEXT',
-                    'primary' => $columnDef['primary'] ?? false,
-                    'nullable' => $columnDef['nullable'] ?? true,
-                    'default' => $columnDef['default'] ?? null
-                ];
-            }
         }
         
         return $result;

@@ -85,21 +85,23 @@ try {
         $conditions[] = "name LIKE '%$search%' OR email LIKE '%$search%'";
     }
     
-    // Parsear página: formato polimórfico [pagina, per_page]
+    // Parsear página: formato polimórfico [pageNum, perPage]
     // Según estándar RapidBase: page=[numero_pagina, registros_por_pagina]
     // Ejemplo: page=1,10 significa "Página 1, mostrando 10 registros"
-    $parsedPage = 0;
+    $parsedPage = [];
     if (is_string($pageParam) && strpos($pageParam, ',') !== false) {
-        // Formato: "pagina,per_page" ej: "2,10" → Página 2, 10 regs por página
+        // Formato: "pageNum,perPage" ej: "2,10" → Página 2, 10 regs por página
         $parts = explode(',', $pageParam);
-        $pageNum = max(0, (int)($parts[0] ?? 0));
+        $pageNum = max(1, (int)($parts[0] ?? 1));
         $perPage = (int)($parts[1] ?? 10);
         $parsedPage = [$pageNum, $perPage];
     } elseif (is_numeric($pageParam) && $pageParam > 0) {
         // Solo número de página: usar default 10 regs por página
         $parsedPage = [(int)$pageParam, 10];
+    } else {
+        // Default: página 1, 10 registros por página
+        $parsedPage = [1, 10];
     }
-    // Si es 0 o null, $parsedPage queda en 0 (sin paginación)
     
     // Ejecutar consulta con DB::grid() - usa FETCH_NUM por defecto (máximo rendimiento)
     // Si se pasara $class='StdClass' usaría FETCH_OBJ, o una clase específica usaría FETCH_CLASS
