@@ -1,75 +1,62 @@
-```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
+# ---------------------------------------------------------
+# PHP & Composer
+# ---------------------------------------------------------
+vendor/
+composer.lock
+composer.phar
+*.phar
 
-# Dependencies
-.venv/
-venv/
-node_modules/
-.julia/
-.zig-cache/
-zig-cache/
-
-# Logs and temp files
-*.log
+# ---------------------------------------------------------
+# Temporary Files (Requested)
+# ---------------------------------------------------------
+tmp/*
+!tmp/.gitkeep
+temp/
 *.tmp
 *.swp
 *.swo
+*~
 
-# Environment
+# ---------------------------------------------------------
+# Logs & Cache
+# ---------------------------------------------------------
+*.log
+logs/
+cache/
+!.gitkeep
+.phpunit.result.cache
+.php_cs.cache
+
+# ---------------------------------------------------------
+# Environment & Secrets
+# ---------------------------------------------------------
 .env
 .env.local
-.env.*
+.env.*.local
+.htaccess
 
-# Editors
+# ---------------------------------------------------------
+# IDE & Editors
+# ---------------------------------------------------------
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# System files
+*.sublime-project
+*.sublime-workspace
 .DS_Store
 Thumbs.db
 
-# Coverage
+# ---------------------------------------------------------
+# Build & Distribution
+# ---------------------------------------------------------
+dist/
+build/
+target/
 coverage/
 htmlcov/
-.coverage
+.phpunit.cache/
 
-# Package manager caches
-.mypy_cache/
-.pytest_cache/
-.gradle/
-.npm/
-.yarn/
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-```
+# ---------------------------------------------------------
+# Dependencies (General)
+# ---------------------------------------------------------
+node_modules/
+bower_components/
