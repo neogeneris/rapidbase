@@ -129,6 +129,10 @@
                 then: data => {
                     // data.data viene en formato FETCH_NUM: [[1, "Alice", ...], ...]
                     // Grid.js necesita transformar a filas usando las column definitions
+                    // Guardar los nombres de columnas desde head.columns para usar en sort
+                    if (data.head && data.head.columns) {
+                        window.gridColumns = data.head.columns;
+                    }
                     return data.data;
                 },
                 total: data => data.total
@@ -174,9 +178,10 @@
                         const col = columns[0];
                         const dir = col.direction === 1 ? 'ASC' : 'DESC';
                         // Grid.js server-side sort usa col.index (numérico, 0-based)
-                        // Mapear índice de columna al nombre real del campo en la DB
-                        const indexMap = ['id', 'name', 'email', 'role', 'created_at'];
-                        const apiSortField = indexMap[col.index] || 'id';
+                        // Usar los nombres de columnas reales desde schema_map.php
+                        const apiSortField = window.gridColumns && window.gridColumns[col.index] 
+                            ? window.gridColumns[col.index] 
+                            : 'id';
                         const url = new URL('api.php', window.location.href);
                         url.searchParams.set('action', 'list');
                         url.searchParams.set('sort', apiSortField);

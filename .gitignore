@@ -1,26 +1,34 @@
-```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-
-# Dependencies
+```php
+# Dependency directories
 vendor/
 composer.lock
 
-# Logs and temp files
-*.log
-*.tmp
-
-# Environment
+# Environment specific files
 .env
 .env.local
-*.env.*
+.env.*
 
-# Editors
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# IDE files
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.phar
 ```
