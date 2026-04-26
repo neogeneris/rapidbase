@@ -15,7 +15,6 @@ class ComposerStaticInitaf6db5d437aef6dceff115beb5a16da4
         'R' =>
         array (
             'RedBeanPHP\\' => 11,
-            'RapidBase\\Tests\\' => 16,
             'RapidBase\\' => 10,
         ),
         'P' =>
@@ -33,13 +32,10 @@ class ComposerStaticInitaf6db5d437aef6dceff115beb5a16da4
         array (
             0 => __DIR__ . '/..' . '/gabordemooij/redbean/RedBeanPHP',
         ),
-        'RapidBase\\Tests\\' =>
-        array (
-            0 => __DIR__ . '/../..' . '/tests/phpUnit',
-        ),
         'RapidBase\\' =>
         array (
             0 => __DIR__ . '/../..' . '/src/RapidBase',
+            1 => __DIR__ . '/../..' . '/src',
         ),
         'PhpParser\\' =>
         array (

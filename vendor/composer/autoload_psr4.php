@@ -7,8 +7,7 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'RedBeanPHP\\' => array($vendorDir . '/gabordemooij/redbean/RedBeanPHP'),
-    'RapidBase\\Tests\\' => array($baseDir . '/tests/phpUnit'),
-    'RapidBase\\' => array($baseDir . '/src/RapidBase'),
+    'RapidBase\\' => array($baseDir . '/src/RapidBase', $baseDir . '/src'),
     'PhpParser\\' => array($vendorDir . '/nikic/php-parser/lib/PhpParser'),
     'DeepCopy\\' => array($vendorDir . '/myclabs/deep-copy/src/DeepCopy'),
 );

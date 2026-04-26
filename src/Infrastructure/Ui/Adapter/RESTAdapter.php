@@ -12,8 +12,16 @@ use RapidBase\Core\QueryResponse;
  * Adapta los resultados de consultas RapidBase para consumo de API REST estándar.
  * A diferencia de los adapters de Grid, esto retorna datos con metadatos de paginación estándar.
  * 
- * IMPORTANTE: Este adapter usa toGridFormat() que trabaja con FETCH_NUM (índices numéricos)
- * para máximo rendimiento, evitando el overhead de memoria de FETCH_ASSOC.
+ * IMPORTANTE: Este adapter utiliza QueryResponse que contiene datos en formato FETCH_NUM
+ * (índices numéricos) para máximo rendimiento. El método toGridFormat() de QueryResponse
+ * mantiene este formato numérico en su propiedad ->data, evitando el overhead de memoria
+ * de FETCH_ASSOC hasta el último momento posible.
+ * 
+ * Flujo de datos:
+ * 1. DB::grid() ejecuta con PDO::FETCH_NUM → [[1, "Alice", "alice@example.com"], [2, "Bob", ...]]
+ * 2. QueryResponse almacena datos numéricos → $response->data = [[1, "Alice", ...], ...]
+ * 3. toGridFormat() preserva formato numérico → ["data" => [[1, "Alice", ...], ...]]
+ * 4. RESTAdapter puede transformar a asociativo SOLO si es necesario para la respuesta JSON
  * 
  * URL Parameters Supported:
  * - page: Page number (e.g., &page=2) or Page:Limit (e.g., &page=2:50)
@@ -33,17 +41,23 @@ class RESTAdapter
     
     // Columns to search when 'search' parameter is used
     private array $searchableColumns = [];
+    
+    // Column names for transforming FETCH_NUM to associative (optional)
+    private array $columnNames = [];
 
     /**
      * Constructor
      * 
      * @param QueryResponse $response The query response from DB::grid()
+     *                                Contiene datos en formato FETCH_NUM para máximo rendimiento
      * @param array $searchableColumns Columns to include in global search
+     * @param array $columnNames Optional column names to transform numeric data to associative
      */
-    public function __construct(QueryResponse $response, array $searchableColumns = [])
+    public function __construct(QueryResponse $response, array $searchableColumns = [], array $columnNames = [])
     {
         $this->response = $response;
         $this->searchableColumns = $searchableColumns;
+        $this->columnNames = $columnNames;
     }
 
     /**
@@ -56,17 +70,17 @@ class RESTAdapter
     }
 
     /**
-     * Parse request parameters and execute query
+     * Parse request parameters and build REST response from existing QueryResponse.
      * 
-     * @param array $params GET parameters from request
+     * Este método NO ejecuta consultas - la consulta ya fue ejecutada por DB::grid()
+     * y los datos están en $this->response en formato FETCH_NUM.
+     * 
+     * @param array $params GET parameters for pagination, sorting, filtering (applied at DB level)
      * @return array Standardized REST response with data and metadata
      */
     public function handle(array $params = []): array
     {
-        // Reset executor state
-        $this->executor->reset();
-
-        // 1. Handle Pagination
+        // 1. Handle Pagination (for metadata calculation)
         $page = 1;
         $perPage = $this->defaultPerPage;
         
@@ -86,113 +100,53 @@ class RESTAdapter
         // Ensure valid values
         $page = max(1, $page);
         $perPage = max(1, min($perPage, 1000)); // Safety limit
+
+        // 2. Get data from QueryResponse (already executed with FETCH_NUM)
+        // $this->response->data contiene arrays numéricos: [[1, "Alice", "alice@example.com"], ...]
+        $gridFormat = $this->response->toGridFormat();
+        $numericData = $gridFormat['data'];
         
-        $this->executor->setPage($page, $perPage);
-
-        // 2. Handle Sorting
-        if (isset($params['sort'])) {
-            $sortFields = explode(',', (string)$params['sort']);
-            $orderBy = [];
-            
-            foreach ($sortFields as $field) {
-                $field = trim($field);
-                if (empty($field)) continue;
-                
-                // Check for DESC prefix (-)
-                if (strpos($field, '-') === 0) {
-                    $fieldName = substr($field, 1);
-                    $direction = 'DESC';
-                } else {
-                    $fieldName = $field;
-                    $direction = 'ASC';
-                }
-                
-                $orderBy[$fieldName] = $direction;
+        // 3. Transform FETCH_NUM to associative ONLY if column names are provided
+        // This is the ONLY place where we convert to associative format
+        if (!empty($this->columnNames) && !empty($numericData)) {
+            $associativeData = [];
+            foreach ($numericData as $row) {
+                $associativeData[] = array_combine($this->columnNames, $row);
             }
-            
-            if (!empty($orderBy)) {
-                $this->executor->orderBy($orderBy);
-            }
+            $finalData = $associativeData;
+        } else {
+            // Keep numeric format if no column names provided
+            $finalData = $numericData;
         }
 
-        // 3. Handle Global Search
-        if (isset($params['search']) && !empty($params['search'])) {
-            $searchTerm = (string)$params['search'];
-            if (!empty($this->searchableColumns)) {
-                $this->executor->search($searchTerm, $this->searchableColumns);
-            }
-        }
-
-        // 4. Handle Advanced Filters (JSON)
-        if (isset($params['filter']) && !empty($params['filter'])) {
-            $filterJson = (string)$params['filter'];
-            $filters = json_decode($filterJson, true);
-            
-            if (json_last_error() === JSON_ERROR_NONE && is_array($filters)) {
-                $this->applyFilters($filters);
-            }
-        }
-
-        // Execute query
-        $result = $this->executor->execute();
+        // 4. Build REST response with standardized metadata
+        $pageInfo = $gridFormat['page'] ?? [];
         
-        // Get total count for metadata (requires a separate count query usually)
-        // For now, we estimate based on result or assume executor tracks it
-        $total = $this->executor->getTotalCount() ?? count($result->getAll());
-
-        // Build response
         return [
-            'data' => $result->getAll(),
+            'data' => $finalData,
             'meta' => [
-                'page' => $page,
-                'per_page' => $perPage,
-                'total' => $total,
-                'total_pages' => (int)ceil($total / $perPage),
+                'page' => $pageInfo['current'] ?? $page,
+                'per_page' => $pageInfo['limit'] ?? $perPage,
+                'total' => $pageInfo['records'] ?? count($finalData),
+                'total_pages' => $pageInfo['total'] ?? 1,
             ]
         ];
     }
 
     /**
-     * Apply filters from decoded JSON
-     * Supports simple equality and operators (>, <, >=, <=, !=, LIKE)
-     * 
-     * Example input: ["age" => ">18", "status" => "active", "name" => "%John%"]
+     * Get the underlying QueryResponse for direct access to raw data.
      */
-    private function applyFilters(array $filters): void
+    public function getResponse(): QueryResponse
     {
-        $whereConditions = [];
-        
-        foreach ($filters as $field => $value) {
-            $operator = '=';
-            $finalValue = $value;
-            
-            // Detect operators
-            if (is_string($value)) {
-                if (strpos($value, '>=') === 0) {
-                    $operator = '>=';
-                    $finalValue = substr($value, 2);
-                } elseif (strpos($value, '<=') === 0) {
-                    $operator = '<=';
-                    $finalValue = substr($value, 2);
-                } elseif (strpos($value, '!=') === 0) {
-                    $operator = '!=';
-                    $finalValue = substr($value, 2);
-                } elseif (strpos($value, '>') === 0) {
-                    $operator = '>';
-                    $finalValue = substr($value, 1);
-                } elseif (strpos($value, '<') === 0) {
-                    $operator = '<';
-                    $finalValue = substr($value, 1);
-                } elseif (strpos($value, '%') !== false) {
-                    $operator = 'LIKE';
-                }
-            }
-            
-            $whereConditions[] = [$field, $operator, $finalValue];
-        }
-        
-        if (!empty($whereConditions)) {
-            $this->executor->where($whereConditions);
-        }
+        return $this->response;
+    }
+
+    /**
+     * Set column names for transforming FETCH_NUM to associative format.
+     */
+    public function setColumnNames(array $columnNames): self
+    {
+        $this->columnNames = $columnNames;
+        return $this;
     }
 }
