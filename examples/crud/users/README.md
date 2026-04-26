@@ -4,11 +4,11 @@ Complete CRUD (Create, Read, Update, Delete) example using RapidBase with DataTa
 
 ## Features
 
-- 📊 **DataTables Integration**: Server-side pagination, sorting, and search
-- ⚡ **Optimized Performance**: Uses `DB::grid()` with `FETCH_NUM` for fast data retrieval
-- 🔒 **Security**: Parameterized queries, input validation via Model
-- 🎨 **Modern UI**: Responsive design with modal forms
-- 📦 **RESTful API**: Clean separation between frontend and backend
+- **DataTables Integration**: Server-side pagination, sorting, and search
+- **Optimized Performance**: Uses `DB::grid()` with `FETCH_NUM` for fast data retrieval
+- **Security**: Parameterized queries, input validation via Model
+- **Modern UI**: Responsive design with modal forms
+- **RESTful API**: Clean separation between frontend and backend
 
 ## Installation
 

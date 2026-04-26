@@ -85,6 +85,31 @@ try {
         $conditions[] = "name LIKE '%$search%' OR email LIKE '%$search%'";
     }
     
+    // Procesar filtros JSON
+    if ($filter) {
+        $filters = json_decode($filter, true);
+        if (is_array($filters)) {
+            foreach ($filters as $field => $value) {
+                // Soporte para operadores: =, >, <, >=, <=, !=, LIKE
+                if (is_string($value) && preg_match('/^(>|<|>=|<=|!=|=|LIKE)?(.*)$/', $value, $matches)) {
+                    $operator = $matches[1] ?: '=';
+                    $val = $matches[2];
+                    
+                    // Escapar valor para prevenir SQL injection
+                    $val = DB::getInstance()->quote($val);
+                    
+                    if ($operator === 'LIKE') {
+                        $conditions[] = "$field LIKE '%$val%'";
+                    } elseif ($operator === '=') {
+                        $conditions[] = "$field = $val";
+                    } else {
+                        $conditions[] = "$field $operator $val";
+                    }
+                }
+            }
+        }
+    }
+    
     // Parsear página: formato polimórfico [pageNum, perPage]
     // Según estándar RapidBase: page=[numero_pagina, registros_por_pagina]
     // Ejemplo: page=1,10 significa "Página 1, mostrando 10 registros"
@@ -103,13 +128,21 @@ try {
         $parsedPage = [1, 10];
     }
     
+    // Convertir sort string a array si es necesario
+    $sortArray = [];
+    if (is_string($sort) && !empty($sort)) {
+        $sortArray = [$sort];
+    } elseif (is_array($sort)) {
+        $sortArray = $sort;
+    }
+    
     // Ejecutar consulta con DB::grid() - usa FETCH_NUM por defecto (máximo rendimiento)
     // Si se pasara $class='StdClass' usaría FETCH_OBJ, o una clase específica usaría FETCH_CLASS
     $response = DB::grid(
         table: 'users',
         conditions: $conditions,
         page: $parsedPage,  // Offset o [offset, limit]
-        sort: $sort
+        sort: $sortArray
         // $class = null por defecto → PDO::FETCH_NUM
     );
     
