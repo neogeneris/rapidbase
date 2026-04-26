@@ -1,42 +1,62 @@
-```
-# Compiled and build artifacts
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
-# Dependencies
+# ---------------------------------------------------------
+# PHP & Composer
+# ---------------------------------------------------------
 vendor/
-node_modules/
-*.lock
+composer.lock
+composer.phar
+*.phar
 
-# Logs and temp files
-*.log
+# ---------------------------------------------------------
+# Temporary Files (Requested)
+# ---------------------------------------------------------
+tmp/*
+!tmp/.gitkeep
+temp/
 *.tmp
 *.swp
+*.swo
+*~
 
-# Environment
+# ---------------------------------------------------------
+# Logs & Cache
+# ---------------------------------------------------------
+*.log
+logs/
+cache/
+!.gitkeep
+.phpunit.result.cache
+.php_cs.cache
+
+# ---------------------------------------------------------
+# Environment & Secrets
+# ---------------------------------------------------------
 .env
 .env.local
-.env.*
+.env.*.local
+.htaccess
 
-# Editors
+# ---------------------------------------------------------
+# IDE & Editors
+# ---------------------------------------------------------
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
 
-# Coverage and testing
-coverage/
-htmlcov/
-.coverage
-*.gcda
-*.gcno
-
-# Distribution and build
+# ---------------------------------------------------------
+# Build & Distribution
+# ---------------------------------------------------------
 dist/
 build/
 target/
-*.phar
-```
+coverage/
+htmlcov/
+.phpunit.cache/
+
+# ---------------------------------------------------------
+# Dependencies (General)
+# ---------------------------------------------------------
+node_modules/
+bower_components/
