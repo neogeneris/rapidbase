@@ -173,8 +173,8 @@
                 // Guardar todos los usuarios para referencia
                 allUsers = result.data;
 
-                // Renderizar tabla con datos asociativos
-                renderTable(result.data);
+                // Renderizar tabla usando columnas desde head.columns
+                renderTable(result.data, result.head?.columns);
             } catch (error) {
                 document.getElementById('jsonOutput').value = 'Error loading data: ' + error.message;
                 document.getElementById('metaInfo').style.display = 'none';
@@ -182,10 +182,11 @@
         }
 
         /**
-         * Renderiza tabla desde datos asociativos
-         * @param {Array<Object>} data - Objetos asociativos: [{id: 1, name: "Alice", ...}, ...]
+         * Renderiza tabla desde datos numéricos con nombres de columnas
+         * @param {Array<Array>} data - Arrays numéricos: [[1, "Alice", "alice@email.com"], ...]
+         * @param {Array<string>} columns - Nombres de columnas: ["id", "name", "email", ...]
          */
-        function renderTable(data) {
+        function renderTable(data, columns) {
             const thead = document.querySelector('#dataPreview thead');
             const tbody = document.querySelector('#dataPreview tbody');
             
@@ -197,8 +198,7 @@
                 return;
             }
 
-            // Headers desde las claves del primer objeto
-            const columns = Object.keys(data[0]);
+            // Headers desde columns array (nombres reales desde schema_map)
             const headerRow = document.createElement('tr');
             columns.forEach(col => {
                 const th = document.createElement('th');
@@ -207,12 +207,12 @@
             });
             thead.appendChild(headerRow);
 
-            // Rows desde objetos asociativos
+            // Rows desde arrays numéricos usando índices
             data.forEach(row => {
                 const tr = document.createElement('tr');
-                columns.forEach(col => {
+                row.forEach(cell => {
                     const td = document.createElement('td');
-                    td.textContent = row[col];
+                    td.textContent = cell;
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
