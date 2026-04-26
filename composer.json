@@ -6,8 +6,7 @@
     },
     "autoload": {
         "psr-4": {
-            "RapidBase\\": "src/RapidBase/",
-            "RapidBase\\Tests\\": "tests/phpUnit/"
+            "RapidBase\\": ["src/RapidBase/", "src/"]
         }
     },
     "authors": [
