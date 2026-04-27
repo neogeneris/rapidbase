@@ -145,7 +145,7 @@ class Gateway {
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         // Intentar recuperar de caché
-        if (self::$hasCacheService ??= class_exists('Core\Cache\CacheService')) {
+        if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
             $cached = CacheService::get($cacheKey);
             if ($cached !== null) {
                 $cached['source'] = 'cache';
@@ -157,8 +157,8 @@ class Gateway {
         // Si no está en caché, llamamos a select() pasando los nuevos parámetros
         $result = self::select($fields, $table, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class);
         
-        // Guardar en caché
-        if ($result && !empty($result['data']) && (self::$hasCacheService ?? true)) {
+        // Guardar en caché (incluso si está vacío, para evitar consultas repetidas sin resultados)
+        if ($result && (self::$hasCacheService ?? true)) {
             CacheService::set($cacheKey, $result, $ttl);
         }
         
@@ -245,7 +245,7 @@ class Gateway {
      * @param string $table
      */
     protected static function clearCacheForTable(string $table): void {
-        if (self::$hasCacheService ??= class_exists('Core\Cache\CacheService')) {
+        if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
             $prefix = "db_select_{$table}_";
             CacheService::clearByPrefix($prefix);
         }
@@ -283,7 +283,7 @@ class Gateway {
         }
         
         // Aquí podríamos agregar estadísticas del caché de resultados si están disponibles
-        if (self::$hasCacheService ??= class_exists('Core\Cache\CacheService')) {
+        if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
             $stats['result_cache'] = [
                 'available' => true,
                 'note' => 'Use CacheService::getStats() si está disponible'
