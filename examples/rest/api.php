@@ -119,21 +119,48 @@ try {
     // Parsear página: formato polimórfico [pageNum, perPage]
     // Según estándar RapidBase: page=[numero_pagina, registros_por_pagina]
     // Ejemplo: page=1,10 significa "Página 1, mostrando 10 registros"
-
-    $parsedPage = $pageParam ? explode(',', $pageParam) : [1, 10];
+    $parsedPage = [];
+    if (is_string($pageParam) && strpos($pageParam, ',') !== false) {
+        // Formato: "pageNum,perPage" ej: "2,10" → Página 2, 10 regs por página
+        $parts = explode(',', $pageParam);
+        $pageNum = max(0, (int)($parts[0] ?? 0));
+        $perPage = max(1, (int)($parts[1] ?? 10));
+        $parsedPage = [$pageNum, $perPage];
+    } elseif (is_numeric($pageParam)) {
+        // Solo número de página: usar default 10 regs por página
+        $pageNum = max(0, (int)$pageParam);
+        $parsedPage = [$pageNum, 10];
+    } else {
+        // Default: página 0, 10 registros por página
+        $parsedPage = [0, 10];
+    }
+    
     // Convertir sort string a array si es necesario
-    $sortArray = (is_string($sort) && !empty($sort)) ? [$sort] : $sort;
-
-
-    // Ejecutar consulta con DB::grid() - usa FETCH_NUM por defecto (máximo rendimiento)
-    // Si se pasara $class='StdClass' usaría FETCH_OBJ, o una clase específica usaría FETCH_CLASS
-    $response = DB::grid(
-        table: 'users',
-        conditions: $conditions,
-        page: $parsedPage,  // Offset o [offset, limit]
-        sort: $sortArray
-        // $class = null por defecto → PDO::FETCH_NUM
-    );
+    $sortArray = [];
+    if (is_string($sort) && !empty($sort)) {
+        $sortArray = [$sort];
+    } elseif (is_array($sort)) {
+        $sortArray = $sort;
+    }
+    
+    // Generar clave de caché única basada en todos los parámetros
+    $cacheKey = 'users_grid_' . md5(json_encode([
+        'conditions' => $conditions,
+        'page' => $parsedPage,
+        'sort' => $sortArray
+    ]));
+    
+    // Ejecutar consulta con cache
+    $response = CacheService::remember($cacheKey, 300, function() use ($conditions, $parsedPage, $sortArray) {
+        return DB::grid(
+            table: 'users',
+            conditions: $conditions,
+            page: $parsedPage,  // Offset o [offset, limit]
+            sort: $sortArray
+            // $class = null por defecto → PDO::FETCH_NUM
+        );
+    });
+    
     // Usar RESTAdapter para transformar la respuesta
     // El adapter recibe QueryResponse con datos FETCH_NUM y retorna formato compacto
     $adapter = new RESTAdapter(
