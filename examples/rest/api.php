@@ -143,23 +143,14 @@ try {
         $sortArray = $sort;
     }
     
-    // Generar clave de caché única basada en todos los parámetros
-    $cacheKey = 'users_grid_' . md5(json_encode([
-        'conditions' => $conditions,
-        'page' => $parsedPage,
-        'sort' => $sortArray
-    ]));
-    
-    // Ejecutar consulta con cache
-    $response = CacheService::remember($cacheKey, 300, function() use ($conditions, $parsedPage, $sortArray) {
-        return DB::grid(
-            table: 'users',
-            conditions: $conditions,
-            page: $parsedPage,  // Offset o [offset, limit]
-            sort: $sortArray
-            // $class = null por defecto → PDO::FETCH_NUM
-        );
-    });
+    // Ejecutar consulta grid (el cache se maneja internamente en DB::grid -> Gateway::selectCached)
+    $response = DB::grid(
+        table: 'users',
+        conditions: $conditions,
+        page: $parsedPage,  // Offset o [offset, limit]
+        sort: $sortArray
+        // $class = null por defecto → PDO::FETCH_NUM
+    );
     
     // Usar RESTAdapter para transformar la respuesta
     // El adapter recibe QueryResponse con datos FETCH_NUM y retorna formato compacto
