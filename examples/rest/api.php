@@ -55,6 +55,7 @@ try {
 
 try {
     DB::setup("sqlite:{$dbPath}", '', '', 'main');
+	
 } catch (Exception $e) {
     header('Content-Type: application/json');
     http_response_code(500);
@@ -78,7 +79,7 @@ try {
     // Cargar schema map para obtener definición de columnas
     $schemaMapFile = __DIR__ . '/schema_map.php';
     $schemaMap = file_exists($schemaMapFile) ? require $schemaMapFile : [];
-    
+
     // Obtener columnas de la tabla users desde el schema map
     $tableColumns = [];
     if (!empty($schemaMap['tables']['users'])) {
@@ -87,44 +88,34 @@ try {
         // Fallback por si no hay schema map
         $tableColumns = ['id', 'name', 'email', 'role', 'created_at'];
     }
-    
+
     // Parsear parámetros desde URL
     $pageParam = $_GET['page'] ?? 0;
     $sort = $_GET['sort'] ?? [];
     $search = $_GET['search'] ?? null;
     $filter = $_GET['filter'] ?? null;
-    
+
     // Construir condiciones de búsqueda
     $conditions = [];
-    if ($search) {
-        $conditions[] = "name LIKE '%$search%' OR email LIKE '%$search%'";
-    }
-    
-    // Procesar filtros JSON
+
     if ($filter) {
         $filters = json_decode($filter, true);
-        if (is_array($filters)) {
-            foreach ($filters as $field => $value) {
-                // Soporte para operadores: =, >, <, >=, <=, !=, LIKE
-                if (is_string($value) && preg_match('/^(>|<|>=|<=|!=|=|LIKE)?(.*)$/', $value, $matches)) {
-                    $operator = $matches[1] ?: '=';
-                    $val = $matches[2];
-                    
-                    // Escapar valor para prevenir SQL injection
-                    $val = DB::getInstance()->quote($val);
-                    
-                    if ($operator === 'LIKE') {
-                        $conditions[] = "$field LIKE '%$val%'";
-                    } elseif ($operator === '=') {
-                        $conditions[] = "$field = $val";
-                    } else {
-                        $conditions[] = "$field $operator $val";
-                    }
-                }
-            }
-        }
+        $conditions[] = $filters;
     }
-    
+
+    if ($search) {
+        // "name LIKE '%$search%' OR email LIKE '%$search%'";
+        $conditions = [
+            ["name" => ['LIKE' => "%$search%"]],
+            ["email" => ['LIKE' => "%$search%"]]
+        ];
+    }
+
+    // Procesar filtros JSON
+
+
+    //print_r($conditions);
+
     // Parsear página: formato polimórfico [pageNum, perPage]
     // Según estándar RapidBase: page=[numero_pagina, registros_por_pagina]
     // Ejemplo: page=1,10 significa "Página 1, mostrando 10 registros"
@@ -178,13 +169,13 @@ try {
         schemaMap: $schemaMap,  // Pasar schema map para obtener definición de columnas
         tableName: 'users'      // Nombre de la tabla consultada
     );
-    
+
     // Procesar parámetros y generar respuesta REST en formato compacto
     $result = $adapter->handle($_GET);
-    
+    $result['stats'][] = DB::status();
     // Retornar JSON
     echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    
+
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
