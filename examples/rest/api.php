@@ -24,6 +24,7 @@ require_once $srcBase . '/Core/SQL.php';
 require_once $srcBase . '/Core/Executor.php';
 require_once $srcBase . '/Core/SchemaMap.php';
 require_once $srcBase . '/Core/Cache/CacheService.php';
+require_once $srcBase . '/Core/Cache/Adapters/DirectoryCacheAdapter.php';
 require_once $srcBase . '/Core/Event.php';
 require_once $srcBase . '/Core/Gateway.php';
 require_once $srcBase . '/Core/QueryResponse.php';
