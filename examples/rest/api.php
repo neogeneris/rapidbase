@@ -30,11 +30,11 @@ require_once $srcBase . '/Core/Gateway.php';
 require_once $srcBase . '/Core/QueryResponse.php';
 require_once $srcBase . '/Core/DBInterface.php';
 require_once $srcBase . '/Core/DB.php';
-require_once $infraBase . '/Ui/Adapter/RESTAdapter.php';
+require_once $srcBase . '/Infrastructure/UI/Adapters/RESTAdapter.php';
 
 // ========== CONFIGURACIÓN DB ==========
 use RapidBase\Core\DB;
-use RapidBase\Infrastructure\Ui\Adapter\RESTAdapter;
+use RapidBase\Infrastructure\UI\Adapters\RESTAdapter;
 use RapidBase\Core\Cache\CacheService;
 
 // Configuración SQLite
