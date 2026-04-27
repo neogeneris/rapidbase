@@ -97,4 +97,12 @@ class CacheService
     {
         return self::$adapter ? self::$adapter->getPath() : null;
     }
+
+    /**
+     * Retorna la duración de la última lectura del adaptador.
+     */
+    public static function getLastReadDuration(): float
+    {
+        return self::$adapter ? self::$adapter->getLastReadDuration() : 0.0;
+    }
 }

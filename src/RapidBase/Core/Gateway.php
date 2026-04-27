@@ -149,7 +149,8 @@ class Gateway {
             $cached = CacheService::get($cacheKey);
             if ($cached !== null) {
                 $cached['source'] = 'cache';
-                self::logStatus(true, "CACHE GET: $cacheKey", [], null, [], 'select', $tableName, 0.0);
+                $duration = CacheService::getLastReadDuration();
+                self::logStatus(true, "CACHE GET: $cacheKey", [], null, [], 'select', $tableName, $duration);
                 return $cached;
             }
         }

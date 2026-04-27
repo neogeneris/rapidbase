@@ -12,6 +12,12 @@ class DirectoryCacheAdapter
     private int $defaultTtl;
     private array $memL1Cache = [];     // [key => ['data'=>mixed, 'expires_at'=>int]]
     private int $maxL1Size = 500;
+    private float $lastReadDuration = 0.0;
+    
+    public function getLastReadDuration(): float
+    {
+        return $this->lastReadDuration;
+    }
 
     public function __construct(string $basePath, int $defaultTtl = 3600)
     {
@@ -74,7 +80,13 @@ class DirectoryCacheAdapter
         $path = $this->getStoragePath($key);
         if (!file_exists($path)) return null;
 
+        $startTime = microtime(true);
         $payload = include $path;
+        $duration = microtime(true) - $startTime;
+        
+        // Guardar duración para estadísticas (se accede via reflection o método especial si se necesita)
+        $this->lastReadDuration = $duration;
+
         if (!is_array($payload) || !isset($payload['expires_at'], $payload['data'], $payload['key'])) {
             $this->forget($key);
             return null;
