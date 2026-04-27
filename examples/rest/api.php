@@ -34,12 +34,21 @@ require_once $infraBase . '/Ui/Adapter/RESTAdapter.php';
 // ========== CONFIGURACIÓN DB ==========
 use RapidBase\Core\DB;
 use RapidBase\Infrastructure\Ui\Adapter\RESTAdapter;
+use RapidBase\Core\Cache\CacheService;
+
+$cacheDir = sys_get_temp_dir() . '/rapidbase_cache';
+if (!is_dir($cacheDir)) {
+    mkdir($cacheDir, 0755, true);
+}
+CacheService::init($cacheDir);
+CacheService::enable();
 
 // Configuración SQLite
 $dbPath = __DIR__ . '/../crud/users/database.sqlite';
 
 try {
     DB::setup("sqlite:{$dbPath}", '', '', 'main');
+	
 } catch (Exception $e) {
     header('Content-Type: application/json');
     http_response_code(500);
@@ -63,7 +72,7 @@ try {
     // Cargar schema map para obtener definición de columnas
     $schemaMapFile = __DIR__ . '/schema_map.php';
     $schemaMap = file_exists($schemaMapFile) ? require $schemaMapFile : [];
-    
+
     // Obtener columnas de la tabla users desde el schema map
     $tableColumns = [];
     if (!empty($schemaMap['tables']['users'])) {
@@ -72,70 +81,43 @@ try {
         // Fallback por si no hay schema map
         $tableColumns = ['id', 'name', 'email', 'role', 'created_at'];
     }
-    
+
     // Parsear parámetros desde URL
     $pageParam = $_GET['page'] ?? 0;
     $sort = $_GET['sort'] ?? [];
     $search = $_GET['search'] ?? null;
     $filter = $_GET['filter'] ?? null;
-    
+
     // Construir condiciones de búsqueda
     $conditions = [];
-    if ($search) {
-        $conditions[] = "name LIKE '%$search%' OR email LIKE '%$search%'";
-    }
-    
-    // Procesar filtros JSON
+
     if ($filter) {
         $filters = json_decode($filter, true);
-        if (is_array($filters)) {
-            foreach ($filters as $field => $value) {
-                // Soporte para operadores: =, >, <, >=, <=, !=, LIKE
-                if (is_string($value) && preg_match('/^(>|<|>=|<=|!=|=|LIKE)?(.*)$/', $value, $matches)) {
-                    $operator = $matches[1] ?: '=';
-                    $val = $matches[2];
-                    
-                    // Escapar valor para prevenir SQL injection
-                    $val = DB::getInstance()->quote($val);
-                    
-                    if ($operator === 'LIKE') {
-                        $conditions[] = "$field LIKE '%$val%'";
-                    } elseif ($operator === '=') {
-                        $conditions[] = "$field = $val";
-                    } else {
-                        $conditions[] = "$field $operator $val";
-                    }
-                }
-            }
-        }
+        $conditions[] = $filters;
     }
-    
+
+    if ($search) {
+        // "name LIKE '%$search%' OR email LIKE '%$search%'";
+        $conditions = [
+            ["name" => ['LIKE' => "%$search%"]],
+            ["email" => ['LIKE' => "%$search%"]]
+        ];
+    }
+
+    // Procesar filtros JSON
+
+
+    //print_r($conditions);
+
     // Parsear página: formato polimórfico [pageNum, perPage]
     // Según estándar RapidBase: page=[numero_pagina, registros_por_pagina]
     // Ejemplo: page=1,10 significa "Página 1, mostrando 10 registros"
-    $parsedPage = [];
-    if (is_string($pageParam) && strpos($pageParam, ',') !== false) {
-        // Formato: "pageNum,perPage" ej: "2,10" → Página 2, 10 regs por página
-        $parts = explode(',', $pageParam);
-        $pageNum = max(1, (int)($parts[0] ?? 1));
-        $perPage = (int)($parts[1] ?? 10);
-        $parsedPage = [$pageNum, $perPage];
-    } elseif (is_numeric($pageParam) && $pageParam > 0) {
-        // Solo número de página: usar default 10 regs por página
-        $parsedPage = [(int)$pageParam, 10];
-    } else {
-        // Default: página 1, 10 registros por página
-        $parsedPage = [1, 10];
-    }
-    
+
+    $parsedPage = $pageParam ? explode(',', $pageParam) : [1, 10];
     // Convertir sort string a array si es necesario
-    $sortArray = [];
-    if (is_string($sort) && !empty($sort)) {
-        $sortArray = [$sort];
-    } elseif (is_array($sort)) {
-        $sortArray = $sort;
-    }
-    
+    $sortArray = (is_string($sort) && !empty($sort)) ? [$sort] : $sort;
+
+
     // Ejecutar consulta con DB::grid() - usa FETCH_NUM por defecto (máximo rendimiento)
     // Si se pasara $class='StdClass' usaría FETCH_OBJ, o una clase específica usaría FETCH_CLASS
     $response = DB::grid(
@@ -145,7 +127,6 @@ try {
         sort: $sortArray
         // $class = null por defecto → PDO::FETCH_NUM
     );
-    
     // Usar RESTAdapter para transformar la respuesta
     // El adapter recibe QueryResponse con datos FETCH_NUM y retorna formato compacto
     $adapter = new RESTAdapter(
@@ -154,13 +135,13 @@ try {
         schemaMap: $schemaMap,  // Pasar schema map para obtener definición de columnas
         tableName: 'users'      // Nombre de la tabla consultada
     );
-    
+
     // Procesar parámetros y generar respuesta REST en formato compacto
     $result = $adapter->handle($_GET);
-    
+    $result['stats'][] = DB::status();
     // Retornar JSON
     echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    
+
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
