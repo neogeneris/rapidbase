@@ -268,18 +268,32 @@ foreach ($formats as $name => $methods) {
     $avgSizeGzip = array_sum($sizesGzip) / $iterations;
     $avgParse = array_sum($parseTimes) / $iterations;
     
+    // Guardamos los datos brutos primero, calcularemos los ratios relativos al final
     $results[$name] = [
         'gen_ms' => $avgGen,
         'raw_bytes' => $avgSizeRaw,
         'gzip_bytes' => $avgSizeGzip,
         'parse_ms' => $avgParse,
-        'ratio_gzip' => ($avgSizeGzip / $results['JSON']['gzip_bytes'] ?? 1) * 100
+        'ratio_gzip' => 0 // Se calculará después
     ];
     
     echo "  Gen: " . number_format($avgGen, 2) . " ms\n";
     echo "  Raw: " . number_format($avgSizeRaw/1024, 2) . " KB\n";
     echo "  Gzip: " . number_format($avgSizeGzip/1024, 2) . " KB\n";
     echo "  Parse: " . number_format($avgParse, 2) . " ms\n\n";
+}
+
+// Calcular ratios relativos ahora que tenemos todos los datos (especialmente JSON)
+if (isset($results['JSON']['gzip_bytes']) && $results['JSON']['gzip_bytes'] > 0) {
+    $baseGzip = $results['JSON']['gzip_bytes'];
+    foreach ($results as $name => $data) {
+        $results[$name]['ratio_gzip'] = ($data['gzip_bytes'] / $baseGzip) * 100;
+    }
+} else {
+    // Fallback si JSON falló o es 0 (improbable)
+    foreach ($results as $name => $data) {
+        $results[$name]['ratio_gzip'] = 100;
+    }
 }
 
 // ============================================================================
