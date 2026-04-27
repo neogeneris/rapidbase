@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RapidBase\Infrastructure\Ui\Adapter;
+namespace RapidBase\Infrastructure\UI\Adapters;
 
 use RapidBase\Core\QueryResponse;
 
@@ -32,7 +32,7 @@ use RapidBase\Core\QueryResponse;
  * - search: Global search text (e.g., &search=john)
  * - filter: JSON encoded filters (e.g., &filter={"age":">18","status":"active"})
  * 
- * @package RapidBase\Infrastructure\Ui\Adapter
+ * @package RapidBase\Infrastructure\UI\Adapters
  */
 class RESTAdapter
 {
