@@ -28,9 +28,23 @@ require_once __DIR__ . '/User.php';
 // ========== CONFIGURACIÓN DB ==========
 use RapidBase\Core\DB;
 use Example\User;
+use RapidBase\Core\Cache\CacheService;
 
 // Configuración SQLite
 $dbPath = __DIR__ . '/database.sqlite';
+
+// Inicializar caché (usando directorio tests/tmp)
+$cacheDir = __DIR__ . '/../../../tests/tmp/cache';
+if (!is_dir($cacheDir)) {
+    mkdir($cacheDir, 0755, true);
+}
+try {
+    CacheService::init($cacheDir);
+    CacheService::enable(); // Habilitar explícitamente
+} catch (Exception $e) {
+    // Si falla el cache, continuar sin él
+    error_log('Cache init failed: ' . $e->getMessage());
+}
 
 try {
     DB::setup("sqlite:{$dbPath}", '', '', 'main');

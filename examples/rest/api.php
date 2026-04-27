@@ -36,15 +36,21 @@ use RapidBase\Core\DB;
 use RapidBase\Infrastructure\Ui\Adapter\RESTAdapter;
 use RapidBase\Core\Cache\CacheService;
 
-$cacheDir = sys_get_temp_dir() . '/rapidbase_cache';
+// Configuración SQLite
+$dbPath = __DIR__ . '/../crud/users/database.sqlite';
+
+// Inicializar caché (usando directorio tests/tmp)
+$cacheDir = __DIR__ . '/../../tests/tmp/cache';
 if (!is_dir($cacheDir)) {
     mkdir($cacheDir, 0755, true);
 }
-CacheService::init($cacheDir);
-CacheService::enable();
-
-// Configuración SQLite
-$dbPath = __DIR__ . '/../crud/users/database.sqlite';
+try {
+    CacheService::init($cacheDir);
+    CacheService::enable(); // Habilitar explícitamente
+} catch (Exception $e) {
+    // Si falla el cache, continuar sin él
+    error_log('Cache init failed: ' . $e->getMessage());
+}
 
 try {
     DB::setup("sqlite:{$dbPath}", '', '', 'main');
