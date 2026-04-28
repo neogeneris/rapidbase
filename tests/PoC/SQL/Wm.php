@@ -4,53 +4,31 @@ namespace RapidBase\Core;
 
 /**
  * Clase Wm: Wrapper de W con soporte para telemetría/métricas.
- * 
- * Filosofía:
- * 1. Mismos métodos que W pero registrando timing y uso de memoria.
- * 2. W permanece limpia de telemetría.
- * 3. Wm es un perfilador que envuelve las llamadas a W.
- * 4. Las métricas se almacenan estáticamente para acceso posterior.
  */
 class Wm extends W
 {
-    // Métricas estáticas acumuladas
     private static array $metrics = [];
     private static bool $enabled = true;
     private static int $callCount = 0;
     
-    // Constantes para índices del estado (heredadas de W pero con agregados)
-    private const ST_METRICS_START = 8;
-    private const ST_METRICS_ID = 9;
+    private const ST_METRICS_START = 10;
+    private const ST_METRICS_ID = 11;
     
-    /**
-     * Habilita o deshabilita la recolección de métricas.
-     */
     public static function setEnabled(bool $enabled): void
     {
         self::$enabled = $enabled;
     }
     
-    /**
-     * Retorna el estado de habilitación de métricas.
-     */
     public static function isEnabled(): bool
     {
         return self::$enabled;
     }
     
-    /**
-     * Obtiene todas las métricas recolectadas.
-     * @return array Con timing, memoria y detalles por llamada.
-     */
     public static function getMetrics(): array
     {
         return self::$metrics;
     }
     
-    /**
-     * Obtiene estadísticas resumidas de las métricas.
-     * @return array Con total calls, avg time, avg mem, etc.
-     */
     public static function getStats(): array
     {
         if (empty(self::$metrics)) {
@@ -80,61 +58,37 @@ class Wm extends W
         ];
     }
     
-    /**
-     * Limpia todas las métricas recolectadas.
-     */
     public static function clearMetrics(): void
     {
         self::$metrics = [];
         self::$callCount = 0;
     }
     
-    /**
-     * Punto de entrada único con métricas.
-     * 
-     * @param string|array $table Si es string: SQL crudo. Si es array: Lista de tablas.
-     * @param array $filter Filtro base para el WHERE.
-     * @return self Retorna una instancia nueva con el estado inicializado y tracking de métricas.
-     */
-    public static function table($table, array $filter = []): self
+    public static function from($from, array $filter = []): self
     {
         $startTime = microtime(true);
         $startMem = memory_get_usage();
         
-        $instance = parent::table($table, $filter);
+        $instance = parent::from($from, $filter);
         
-        // Guardar timestamp de inicio en el estado extendido
         $instance->state[self::ST_METRICS_START] = ['time' => $startTime, 'mem' => $startMem];
         $instance->state[self::ST_METRICS_ID] = ++self::$callCount;
         
         return $instance;
     }
     
-    /**
-     * Ejecuta SELECT con registro de métricas.
-     * 
-     * @param string|array $fields Campos a seleccionar.
-     * @param int|array $page Página actual o [page, pageSize].
-     * @param string|array $sort Ordenamiento.
-     * @return array [sql, params]
-     */
-    public function select($fields = '*', $page = null, $sort = null): array
+    public function select($fields = '*', $limit = null, $sort = null, array $group = [], array $having = []): array
     {
         if (!self::$enabled) {
-            return parent::select($fields, $page, $sort);
+            return parent::select($fields, $limit, $sort, $group, $having);
         }
         
-        $result = parent::select($fields, $page, $sort);
+        $result = parent::select($fields, $limit, $sort, $group, $having);
         $this->recordMetric('select', $result[0]);
         
         return $result;
     }
     
-    /**
-     * Ejecuta DELETE con registro de métricas.
-     * 
-     * @return array [sql, params]
-     */
     public function delete(): array
     {
         if (!self::$enabled) {
@@ -147,12 +101,6 @@ class Wm extends W
         return $result;
     }
     
-    /**
-     * Ejecuta UPDATE con registro de métricas.
-     * 
-     * @param array $data Datos a actualizar.
-     * @return array [sql, params]
-     */
     public function update(array $data): array
     {
         if (!self::$enabled) {
@@ -165,9 +113,6 @@ class Wm extends W
         return $result;
     }
     
-    /**
-     * Registra una métrica para la operación actual.
-     */
     private function recordMetric(string $operation, string $sql): void
     {
         $metricsData = $this->state[self::ST_METRICS_START] ?? null;

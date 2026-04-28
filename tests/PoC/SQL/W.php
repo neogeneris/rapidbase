@@ -3,145 +3,115 @@
 namespace RapidBase\Core;
 
 /**
- * Clase W: Variante de bajo acoplamiento y encadenamiento corto.
- * 
- * Filosofía:
- * 1. No usa estilo fluent extenso. Solo table() -> action().
- * 2. El estado interno es puramente un array (stack), sin objetos intermedios.
- * 3. Polimorfismo estricto en inputs (String vs Array).
- * 4. Reutilización de lógica de construcción de WHERE y FROM.
- * 5. Uso de constantes para claves del array (legibilidad + performance).
+ * Clase W: Variante de bajo acoplamiento y encadenamiento corto (PoC).
  */
 class W
 {
-    // Constantes para claves del estado (mejor que strings, casi tan rápido como ints)
-    private const ST_FROM = 0;
-    private const ST_FROM_TYPE = 1;
-    private const ST_WHERE_SQL = 2;
-    private const ST_WHERE_PARAMS = 3;
-    private const ST_SELECT = 4;
-    private const ST_ORDER = 5;
-    private const ST_LIMIT = 6;
-    private const ST_OFFSET = 7;
+    // Constantes de 4 caracteres para claves del estado
+    protected const T_FRO = 0;
+    protected const T_TYP = 1;
+    protected const T_WHR = 2;
+    protected const T_PRM = 3;
+    protected const T_SEL = 4;
+    protected const T_ORD = 5;
+    protected const T_LIM = 6;
+    protected const T_OFF = 7;
+    protected const T_GRP = 8;
+    protected const T_HAV = 9;
     
-    // Mapeo de nombres para debugging (opcional)
-    private const STATE_KEYS = [
-        self::ST_FROM => 'from',
-        self::ST_FROM_TYPE => 'from_type',
-        self::ST_WHERE_SQL => 'where_sql',
-        self::ST_WHERE_PARAMS => 'where_params',
-        self::ST_SELECT => 'select',
-        self::ST_ORDER => 'order',
-        self::ST_LIMIT => 'limit',
-        self::ST_OFFSET => 'offset',
-    ];
-
-    // Estado interno como array indexado por constantes (más rápido que strings)
-    private array $state = [];
+    private static string $driver = 'sqlite';
+    private static string $quoteChar = '"';
     
-    // Cache estático para templates de WHERE comunes (optimización L1)
+    // Estado interno protegido para permitir herencia
+    protected array $state = [];
+    
     private static array $whereCache = [];
-    
-    // Page size por defecto
-    private const DEFAULT_PAGE_SIZE = 20;
+    private const DEF_PAGE = 20;
+
+    public static function setDriver(string $driver): void
+    {
+        self::$driver = strtolower($driver);
+        self::$quoteChar = (self::$driver === 'mysql') ? '`' : '"';
+    }
 
     /**
-     * Punto de entrada único. Prepara el contexto (FROM + WHERE base).
-     * 
-     * @param string|array $table Si es string: SQL crudo (ej: "users u"). Si es array: Lista de tablas.
-     * @param array $filter Filtro base para el WHERE.
-     * @return self Retorna una instancia nueva con el estado inicializado.
+     * @return static
      */
-    public static function table($table, array $filter = []): self
+    public static function from($from, array $filter = []): self
     {
-        $instance = new self();
+        $instance = new static();
         
-        // Normalización polimórfica de FROM
-        if (is_string($table)) {
-            // Asumimos SQL crudo directo
-            $instance->state[self::ST_FROM] = $table;
-            $instance->state[self::ST_FROM_TYPE] = 'raw';
-        } elseif (is_array($table)) {
-            // Lista de tablas, construimos el string
-            $instance->state[self::ST_FROM] = implode(', ', $table);
-            $instance->state[self::ST_FROM_TYPE] = 'list';
+        if (is_string($from)) {
+            $instance->state[self::T_FRO] = $from;
+            $instance->state[self::T_TYP] = 'raw';
+        } elseif (is_array($from)) {
+            $instance->state[self::T_FRO] = implode(', ', $from);
+            $instance->state[self::T_TYP] = 'list';
         } else {
-            throw new \InvalidArgumentException("El primer parámetro de table() debe ser string o array.");
+            throw new \InvalidArgumentException("El primer parámetro de from() debe ser string o array.");
         }
 
-        // Normalización inicial de WHERE si existe filtro
         if (!empty($filter)) {
             $whereKey = self::getWhereCacheKey($filter);
             if (isset(self::$whereCache[$whereKey])) {
-                // Hit de cache: reutilizamos el parseo previo
-                $instance->state[self::ST_WHERE_SQL] = self::$whereCache[$whereKey]['sql'];
-                $instance->state[self::ST_WHERE_PARAMS] = self::$whereCache[$whereKey]['params'];
+                $instance->state[self::T_WHR] = self::$whereCache[$whereKey]['sql'];
+                $instance->state[self::T_PRM] = self::$whereCache[$whereKey]['params'];
             } else {
-                // Miss de cache: parseamos y guardamos
                 $parsed = self::parseWhere($filter);
                 self::$whereCache[$whereKey] = $parsed;
-                $instance->state[self::ST_WHERE_SQL] = $parsed['sql'];
-                $instance->state[self::ST_WHERE_PARAMS] = $parsed['params'];
+                $instance->state[self::T_WHR] = $parsed['sql'];
+                $instance->state[self::T_PRM] = $parsed['params'];
             }
         } else {
-            $instance->state[self::ST_WHERE_SQL] = '';
-            $instance->state[self::ST_WHERE_PARAMS] = [];
+            $instance->state[self::T_WHR] = '';
+            $instance->state[self::T_PRM] = [];
         }
 
-        // Reset de otros componentes
-        $instance->state[self::ST_SELECT] = '*';
-        $instance->state[self::ST_ORDER] = '';
-        $instance->state[self::ST_LIMIT] = null;
-        $instance->state[self::ST_OFFSET] = null;
+        $instance->state[self::T_SEL] = '*';
+        $instance->state[self::T_ORD] = '';
+        $instance->state[self::T_LIM] = null;
+        $instance->state[self::T_OFF] = null;
+        $instance->state[self::T_GRP] = '';
+        $instance->state[self::T_HAV] = '';
 
         return $instance;
     }
 
-    /**
-     * Ejecuta la acción SELECT.
-     * 
-     * @param string|array $fields Campos a seleccionar.
-     * @param int|array $page Si es int: Página actual (asume page size global o default). 
-     *                        Si es array: [page, pageSize].
-     * @param string|array $sort Ordenamiento. String: "-campo", Array: ["-campo1", "campo2"].
-     * @return array [sql, params]
-     */
-    public function select($fields = '*', $page = null, $sort = null): array
+    public function select($fields = '*', $limit = null, $sort = null, array $group = [], array $having = []): array
     {
-        // 1. Procesar Fields
-        $this->state[self::ST_SELECT] = is_array($fields) ? implode(', ', $fields) : $fields;
+        $this->state[self::T_SEL] = is_array($fields) ? implode(', ', $fields) : $fields;
 
-        // 2. Procesar Sort (Polimórfico)
+        if ($limit !== null) {
+            $this->applyLimit($limit);
+        }
+
         if ($sort) {
             $this->applyOrder($sort);
         }
 
-        // 3. Procesar Page (Polimórfico)
-        if ($page !== null) {
-            $this->applyPage($page);
+        if (!empty($group)) {
+            $this->state[self::T_GRP] = implode(', ', $group);
+        }
+
+        if (!empty($having)) {
+            $parsed = self::parseWhere($having);
+            $this->state[self::T_HAV] = $parsed['sql'];
+            $this->state[self::T_PRM] = array_merge($this->state[self::T_PRM], $parsed['params']);
         }
 
         return $this->buildSelect();
     }
 
-    /**
-     * Ejecuta la acción DELETE.
-     * Usa el FROM y WHERE definidos en table().
-     * 
-     * @return array [sql, params]
-     */
     public function delete(): array
     {
-        // Validación simple: DELETE solo suele tener una tabla principal
-        $table = $this->state[self::ST_FROM];
-        if ($this->state[self::ST_FROM_TYPE] === 'list') {
-            // Si es lista, tomamos la primera como objetivo del delete
+        $table = $this->state[self::T_FRO];
+        if ($this->state[self::T_TYP] === 'list') {
             $parts = explode(',', $table);
             $table = trim($parts[0]);
         }
 
-        $whereSql = $this->state[self::ST_WHERE_SQL];
-        $params = $this->state[self::ST_WHERE_PARAMS];
+        $whereSql = $this->state[self::T_WHR];
+        $params = $this->state[self::T_PRM];
 
         $sql = "DELETE FROM {$table}";
         if ($whereSql) {
@@ -151,29 +121,23 @@ class W
         return [$sql, $params];
     }
 
-    /**
-     * Ejecuta la acción UPDATE.
-     * 
-     * @param array $data Datos a actualizar.
-     * @return array [sql, params]
-     */
     public function update(array $data): array
     {
         $setParts = [];
-        $params = $this->state[self::ST_WHERE_PARAMS]; // Empezamos con los params del where
+        $params = $this->state[self::T_PRM];
 
         foreach ($data as $col => $val) {
             $setParts[] = "{$col} = ?";
             $params[] = $val;
         }
 
-        $table = $this->state[self::ST_FROM];
-        if ($this->state[self::ST_FROM_TYPE] === 'list') {
+        $table = $this->state[self::T_FRO];
+        if ($this->state[self::T_TYP] === 'list') {
             $parts = explode(',', $table);
             $table = trim($parts[0]);
         }
 
-        $whereSql = $this->state[self::ST_WHERE_SQL];
+        $whereSql = $this->state[self::T_WHR];
         
         $sql = "UPDATE {$table} SET " . implode(', ', $setParts);
         if ($whereSql) {
@@ -183,30 +147,36 @@ class W
         return [$sql, $params];
     }
 
-    // --- Métodos Privados de Construcción (Lógica pura de arrays) ---
-
     private function buildSelect(): array
     {
-        $sql = "SELECT {$this->state[self::ST_SELECT]} FROM {$this->state[self::ST_FROM]}";
+        $sql = "SELECT {$this->state[self::T_SEL]} FROM {$this->state[self::T_FRO]}";
         
-        $params = $this->state[self::ST_WHERE_PARAMS];
+        $params = $this->state[self::T_PRM];
 
-        if (!empty($this->state[self::ST_WHERE_SQL])) {
-            $sql .= " WHERE " . $this->state[self::ST_WHERE_SQL];
+        if (!empty($this->state[self::T_WHR])) {
+            $sql .= " WHERE " . $this->state[self::T_WHR];
         }
 
-        if ($this->state[self::ST_ORDER]) {
-            $sql .= " ORDER BY " . $this->state[self::ST_ORDER];
+        if ($this->state[self::T_ORD]) {
+            $sql .= " ORDER BY " . $this->state[self::T_ORD];
         }
 
-        if ($this->state[self::ST_LIMIT] !== null) {
+        if (!empty($this->state[self::T_GRP])) {
+            $sql .= " GROUP BY " . $this->state[self::T_GRP];
+        }
+
+        if (!empty($this->state[self::T_HAV])) {
+            $sql .= " HAVING " . $this->state[self::T_HAV];
+        }
+
+        if ($this->state[self::T_LIM] !== null) {
             $sql .= " LIMIT ?";
-            $params[] = $this->state[self::ST_LIMIT];
+            $params[] = $this->state[self::T_LIM];
         }
 
-        if ($this->state[self::ST_OFFSET] !== null) {
+        if ($this->state[self::T_OFF] !== null) {
             $sql .= " OFFSET ?";
-            $params[] = $this->state[self::ST_OFFSET];
+            $params[] = $this->state[self::T_OFF];
         }
 
         return [$sql, $params];
@@ -215,10 +185,9 @@ class W
     private function applyOrder($sort): void
     {
         if (is_string($sort)) {
-            // Manejo simple de dirección
             $dir = strpos($sort, '-') === 0 ? 'DESC' : 'ASC';
             $field = ltrim($sort, '-+');
-            $this->state[self::ST_ORDER] = "{$field} {$dir}";
+            $this->state[self::T_ORD] = "{$field} {$dir}";
         } elseif (is_array($sort)) {
             $parts = [];
             foreach ($sort as $s) {
@@ -226,27 +195,21 @@ class W
                 $field = ltrim($s, '-+');
                 $parts[] = "{$field} {$dir}";
             }
-            $this->state[self::ST_ORDER] = implode(', ', $parts);
+            $this->state[self::T_ORD] = implode(', ', $parts);
         }
     }
 
-    private function applyPage($page): void
+    private function applyLimit($limit): void
     {
-        $pageSize = defined('static::PAGE_SIZE') ? static::PAGE_SIZE : self::DEFAULT_PAGE_SIZE;
-        
-        if (is_int($page)) {
-            $this->state[self::ST_LIMIT] = $pageSize;
-            $this->state[self::ST_OFFSET] = max(0, ($page - 1) * $pageSize);
-        } elseif (is_array($page) && count($page) === 2) {
-            $this->state[self::ST_LIMIT] = (int)$page[1];
-            $this->state[self::ST_OFFSET] = max(0, ((int)$page[0] - 1) * (int)$page[1]);
+        if (is_int($limit)) {
+            $this->state[self::T_LIM] = $limit;
+            $this->state[self::T_OFF] = null;
+        } elseif (is_array($limit) && count($limit) >= 2) {
+            $this->state[self::T_OFF] = max(0, (int)$limit[0]);
+            $this->state[self::T_LIM] = max(1, (int)$limit[1]);
         }
     }
 
-    /**
-     * Parser de WHERE recursivo pero basado en arrays planos para rendimiento.
-     * Devuelve ['sql' => 'a=? AND b=?', 'params' => [valA, valB]]
-     */
     private static function parseWhere(array $filter): array
     {
         $sqlParts = [];
@@ -256,7 +219,6 @@ class W
             if ($value === null) {
                 $sqlParts[] = "{$key} IS NULL";
             } elseif (is_array($value)) {
-                // Soporte básico para IN
                 $placeholders = implode(',', array_fill(0, count($value), '?'));
                 $sqlParts[] = "{$key} IN ({$placeholders})";
                 $params = array_merge($params, $value);
@@ -271,20 +233,12 @@ class W
             'params' => $params
         ];
     }
-    
-    /**
-     * Helper estático para paginación.
-     * Retorna un array [page, pageSize] para usar en select().
-     */
+
     public static function page(int $currentPage, int $pageSize): array
     {
-        return [$currentPage, $pageSize];
+        return [max(0, ($currentPage - 1) * $pageSize), $pageSize];
     }
 
-    /**
-     * Genera una clave única para el cache de WHERE basada en la estructura del filtro.
-     * Solo considera las claves y tipos de valores, no los valores mismos.
-     */
     private static function getWhereCacheKey(array $filter): string
     {
         $structure = [];
@@ -297,7 +251,6 @@ class W
                 $structure[$key] = 'eq';
             }
         }
-        // Ordenamos para que ['a'=>1, 'b'=>2] sea igual a ['b'=>2, 'a'=>1]
         ksort($structure);
         return md5(serialize($structure));
     }
