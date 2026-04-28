@@ -273,6 +273,15 @@ class W
     }
     
     /**
+     * Helper estático para paginación.
+     * Retorna un array [page, pageSize] para usar en select().
+     */
+    public static function page(int $currentPage, int $pageSize): array
+    {
+        return [$currentPage, $pageSize];
+    }
+
+    /**
      * Genera una clave única para el cache de WHERE basada en la estructura del filtro.
      * Solo considera las claves y tipos de valores, no los valores mismos.
      */
