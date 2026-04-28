@@ -10,11 +10,40 @@ namespace RapidBase\Core;
  * 2. El estado interno es puramente un array (stack), sin objetos intermedios.
  * 3. Polimorfismo estricto en inputs (String vs Array).
  * 4. Reutilización de lógica de construcción de WHERE y FROM.
+ * 5. Uso de constantes para claves del array (legibilidad + performance).
  */
 class W
 {
-    // Estado interno como array simple (más ligero que objetos)
+    // Constantes para claves del estado (mejor que strings, casi tan rápido como ints)
+    private const ST_FROM = 0;
+    private const ST_FROM_TYPE = 1;
+    private const ST_WHERE_SQL = 2;
+    private const ST_WHERE_PARAMS = 3;
+    private const ST_SELECT = 4;
+    private const ST_ORDER = 5;
+    private const ST_LIMIT = 6;
+    private const ST_OFFSET = 7;
+    
+    // Mapeo de nombres para debugging (opcional)
+    private const STATE_KEYS = [
+        self::ST_FROM => 'from',
+        self::ST_FROM_TYPE => 'from_type',
+        self::ST_WHERE_SQL => 'where_sql',
+        self::ST_WHERE_PARAMS => 'where_params',
+        self::ST_SELECT => 'select',
+        self::ST_ORDER => 'order',
+        self::ST_LIMIT => 'limit',
+        self::ST_OFFSET => 'offset',
+    ];
+
+    // Estado interno como array indexado por constantes (más rápido que strings)
     private array $state = [];
+    
+    // Cache estático para templates de WHERE comunes (optimización L1)
+    private static array $whereCache = [];
+    
+    // Page size por defecto
+    private const DEFAULT_PAGE_SIZE = 20;
 
     /**
      * Punto de entrada único. Prepara el contexto (FROM + WHERE base).
@@ -30,30 +59,40 @@ class W
         // Normalización polimórfica de FROM
         if (is_string($table)) {
             // Asumimos SQL crudo directo
-            $instance->state['from'] = $table;
-            $instance->state['from_type'] = 'raw';
+            $instance->state[self::ST_FROM] = $table;
+            $instance->state[self::ST_FROM_TYPE] = 'raw';
         } elseif (is_array($table)) {
             // Lista de tablas, construimos el string
-            $instance->state['from'] = implode(', ', $table);
-            $instance->state['from_type'] = 'list';
+            $instance->state[self::ST_FROM] = implode(', ', $table);
+            $instance->state[self::ST_FROM_TYPE] = 'list';
         } else {
             throw new \InvalidArgumentException("El primer parámetro de table() debe ser string o array.");
         }
 
         // Normalización inicial de WHERE si existe filtro
         if (!empty($filter)) {
-            $instance->state['where_parts'] = self::parseWhere($filter);
-            $instance->state['where_params'] = $instance->state['where_parts']['params'];
+            $whereKey = self::getWhereCacheKey($filter);
+            if (isset(self::$whereCache[$whereKey])) {
+                // Hit de cache: reutilizamos el parseo previo
+                $instance->state[self::ST_WHERE_SQL] = self::$whereCache[$whereKey]['sql'];
+                $instance->state[self::ST_WHERE_PARAMS] = self::$whereCache[$whereKey]['params'];
+            } else {
+                // Miss de cache: parseamos y guardamos
+                $parsed = self::parseWhere($filter);
+                self::$whereCache[$whereKey] = $parsed;
+                $instance->state[self::ST_WHERE_SQL] = $parsed['sql'];
+                $instance->state[self::ST_WHERE_PARAMS] = $parsed['params'];
+            }
         } else {
-            $instance->state['where_parts'] = ['sql' => '', 'params' => []];
-            $instance->state['where_params'] = [];
+            $instance->state[self::ST_WHERE_SQL] = '';
+            $instance->state[self::ST_WHERE_PARAMS] = [];
         }
 
         // Reset de otros componentes
-        $instance->state['select'] = '*';
-        $instance->state['order'] = '';
-        $instance->state['limit'] = null;
-        $instance->state['offset'] = null;
+        $instance->state[self::ST_SELECT] = '*';
+        $instance->state[self::ST_ORDER] = '';
+        $instance->state[self::ST_LIMIT] = null;
+        $instance->state[self::ST_OFFSET] = null;
 
         return $instance;
     }
@@ -70,11 +109,7 @@ class W
     public function select($fields = '*', $page = null, $sort = null): array
     {
         // 1. Procesar Fields
-        if (is_array($fields)) {
-            $this->state['select'] = implode(', ', $fields);
-        } else {
-            $this->state['select'] = $fields;
-        }
+        $this->state[self::ST_SELECT] = is_array($fields) ? implode(', ', $fields) : $fields;
 
         // 2. Procesar Sort (Polimórfico)
         if ($sort) {
@@ -98,15 +133,15 @@ class W
     public function delete(): array
     {
         // Validación simple: DELETE solo suele tener una tabla principal
-        $table = $this->state['from'];
-        if ($this->state['from_type'] === 'list') {
+        $table = $this->state[self::ST_FROM];
+        if ($this->state[self::ST_FROM_TYPE] === 'list') {
             // Si es lista, tomamos la primera como objetivo del delete
             $parts = explode(',', $table);
             $table = trim($parts[0]);
         }
 
-        $whereSql = $this->state['where_parts']['sql'];
-        $params = $this->state['where_params'];
+        $whereSql = $this->state[self::ST_WHERE_SQL];
+        $params = $this->state[self::ST_WHERE_PARAMS];
 
         $sql = "DELETE FROM {$table}";
         if ($whereSql) {
@@ -125,21 +160,20 @@ class W
     public function update(array $data): array
     {
         $setParts = [];
-        $params = $this->state['where_params']; // Empezamos con los params del where
+        $params = $this->state[self::ST_WHERE_PARAMS]; // Empezamos con los params del where
 
         foreach ($data as $col => $val) {
-            $placeholder = '?';
-            $setParts[] = "{$col} = {$placeholder}";
+            $setParts[] = "{$col} = ?";
             $params[] = $val;
         }
 
-        $table = $this->state['from'];
-        if ($this->state['from_type'] === 'list') {
+        $table = $this->state[self::ST_FROM];
+        if ($this->state[self::ST_FROM_TYPE] === 'list') {
             $parts = explode(',', $table);
             $table = trim($parts[0]);
         }
 
-        $whereSql = $this->state['where_parts']['sql'];
+        $whereSql = $this->state[self::ST_WHERE_SQL];
         
         $sql = "UPDATE {$table} SET " . implode(', ', $setParts);
         if ($whereSql) {
@@ -153,26 +187,26 @@ class W
 
     private function buildSelect(): array
     {
-        $sql = "SELECT {$this->state['select']} FROM {$this->state['from']}";
+        $sql = "SELECT {$this->state[self::ST_SELECT]} FROM {$this->state[self::ST_FROM]}";
         
-        $params = $this->state['where_params'];
+        $params = $this->state[self::ST_WHERE_PARAMS];
 
-        if (!empty($this->state['where_parts']['sql'])) {
-            $sql .= " WHERE " . $this->state['where_parts']['sql'];
+        if (!empty($this->state[self::ST_WHERE_SQL])) {
+            $sql .= " WHERE " . $this->state[self::ST_WHERE_SQL];
         }
 
-        if ($this->state['order']) {
-            $sql .= " ORDER BY " . $this->state['order'];
+        if ($this->state[self::ST_ORDER]) {
+            $sql .= " ORDER BY " . $this->state[self::ST_ORDER];
         }
 
-        if ($this->state['limit'] !== null) {
+        if ($this->state[self::ST_LIMIT] !== null) {
             $sql .= " LIMIT ?";
-            $params[] = $this->state['limit'];
+            $params[] = $this->state[self::ST_LIMIT];
         }
 
-        if ($this->state['offset'] !== null) {
+        if ($this->state[self::ST_OFFSET] !== null) {
             $sql .= " OFFSET ?";
-            $params[] = $this->state['offset'];
+            $params[] = $this->state[self::ST_OFFSET];
         }
 
         return [$sql, $params];
@@ -184,7 +218,7 @@ class W
             // Manejo simple de dirección
             $dir = strpos($sort, '-') === 0 ? 'DESC' : 'ASC';
             $field = ltrim($sort, '-+');
-            $this->state['order'] = "{$field} {$dir}";
+            $this->state[self::ST_ORDER] = "{$field} {$dir}";
         } elseif (is_array($sort)) {
             $parts = [];
             foreach ($sort as $s) {
@@ -192,20 +226,20 @@ class W
                 $field = ltrim($s, '-+');
                 $parts[] = "{$field} {$dir}";
             }
-            $this->state['order'] = implode(', ', $parts);
+            $this->state[self::ST_ORDER] = implode(', ', $parts);
         }
     }
 
     private function applyPage($page): void
     {
-        $pageSize = defined('static::PAGE_SIZE') ? static::PAGE_SIZE : 20; // Default fallback
+        $pageSize = defined('static::PAGE_SIZE') ? static::PAGE_SIZE : self::DEFAULT_PAGE_SIZE;
         
         if (is_int($page)) {
-            $this->state['limit'] = $pageSize;
-            $this->state['offset'] = max(0, ($page - 1) * $pageSize);
+            $this->state[self::ST_LIMIT] = $pageSize;
+            $this->state[self::ST_OFFSET] = max(0, ($page - 1) * $pageSize);
         } elseif (is_array($page) && count($page) === 2) {
-            $this->state['limit'] = (int)$page[1];
-            $this->state['offset'] = max(0, ((int)$page[0] - 1) * (int)$page[1]);
+            $this->state[self::ST_LIMIT] = (int)$page[1];
+            $this->state[self::ST_OFFSET] = max(0, ((int)$page[0] - 1) * (int)$page[1]);
         }
     }
 
@@ -236,5 +270,26 @@ class W
             'sql' => implode(' AND ', $sqlParts),
             'params' => $params
         ];
+    }
+    
+    /**
+     * Genera una clave única para el cache de WHERE basada en la estructura del filtro.
+     * Solo considera las claves y tipos de valores, no los valores mismos.
+     */
+    private static function getWhereCacheKey(array $filter): string
+    {
+        $structure = [];
+        foreach ($filter as $key => $value) {
+            if ($value === null) {
+                $structure[$key] = 'null';
+            } elseif (is_array($value)) {
+                $structure[$key] = 'in:' . count($value);
+            } else {
+                $structure[$key] = 'eq';
+            }
+        }
+        // Ordenamos para que ['a'=>1, 'b'=>2] sea igual a ['b'=>2, 'a'=>1]
+        ksort($structure);
+        return md5(serialize($structure));
     }
 }
