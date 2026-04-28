@@ -1,1 +1,1 @@
-Nothing should be ignored based on the provided file changes. The modification of 'tests/PoC/grid_transfer_poc.php' is a source code file and does not require any special ignore rules.
+Nothing needs to be added to the .gitignore file based on the provided file changes, as they are only PHP source files in a test directory.
