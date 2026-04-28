@@ -1,24 +1,13 @@
 ```
-# Dependencies
-vendor/
+# Database files
+*.db
 
-# Logs and temp files
-*.log
-*.tmp
+# Temporary files
+tmp/
+tests/tmp/
 
-# Environment
+# Environment files
 .env
 .env.local
 *.env.*
-
-# Editor/IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Tests
-tests/PoC/SQL/*.php
 ```
