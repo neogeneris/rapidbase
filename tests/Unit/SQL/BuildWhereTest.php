@@ -36,7 +36,8 @@ $res = SQL::buildWhere(['type' => 'admin', 'deleted' => 0]);
 assert_where("Múltiples filtros (AND)", "`type` = :p0 AND `deleted` = :p1", ["p0" => 'admin', "p1" => 0], $res);
 
 // Caso 4: Filtro con tabla especificada (u.id)
+// Nota: El índice se reinicia para cada llamada, por lo que también es :p0
 $res = SQL::buildWhere(['u.id' => 50]);
-assert_where("Filtro con alias de tabla", "`u`.`id` = :p2", ["p2" => 50], $res);
+assert_where("Filtro con alias de tabla", "`u`.`id` = :p0", ["p0" => 50], $res);
 
 echo "\n[SUCCESS] Todos los casos de BuildWhere pasaron.\n";
