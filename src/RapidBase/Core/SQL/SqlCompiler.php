@@ -39,12 +39,12 @@ class SqlCompiler
      */
     public function compileSelect(array $state): array
     {
-        $sel    = $state[self::SEL]    ?? '*';
+        $sel    = $this->normalizeField($state[self::SEL] ?? '*');
         $from   = $state[self::FROM]   ?? '';
         $where  = $state[self::WHERE]  ? ' WHERE ' . $state[self::WHERE] : '';
-        $group  = $state[self::GROUP]  ? ' GROUP BY ' . $state[self::GROUP] : '';
+        $group  = ($g = $this->normalizeField($state[self::GROUP] ?? '')) ? ' GROUP BY ' . $g : '';
         $having = $state[self::HAVING] ? ' HAVING ' . $state[self::HAVING] : '';
-        $order  = $state[self::ORDER]  ? ' ORDER BY ' . $state[self::ORDER] : '';
+        $order  = ($o = $this->normalizeField($state[self::ORDER] ?? '')) ? ' ORDER BY ' . $o : '';
         $limit  = $state[self::LIMIT]  ? ' LIMIT ' . $state[self::LIMIT] : '';
         $params = $state[self::PARAMS] ?? [];
 
@@ -59,6 +59,17 @@ class SqlCompiler
             $limit
         );
         return [$sql, $params];
+    }
+
+    /**
+     * Converts an array to a comma-separated string, leaves strings unchanged.
+     */
+    private function normalizeField($field): string
+    {
+        if (is_array($field)) {
+            return implode(', ', $field);
+        }
+        return (string) $field;
     }
 
     /**

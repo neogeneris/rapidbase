@@ -72,7 +72,7 @@ class Gateway
         }
 
         // Build SELECT query using Q
-        $query = Q::from($table, $where);
+        $query = Q::from($table, $where ?? []);
         if (!empty($groupBy)) {
             $query->groupBy($groupBy);
         }
@@ -85,7 +85,7 @@ class Gateway
         // Separate total count if requested
         $total = 0;
         if ($withTotal) {
-            $countQuery = Q::from($table, $where);
+            $countQuery = Q::from($table, $where ?? []);
             [$countSql, $countParams] = $countQuery->count();
             $countStmt = Executor::query($countSql, $countParams);
             $total = (int) $countStmt->fetchColumn();
@@ -186,9 +186,21 @@ class Gateway
                 [$sql, $params] = $query->insert($args[1] ?? []);
                 break;
             case 'update':
-                [$sql, $params] = $query->update($args[1] ?? [], $args[2] ?? []);
+                // For update, args[1] = data, args[2] = where
+                $where = $args[2] ?? [];
+                if (empty($where)) {
+                    throw new \RuntimeException("PELIGRO: Update masivo no permitido. Debes especificar condiciones WHERE.");
+                }
+                $query = Q::from($table, $where);
+                [$sql, $params] = $query->update($args[1] ?? []);
                 break;
             case 'delete':
+                // For delete, args[1] = where conditions
+                $where = $args[1] ?? [];
+                if (empty($where)) {
+                    throw new \RuntimeException("PELIGRO: Delete masivo no permitido. Debes especificar condiciones WHERE.");
+                }
+                $query = Q::from($table, $where);
                 [$sql, $params] = $query->delete();
                 break;
             default:
@@ -275,7 +287,8 @@ class Gateway
         try {
             $stmt = Executor::query($sql, $params);
             $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-            $exists = (bool)($row['check'] ?? false);
+            // SQLite returns the column with the full expression as key, so we take the first value
+            $exists = (bool)($row['check'] ?? reset($row));
 
             $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $sql, $params, null, ['rows' => $exists ? 1 : 0], 'exists', $table, $duration);

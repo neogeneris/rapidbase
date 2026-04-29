@@ -88,9 +88,9 @@ assert_select(
 );
 
 assert_select(
-    "Persistencia de parámetros en el estado",
-    isset($status['params']['p0']) && $status['params']['p0'] === 'pending',
-    "Los parámetros del WHERE no se registraron correctamente en el estado"
+    "Persistencia de par‡metros en el estado",
+    isset($status['params'][0]) && $status['params'][0] === 'pending',
+    "Los par‡metros del WHERE no se registraron correctamente en el estado"
 );
 
 echo "\n\033[32m[SUCCESS]\033[0m Gateway::select maneja agrupamientos y filtros correctamente.\n";
