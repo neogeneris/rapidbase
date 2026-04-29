@@ -1,13 +1,16 @@
 ```
-# Database files
-*.db
+# PHP related compiled/cache files
+*.php~
+*.php.bak
+*.php.swp
 
-# Temporary files
-tmp/
-tests/tmp/
+# Test related artifacts
+tests/PoC/SQL/*.tmp
+tests/PoC/SQL/*.log
 
-# Environment files
-.env
-.env.local
-*.env.*
+# General temp and backup files
+*.tmp
+*.bak
+*.swp
+*~
 ```
