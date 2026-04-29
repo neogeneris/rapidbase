@@ -2,6 +2,8 @@
 
 namespace RapidBase\Core\SQL;
 
+require_once __DIR__ . '/JoinStrategy.php';
+
 /**
  * DeterministicJoin: Estrategia de joins explícitos y deterministas.
  * Máxima velocidad, sin inferencia mágica.
