@@ -31,12 +31,12 @@ $res = SQL::buildWhere(['active' => 1]);
 assert_where("Filtro simple", "`active` = :p0", ["p0" => 1], $res);
 
 // Caso 3: Múltiples condiciones (AND implícito)
-// Nota: p1 y p2 asumiendo que el índice estático sigue aumentando
+// Nota: El nuevo motor Flat usa índices base 0 (:p0, :p1)
 $res = SQL::buildWhere(['type' => 'admin', 'deleted' => 0]);
-assert_where("Múltiples filtros (AND)", "`type` = :p1 AND `deleted` = :p2", ["p1" => 'admin', "p2" => 0], $res);
+assert_where("Múltiples filtros (AND)", "`type` = :p0 AND `deleted` = :p1", ["p0" => 'admin', "p1" => 0], $res);
 
 // Caso 4: Filtro con tabla especificada (u.id)
 $res = SQL::buildWhere(['u.id' => 50]);
-assert_where("Filtro con alias de tabla", "`u`.`id` = :p3", ["p3" => 50], $res);
+assert_where("Filtro con alias de tabla", "`u`.`id` = :p2", ["p2" => 50], $res);
 
 echo "\n[SUCCESS] Todos los casos de BuildWhere pasaron.\n";
