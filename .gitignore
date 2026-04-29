@@ -1,21 +1,11 @@
 ```
-# Test coverage and cache
-.tests/
-.phpunit.result.cache
-
-# Logs
+# Logs and temp files
 *.log
+*.tmp
 
-# Environment
-.env
-.env.local
-*.env.*
+# Tests
+tests/tmp/
 
-# Editor
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
+# Original rules preserved
+*.log
 ```
