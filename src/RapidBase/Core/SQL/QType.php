@@ -3,15 +3,14 @@
 namespace RapidBase\Core\SQL;
 
 /**
- * Constantes de operación para máxima velocidad en el switch interno.
- * El uso de enteros es más rápido que comparar strings.
+ * Tipos de consultas como constantes enteras para máximo rendimiento.
  */
-class QType
-{
-    public const SELECT = 1;
-    public const INSERT = 2;
-    public const UPDATE = 3;
-    public const DELETE = 4;
-    public const COUNT  = 5;
-    public const EXISTS = 6;
+class QType {
+    const SELECT = 1;
+    const INSERT = 2;
+    const UPDATE = 3;
+    const DELETE = 4;
+    const COUNT = 5;
+    const EXISTS = 6;
 }
+

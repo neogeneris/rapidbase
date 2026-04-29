@@ -3,57 +3,58 @@
 namespace RapidBase\Core\SQL;
 
 /**
- * ConditionParser: Traduce arrays de filtros a condiciones SQL seguras.
- * Soporta operadores simples, IN, y comparaciones compuestas.
+ * Parser de condiciones robusto (Compatible con SQL.php original).
+ * Soporta: '=', '>', '<', '>=', '<=', '!=', '<>', '~' (LIKE %val%), IN, IS NULL.
  */
-class ConditionParser
-{
-    /**
-     * Convierte un array de filtros en [sql_fragment, params]
-     * Ej: ['status' => 'active', 'id' => [1,2]] -> ["status = ? AND id IN (?,?,?)", [...]]
-     */
-    public static function parse(array $filter): array
-    {
-        if (empty($filter)) {
-            return ['', []];
-        }
+class ConditionParser {
+    private int $paramIndex = 0;
 
-        $conditions = [];
+    public function parse(array $conditions): array {
+        $sqlParts = [];
         $params = [];
+        $this->paramIndex = 0; // Reset index per call
 
-        foreach ($filter as $field => $value) {
-            // Ignorar metadatos internos que empiecen con _
-            if ($field[0] === '_') {
+        foreach ($conditions as $field => $value) {
+            if ($value === null) {
+                // Manejo de NULL
+                $sqlParts[] = "`$field` IS NULL";
                 continue;
             }
 
             if (is_array($value)) {
-                // Caso IN o operador compuesto
-                if (self::isAssociative($value)) {
-                    // Operador compuesto: ['age' => ['>' => 18]]
-                    foreach ($value as $op => $val) {
-                        $conditions[] = "$field $op ?";
+                // Verificar si es un operador explícito ej: ['age' => ['>' => 50]]
+                $keys = array_keys($value);
+                if (count($keys) === 1 && in_array($keys[0], ['=', '>', '<', '>=', '<=', '!=', '<>', '~', 'LIKE'])) {
+                    $op = $keys[0];
+                    $val = $value[$op];
+                    
+                    if ($op === '~' || $op === 'LIKE') {
+                        // Operador Like automático con %
+                        $sqlParts[] = "`$field` LIKE ?";
+                        $params[] = "%$val%";
+                    } else {
+                        $sqlParts[] = "`$field` $op ?";
                         $params[] = $val;
                     }
-                } else {
-                    // Lista para IN: ['id' => [1, 2, 3]]
+                    continue;
+                }
+
+                // Si llega aquí, es un array de valores para IN
+                if (!empty($value)) {
                     $placeholders = implode(',', array_fill(0, count($value), '?'));
-                    $conditions[] = "$field IN ($placeholders)";
-                    $params = array_merge($params, $value);
+                    $sqlParts[] = "`$field` IN ($placeholders)";
+                    $params = array_merge($params, array_values($value));
                 }
             } else {
-                // Igualdad simple
-                $conditions[] = "$field = ?";
+                // Caso estándar igual
+                $sqlParts[] = "`$field` = ?";
                 $params[] = $value;
             }
         }
 
-        return [implode(' AND ', $conditions), $params];
-    }
-
-    private static function isAssociative(array $arr): bool
-    {
-        if ([] === $arr) return false;
-        return array_keys($arr) !== range(0, count($arr) - 1);
+        return [
+            'sql' => implode(' AND ', $sqlParts),
+            'params' => $params
+        ];
     }
 }
