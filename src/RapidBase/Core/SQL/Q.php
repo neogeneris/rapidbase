@@ -1,274 +1,320 @@
 <?php
+
+declare(strict_types=1);
+
 namespace RapidBase\Core\SQL;
 
-/**
- * Flat Query Engine - Punto de entrada único y optimizado.
- * Uso: Q::from('tabla', $filtros)->build(QType::SELECT, 'campos');
- */
-class Q {
-    // Constantes para índices del array de estado (Pila numérica para velocidad)
-    const T = 0; // Table
-    const F = 1; // Filter/Where
-    const J = 2; // Joins
-    const O = 3; // Order
-    const L = 4; // Limit (puede ser [offset, limit])
-    const G = 5; // Group
-    const H = 6; // Having
-    const S = 7; // Select fields (opcional en from, usualmente en build)
+use RapidBase\Core\SchemaMap;
 
-    /**
-     * Inicia la consulta.
-     * @param string|array $table Nombre de tabla o array con alias/joins implícitos
-     * @param array $filter Filtros WHERE iniciales
-     * @return self
-     */
-    public static function from($table, array $filter = []): self {
-        $instance = new self();
-        $instance->state = [
-            self::T => $table,
-            self::F => $filter,
-            self::J => [],
+/**
+ * Q - Fluent SQL query builder.
+ *
+ * Single entry point, maximum performance.
+ *
+ * Usage:
+ *   Q::from('users', ['status' => 'active'])->select('*', Q::page(1,20), ['-created_at']);
+ *   Q::from(['users', 'posts'], ['u.status' => 'active'])->select('*');
+ *   Q::from('users', ['id' => 5])->update(['name' => 'John']);
+ *   Q::from('users')->insert(['name' => 'Ana', 'email' => 'ana@test.com']);
+ *   Q::from('users', ['id' => 5])->delete();
+ *   Q::from('users', ['status' => 'active'])->count();
+ *   Q::from('users', ['id' => 5])->exists();
+ */
+class Q
+{
+    private const T = 0; // Table
+    private const F = 1; // Filter / Where
+    private const O = 2; // Order
+    private const L = 3; // Limit
+    private const G = 4; // Group
+    private const H = 5; // Having
+    private const S = 6; // Select fields
+
+    private array $state;
+    private string $connectionId;
+
+    private function __construct(string $connectionId = 'default')
+    {
+        $this->connectionId = $connectionId;
+        $this->state = [
+            self::T => '',
+            self::F => [],
             self::O => null,
             self::L => null,
             self::G => null,
-            self::H => null,
-            self::S => null
+            self::H => [],
+            self::S => null,
         ];
+    }
+
+    /**
+     * Starts a query.
+     *
+     * @param string|array $table  Table or array of tables (activates auto-join).
+     * @param array        $filter Initial WHERE conditions.
+     * @return self
+     */
+    public static function from($table, array $filter = []): self
+    {
+        $instance = new self();
+        $instance->state[self::T] = $table;
+        $instance->state[self::F] = $filter;
         return $instance;
     }
 
-    private array $state;
+    // ========== Optional fluent methods ==========
 
-    // Métodos fluentes opcionales para configuración adicional (si se necesita fuera del array inicial)
-    public function orderBy(string $order): self {
+    public function fields($fields): self
+    {
+        $this->state[self::S] = $fields;
+        return $this;
+    }
+
+    public function orderBy($order): self
+    {
         $this->state[self::O] = $order;
         return $this;
     }
 
-    public function limit($limit): self {
+    public function limit(int $limit): self
+    {
         $this->state[self::L] = $limit;
         return $this;
     }
 
-    public function groupBy($fields): self {
+    public function groupBy($fields): self
+    {
         $this->state[self::G] = $fields;
         return $this;
     }
 
-    public function having(array $filter): self {
+    public function having(array $filter): self
+    {
         $this->state[self::H] = $filter;
         return $this;
     }
 
+    // ========== Terminal methods ==========
+
     /**
-     * Genera el SQL final.
-     * @param int $type Tipo de consulta (QType::SELECT, etc.)
-     * @param mixed $payload Datos adicionales (campos para select, datos para insert/update)
-     * @return array [sql, params]
+     * Compiles a SELECT query.
+     *
+     * @param string|array|null $fields     Columns to select.
+     * @param mixed             $pagination [offset, limit] array or int as limit.
+     * @param string|array      $sort       Ordering (prefix - for DESC).
+     * @return array [sql, params, projectionMap]
      */
-    public function build(int $type, $payload = null): array {
-        switch ($type) {
-            case QType::SELECT:
-                return $this->compileSelect($payload);
-            case QType::INSERT:
-                return $this->compileInsert($payload);
-            case QType::UPDATE:
-                return $this->compileUpdate($payload);
-            case QType::DELETE:
-                return $this->compileDelete();
-            case QType::COUNT:
-                return $this->compileCount();
-            case QType::EXISTS:
-                return $this->compileExists();
-            default:
-                throw new \InvalidArgumentException("Tipo de consulta no soportado");
+    public function select($fields = null, $pagination = null, $sort = []): array
+    {
+        $joinResolver = new JoinResolver($this->connectionId);
+        $joinResult   = $joinResolver->resolve($this->state[self::T]);
+        $fromClause   = $joinResult['from'];
+        $tablesInfo   = $joinResult['tablesInfo'];
+
+        $context = [];
+        foreach ($tablesInfo as $info) {
+            $context[$info['alias']] = $info['real'];
         }
-    }
+        $defaultAlias = $tablesInfo[0]['alias'] ?? '';
 
-    // --- COMPILADORES ---
+        $whereData = empty($this->state[self::F])
+            ? ['sql' => '', 'params' => []]
+            : (new ConditionMatrix())->parse(
+                $this->state[self::F],
+                $context,
+                $defaultAlias,
+                SchemaMap::getMap($this->connectionId)
+              );
 
-    private function compileSelect($fields): array {
-        $params = [];
-        
-        // 1. FROM & JOINS
-        $joinManager = new DeterministicJoin($this->state[self::T], $this->state[self::J]);
-        $fromSql = $joinManager->getFromClause();
-        $joinSql = $joinManager->getJoinClause();
-        
-        // 2. WHERE (Usando el Parser robusto)
-        $whereSql = '';
-        if (!empty($this->state[self::F])) {
-            $parser = new ConditionParser();
-            $whereData = $parser->parse($this->state[self::F]);
-            $whereSql = ' WHERE ' . $whereData['sql'];
-            $params = array_merge($params, $whereData['params']);
-        }
-
-        // 3. GROUP BY
         $groupSql = '';
         if ($this->state[self::G]) {
-            $cols = is_array($this->state[self::G]) ? implode(', ', $this->state[self::G]) : $this->state[self::G];
-            $groupSql = ' GROUP BY ' . $cols;
+            $groupSql = is_array($this->state[self::G])
+                ? implode(', ', $this->state[self::G])
+                : $this->state[self::G];
         }
 
-        // 4. HAVING
-        $havingSql = '';
-        if (!empty($this->state[self::H])) {
-            $parser = new ConditionParser();
-            $havingData = $parser->parse($this->state[self::H]);
-            $havingSql = ' HAVING ' . $havingData['sql'];
-            $params = array_merge($params, $havingData['params']);
-        }
+        $havingData = empty($this->state[self::H])
+            ? ['sql' => '', 'params' => []]
+            : (new ConditionMatrix())->parse(
+                $this->state[self::H],
+                $context,
+                $defaultAlias,
+                SchemaMap::getMap($this->connectionId)
+              );
 
-        // 5. ORDER BY
-        $orderSql = '';
-        if ($this->state[self::O]) {
-            $orderSql = ' ORDER BY ' . $this->normalizeOrder($this->state[self::O]);
-        }
+        $order = $sort ?: $this->state[self::O];
+        $orderSql = $order ? $this->buildOrderClause($order) : '';
 
-        // 6. LIMIT
+        $limit = $pagination ?? $this->state[self::L];
         $limitSql = '';
-        if ($this->state[self::L]) {
-            if (is_array($this->state[self::L])) {
-                $limitSql = ' LIMIT ? OFFSET ?';
-                $params[] = (int)$this->state[self::L][1];
-                $params[] = (int)$this->state[self::L][0];
+        $limitParams = [];
+        if ($limit !== null) {
+            if (is_array($limit)) {
+                $limitSql = '? OFFSET ?';
+                $limitParams = [(int)$limit[1], (int)$limit[0]];
             } else {
-                $limitSql = ' LIMIT ?';
-                $params[] = (int)$this->state[self::L];
+                $limitSql = '?';
+                $limitParams = [(int)$limit];
             }
         }
 
-        // 7. SELECT FIELDS
-        $selectFields = '*';
-        if ($fields !== null) {
-            $selectFields = is_array($fields) ? implode(', ', $fields) : $fields;
-        } elseif ($this->state[self::S]) {
-            $selectFields = is_array($this->state[self::S]) ? implode(', ', $this->state[self::S]) : $this->state[self::S];
-        }
-
-        $sql = sprintf(
-            "SELECT %s FROM %s%s%s%s%s%s%s",
-            $selectFields,
-            $fromSql,
-            $joinSql,
-            $whereSql,
-            $groupSql,
-            $havingSql,
-            $orderSql,
-            $limitSql
+        $params = array_merge(
+            $whereData['params'],
+            $havingData['params'],
+            $limitParams
         );
 
-        return [$sql, $params];
+        $compiledState = [
+            SqlCompiler::SEL    => $fields ?? $this->state[self::S] ?? '*',
+            SqlCompiler::FROM   => $fromClause,
+            SqlCompiler::WHERE  => $whereData['sql'],
+            SqlCompiler::GROUP  => $groupSql,
+            SqlCompiler::HAVING => $havingData['sql'],
+            SqlCompiler::ORDER  => $orderSql,
+            SqlCompiler::LIMIT  => $limitSql,
+            SqlCompiler::PARAMS => $params,
+        ];
+
+        $compiler = new SqlCompiler();
+        return $compiler->compileSelect($compiledState);
     }
 
-    private function compileInsert($data): array {
-        // Detectar si es insert múltiple
-        $isMulti = isset($data[0]) && is_array($data[0]);
-        $rows = $isMulti ? $data : [$data];
-        
-        if (empty($rows)) return ['', []];
+    public function insert(array $rows): array
+    {
+        $this->ensureSingleTable();
+        $compiler = new SqlCompiler();
+        $compiledState = [
+            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::PARAMS => [],
+        ];
+        return $compiler->compileInsert($compiledState, $rows);
+    }
 
-        $columns = array_keys($rows[0]);
-        $colsSql = '`' . implode('`, `', $columns) . '`';
-        
-        // Generar placeholders para una fila
-        $placeholders = '(' . str_repeat('?, ', count($columns) - 1) . '?)';
-        
-        // Repetir para todas las filas
-        $valuesSql = implode(', ', array_fill(0, count($rows), $placeholders));
-        
-        $sql = sprintf("INSERT INTO `%s` (%s) VALUES %s", $this->state[self::T], $colsSql, $valuesSql);
-        
-        // Aplanar parámetros
-        $params = [];
-        foreach ($rows as $row) {
-            foreach ($columns as $col) {
-                $params[] = $row[$col];
+    public function update(array $data): array
+    {
+        $this->ensureSingleTable();
+        $whereData = $this->compileWhereSimple();
+        $compiledState = [
+            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::WHERE  => $whereData['sql'],
+            SqlCompiler::PARAMS => $whereData['params'],
+        ];
+        $compiler = new SqlCompiler();
+        return $compiler->compileUpdate($compiledState, $data);
+    }
+
+    public function delete(): array
+    {
+        $this->ensureSingleTable();
+        $whereData = $this->compileWhereSimple();
+        $compiledState = [
+            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::WHERE  => $whereData['sql'],
+            SqlCompiler::PARAMS => $whereData['params'],
+        ];
+        $compiler = new SqlCompiler();
+        return $compiler->compileDelete($compiledState);
+    }
+
+    public function count(): array
+    {
+        $this->ensureSingleTable();
+        $whereData = $this->compileWhereSimple();
+        $compiledState = [
+            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::WHERE  => $whereData['sql'],
+            SqlCompiler::PARAMS => $whereData['params'],
+        ];
+        $compiler = new SqlCompiler();
+        return $compiler->compileCount($compiledState);
+    }
+
+    public function exists(): array
+    {
+        $this->ensureSingleTable();
+        $whereData = $this->compileWhereSimple();
+        $compiledState = [
+            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::WHERE  => $whereData['sql'],
+            SqlCompiler::PARAMS => $whereData['params'],
+        ];
+        $compiler = new SqlCompiler();
+        return $compiler->compileExists($compiledState);
+    }
+
+    // ========== Static helpers ==========
+
+    public static function page(int $page, int $perPage = 10): array
+    {
+        $page   = max(1, $page);
+        $offset = ($page - 1) * $perPage;
+        return [$offset, $perPage];
+    }
+
+    public static function setDriver(string $driver): void
+    {
+        ConditionMatrix::setDriver($driver);
+    }
+
+    public static function quote(string $identifier): string
+    {
+        return ConditionMatrix::quote($identifier);
+    }
+
+    // ========== Private helpers ==========
+
+    private function compileWhereSimple(): array
+    {
+        if (empty($this->state[self::F])) {
+            return ['sql' => '1', 'params' => []];
+        }
+        return (new ConditionMatrix())->parse($this->state[self::F]);
+    }
+
+    private function buildOrderClause($order): string
+    {
+        if (is_array($order)) {
+            $parts = [];
+            foreach ($order as $field) {
+                $field = trim($field);
+                $dir = 'ASC';
+                if (str_starts_with($field, '-')) {
+                    $dir = 'DESC';
+                    $field = substr($field, 1);
+                }
+                $parts[] = ConditionMatrix::quote($field) . ' ' . $dir;
             }
+            return implode(', ', $parts);
         }
-        
-        return [$sql, $params];
+
+        $fields = explode(',', $order);
+        $parts = [];
+        foreach ($fields as $field) {
+            $field = trim($field);
+            $dir = 'ASC';
+            if (str_starts_with($field, '-')) {
+                $dir = 'DESC';
+                $field = substr($field, 1);
+            }
+            $parts[] = ConditionMatrix::quote($field) . ' ' . $dir;
+        }
+        return implode(', ', $parts);
     }
 
-    private function compileUpdate($data): array {
-        $setParts = [];
-        $params = [];
-        foreach ($data as $col => $val) {
-            $setParts[] = "`$col` = ?";
-            $params[] = $val;
+    private function resolveSingleTableName(): string
+    {
+        $table = $this->state[self::T];
+        if (is_string($table)) {
+            $parts = preg_split('/\s+AS\s+/i', trim($table));
+            return trim($parts[0]);
         }
-        $setSql = implode(', ', $setParts);
-
-        $whereSql = '';
-        if (!empty($this->state[self::F])) {
-            $parser = new ConditionParser();
-            $whereData = $parser->parse($this->state[self::F]);
-            $whereSql = ' WHERE ' . $whereData['sql'];
-            $params = array_merge($params, $whereData['params']);
-        }
-
-        $sql = sprintf("UPDATE `%s` SET %s%s", $this->state[self::T], $setSql, $whereSql);
-        return [$sql, $params];
+        throw new \RuntimeException('INSERT, UPDATE, DELETE, COUNT and EXISTS require a single table.');
     }
 
-    private function compileDelete(): array {
-        $params = [];
-        $whereSql = '';
-        
-        if (!empty($this->state[self::F])) {
-            $parser = new ConditionParser();
-            $whereData = $parser->parse($this->state[self::F]);
-            $whereSql = ' WHERE ' . $whereData['sql'];
-            $params = $whereData['params'];
+    private function ensureSingleTable(): void
+    {
+        if (is_array($this->state[self::T])) {
+            throw new \RuntimeException('INSERT, UPDATE, DELETE, COUNT and EXISTS only support a single table.');
         }
-
-        $sql = sprintf("DELETE FROM `%s`%s", $this->state[self::T], $whereSql);
-        return [$sql, $params];
-    }
-
-    private function compileCount(): array {
-        $params = [];
-        $whereSql = '';
-        
-        if (!empty($this->state[self::F])) {
-            $parser = new ConditionParser();
-            $whereData = $parser->parse($this->state[self::F]);
-            $whereSql = ' WHERE ' . $whereData['sql'];
-            $params = $whereData['params'];
-        }
-
-        $sql = sprintf("SELECT COUNT(*) as total FROM `%s`%s", $this->state[self::T], $whereSql);
-        return [$sql, $params];
-    }
-
-    private function compileExists(): array {
-        $params = [];
-        $whereSql = '';
-        
-        if (!empty($this->state[self::F])) {
-            $parser = new ConditionParser();
-            $whereData = $parser->parse($this->state[self::F]);
-            $whereSql = ' WHERE ' . $whereData['sql'];
-            $params = $whereData['params'];
-        }
-
-        $sql = sprintf("SELECT EXISTS(SELECT 1 FROM `%s`%s) as check_flag", $this->state[self::T], $whereSql);
-        return [$sql, $params];
-    }
-
-    // --- UTILIDADES ---
-
-    private function normalizeOrder($order): string {
-        if (is_array($order)) return implode(', ', $order);
-        // Soporte para sintaxis '-campo' -> DESC
-        if (strpos($order, '-') === 0) {
-            return substr($order, 1) . ' DESC';
-        }
-        return $order . ' ASC';
     }
 }
-
-
-
-
