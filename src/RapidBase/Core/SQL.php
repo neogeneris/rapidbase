@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace RapidBase\Core;
 
+// Incluir manualmente las clases del motor Flat (sin autoload)
+require_once __DIR__ . '/SQL/QType.php';
+require_once __DIR__ . '/SQL/JoinStrategy.php';
+require_once __DIR__ . '/SQL/DeterministicJoin.php';
+require_once __DIR__ . '/SQL/ConditionParser.php';
+require_once __DIR__ . '/SQL/SqlCompiler.php';
+require_once __DIR__ . '/SQL/Q.php';
+
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SQL\QType;
 
@@ -190,6 +198,12 @@ class SQL
     public static function buildInsert(string $table, array $rows): array
     {
         try {
+            // Detectar si es un solo registro (array asociativo simple)
+            // y convertirlo a formato multi para el motor Flat
+            if (!empty($rows) && !isset($rows[0]) && !is_array(reset($rows))) {
+                // Es un solo registro: ['name' => 'John'] -> [['name' => 'John']]
+                $rows = [$rows];
+            }
             return Q::from($table)->build(QType::INSERT, $rows);
         } catch (\Exception $e) {
             return self::buildInsertLegacy($table, $rows);
