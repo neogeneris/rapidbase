@@ -1,16 +1,43 @@
 ```
-# PHP related compiled/cache files
+# PHP related ignores
 *.php~
 *.php.bak
 *.php.swp
 
-# Test related artifacts
-tests/PoC/SQL/*.tmp
-tests/PoC/SQL/*.log
+# Test files
+tests/PoC/
 
-# General temp and backup files
+# Environment and cache
+.env
+.env.local
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies
+node_modules/
+vendor/
+composer.lock
+
+# Build artifacts
+build/
+dist/
+*.phar
+
+# Logs and temp files
+*.log
 *.tmp
-*.bak
+*.temp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
 *.swp
-*~
+*.swo
 ```
