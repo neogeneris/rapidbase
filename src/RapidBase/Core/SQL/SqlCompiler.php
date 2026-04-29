@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace RapidBase\Core\SQL;
 
+use RapidBase\Core\SchemaMap;
+
 /**
  * SqlCompiler - Genera SQL usando plantillas sprintf.
  * 
@@ -35,7 +37,7 @@ class SqlCompiler
      * Compila un SELECT.
      *
      * @param array $state Array con índices numéricos según constantes.
-     * @return array [sql, params]
+     * @return array [sql, params, projectionMap]
      */
     public function compileSelect(array $state): array
     {
@@ -58,7 +60,127 @@ class SqlCompiler
             $order,
             $limit
         );
-        return [$sql, $params];
+
+        // Build projection map for fetch_num compatibility
+        $projectionMap = $this->buildProjectionMap($state[self::SEL] ?? '*', $from);
+
+        return [$sql, $params, $projectionMap];
+    }
+
+    /**
+     * Builds a projection map from field names to numeric indices.
+     * This is needed when using PDO::FETCH_NUM to map indices back to column names.
+     *
+     * @param mixed $fields Fields from SELECT (string, array, or '*')
+     * @param string $fromClause FROM clause (used to extract table info if needed)
+     * @return array Map of index => column name
+     */
+    private function buildProjectionMap($fields, string $fromClause): array
+    {
+        $map = [];
+        $index = 0;
+
+        // Extract table aliases from FROM clause
+        $tablesInfo = $this->extractTablesFromFromClause($fromClause);
+
+        if ($fields === '*') {
+            // Expand with schema for each table
+            $schema = SchemaMap::getMap();
+            foreach ($tablesInfo as $info) {
+                $realTable = $info['real'];
+                $alias = $info['alias'];
+                if (isset($schema['tables'][$realTable])) {
+                    foreach ($schema['tables'][$realTable] as $col => $def) {
+                        $map[$index] = $alias . '.' . $col;
+                        $index++;
+                    }
+                }
+            }
+            return $map;
+        }
+
+        if (is_string($fields)) {
+            // Parse comma-separated fields
+            $parts = explode(',', $fields);
+        } else if (is_array($fields)) {
+            $parts = $fields;
+        } else {
+            return [];
+        }
+
+        foreach ($parts as $field) {
+            $field = trim($field);
+            
+            // Handle aliases (e.g., "COUNT(*) as total" -> "total")
+            if (preg_match('/\s+as\s+(\w+)/i', $field, $matches)) {
+                $map[$index] = $matches[1];
+            } 
+            // Handle table.* - expand with schema
+            else if (preg_match('/(\w+)\.\*/', $field, $matches)) {
+                $tableAlias = $matches[1];
+                $schema = SchemaMap::getMap();
+                // Find real table name from alias
+                foreach ($tablesInfo as $info) {
+                    if ($info['alias'] === $tableAlias) {
+                        $realTable = $info['real'];
+                        if (isset($schema['tables'][$realTable])) {
+                            foreach ($schema['tables'][$realTable] as $col => $def) {
+                                $map[$index] = $tableAlias . '.' . $col;
+                                $index++;
+                            }
+                        }
+                        break;
+                    }
+                }
+            } 
+            else {
+                // Simple column, function, or aliased column
+                // Remove table prefix for display but keep it in the map
+                if (strpos($field, '.') !== false && !preg_match('/^\w+\(/', $field)) {
+                    // It's table.column format
+                    $map[$index] = $field;
+                } else {
+                    // Function or simple column
+                    $map[$index] = $field;
+                }
+                $index++;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Extracts table information from a FROM clause.
+     * 
+     * @param string $fromClause The FROM clause (e.g., "FROM users u LEFT JOIN posts p ON...")
+     * @return array Array of ['alias' => ..., 'real' => ...] for each table
+     */
+    private function extractTablesFromFromClause(string $fromClause): array
+    {
+        $tablesInfo = [];
+        
+        // Remove "FROM " prefix
+        $clause = preg_replace('/^FROM\s+/i', '', $fromClause);
+        
+        // Split by JOIN keywords to get individual table parts
+        $parts = preg_split('/\s+(?:LEFT\s+|RIGHT\s+|INNER\s+|OUTER\s+|CROSS\s+)?JOIN\s+/i', $clause);
+        
+        foreach ($parts as $part) {
+            $part = trim($part);
+            // Remove ON clause and everything after
+            $part = preg_replace('/\s+ON\s+.*$/i', '', $part);
+            $part = trim($part);
+            
+            // Extract table name and alias
+            if (preg_match('/^(\w+)(?:\s+(?:AS\s+)?(\w+))?/', $part, $matches)) {
+                $realTable = $matches[1];
+                $alias = $matches[2] ?? $realTable;
+                $tablesInfo[] = ['real' => $realTable, 'alias' => $alias];
+            }
+        }
+        
+        return $tablesInfo;
     }
 
     /**
