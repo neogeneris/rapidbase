@@ -404,14 +404,31 @@ class SQL
 
     public static function buildWhere(array $where, array $context = [], string $defaultAlias = ''): array
     {
+        // Caso especial: array vacío retorna neutro "1"
+        if (empty($where)) {
+            return ['sql' => '1', 'params' => []];
+        }
+        
         $sql = '';
         $params = [];
+        $index = 0;
+        
         foreach ($where as $col => $val) {
             if ($sql !== '') $sql .= ' AND ';
-            $sql .= "$col = ?";
-            $params[] = $val;
+            
+            // Manejar alias de tabla (ej: u.id)
+            if (strpos($col, '.') !== false) {
+                $parts = explode('.', $col, 2);
+                $sql .= '`' . $parts[0] . '`.`' . $parts[1] . '` = :p' . $index;
+            } else {
+                $sql .= '`' . $col . '` = :p' . $index;
+            }
+            
+            $params['p' . $index] = $val;
+            $index++;
         }
-        return [$sql, $params];
+        
+        return ['sql' => $sql, 'params' => $params];
     }
 
     public static function buildOrderBy(array $sortFields): string
