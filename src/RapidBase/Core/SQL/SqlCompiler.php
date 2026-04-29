@@ -12,7 +12,7 @@ class SqlCompiler
     private const TPL_SELECT = 'SELECT %s FROM %s%s%s%s%s%s';
     private const TPL_DELETE = 'DELETE FROM %s%s';
     private const TPL_COUNT  = 'SELECT COUNT(*) as total FROM %s%s';
-    private const TPL_EXISTS = 'SELECT EXISTS(SELECT 1 FROM %s%s) as exists_flag';
+    private const TPL_EXISTS = 'SELECT EXISTS(SELECT 1 FROM %s%s) as check';
     private const TPL_UPDATE = 'UPDATE %s SET %s%s';
     private const TPL_INSERT = 'INSERT INTO %s (%s) VALUES %s';
 
@@ -89,15 +89,18 @@ class SqlCompiler
         $tableSql = $this->quoteTable($state['table']);
         
         $setParts = [];
-        $params = $state['params']; // Empezamos con los params del WHERE
+        $setParams = []; // Parámetros del SET van primero
         
         foreach ($data as $col => $val) {
             $setParts[] = "$col = ?";
-            $params[] = $val;
+            $setParams[] = $val;
         }
         
         $setSql = implode(', ', $setParts);
         $whereSql = $state['where_sql'] ? " WHERE {$state['where_sql']}" : '';
+
+        // Los parámetros finales son: primero los del SET, luego los del WHERE
+        $params = array_merge($setParams, $state['params']);
 
         $sql = sprintf(self::TPL_UPDATE, $tableSql, $setSql, $whereSql);
         return [$sql, $params];

@@ -199,10 +199,14 @@ class SQL
     {
         try {
             // Detectar si es un solo registro (array asociativo simple)
-            // y convertirlo a formato multi para el motor Flat
-            if (!empty($rows) && !isset($rows[0]) && !is_array(reset($rows))) {
-                // Es un solo registro: ['name' => 'John'] -> [['name' => 'John']]
-                $rows = [$rows];
+            // Un array es "simple" si la primera clave es string (no numérica)
+            if (!empty($rows)) {
+                $firstKey = key($rows);
+                // Si la primera clave es string, es un registro único: ['name' => 'John']
+                // Si es numérica, es un array de registros: [['name' => 'John'], ...]
+                if (is_string($firstKey)) {
+                    $rows = [$rows];
+                }
             }
             return Q::from($table)->build(QType::INSERT, $rows);
         } catch (\Exception $e) {

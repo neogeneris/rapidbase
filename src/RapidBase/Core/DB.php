@@ -261,7 +261,9 @@ class DB implements DBInterface {
      * @return int|string
      */
     public static function insert(string $table, array $data): int|string {
-        $res = Gateway::action('insert', $table, $data);
+        // Al insertar, combinamos data + identifier para tener todos los campos requeridos
+        $fullData = array_merge($data, $identifier);
+        $res = Gateway::action('insert', $table, $fullData);
         return $res['lastId'] ?? 0;
     }
 
@@ -272,7 +274,9 @@ class DB implements DBInterface {
      * @return string|int|false
      */
     public static function create(string $table, array $data): string|int|false {
-        $res = Gateway::action('insert', $table, $data);
+        // Al insertar, combinamos data + identifier para tener todos los campos requeridos
+        $fullData = array_merge($data, $identifier);
+        $res = Gateway::action('insert', $table, $fullData);
         return $res['success'] ? $res['lastId'] : false;
     }
 
@@ -312,7 +316,9 @@ class DB implements DBInterface {
             $res = Gateway::action('update', $table, $data, $identifier);
             return $res['success'] ? true : false;
         }
-        $res = Gateway::action('insert', $table, $data);
+        // Al insertar, combinamos data + identifier para tener todos los campos requeridos
+        $fullData = array_merge($data, $identifier);
+        $res = Gateway::action('insert', $table, $fullData);
         return $res['lastId'] ?? false;
     }
 
