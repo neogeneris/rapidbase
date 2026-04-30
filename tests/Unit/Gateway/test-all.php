@@ -26,6 +26,7 @@ function assert_gateway($name, $condition, $details = "") {
 $gatewayTests = [
     'ActionTest.php','EventTest.php','CountTest.php','SelectTest.php','ExistsTest.php',
 ];
+// EventLogTest.php se excluye temporalmente por problemas de rutas en Windows
 
 foreach ($gatewayTests as $test) {
     echo "\n--- Ejecutando Gateway Unit: $test ---\n";

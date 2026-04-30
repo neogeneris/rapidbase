@@ -1,1 +1,39 @@
-Nothing should be ignored based on the provided file changes, as they only include PHP test files which are source code files.
+```php
+# Compiled and build artifacts
+*.o
+*.obj
+*.out
+*.exe
+*.dll
+*.so
+*.a
+
+# Dependencies
+vendor/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# PHPUnit
+.phpunit.result.cache
+
+# Original rules preserved
+*.log
+```

@@ -286,9 +286,7 @@ class Gateway
 
         try {
             $stmt = Executor::query($sql, $params);
-            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-            // SQLite returns the column with the full expression as key, so we take the first value
-            $exists = (bool)($row['check'] ?? reset($row));
+            $exists = (bool) $stmt->fetchColumn();
 
             $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $sql, $params, null, ['rows' => $exists ? 1 : 0], 'exists', $table, $duration);
