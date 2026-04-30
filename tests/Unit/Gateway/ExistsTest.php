@@ -75,8 +75,11 @@ assert_exists(
 $status = Gateway::status();
 
 $paramsOk = false;
+$debugInfo = "";
 
 if (!empty($status['params']) && is_array($status['params'])) {
+    $debugInfo = "Keys: " . json_encode(array_keys($status['params'])) . ", Values: " . json_encode(array_values($status['params']));
+    
     // Normalizar keys a enteros para comparación
     $normalizedParams = [];
     foreach ($status['params'] as $key => $value) {
@@ -84,20 +87,25 @@ if (!empty($status['params']) && is_array($status['params'])) {
         $normalizedParams[$normalizedKey] = $value;
     }
     
-    // Verificar si el primer parámetro es 'ferrari'
-    if (isset($normalizedParams[0]) && $normalizedParams[0] === 'ferrari') {
+    $debugInfo .= ", Normalized: " . json_encode($normalizedParams);
+    
+    // Verificar si el primer parámetro es 'ferrari' (usando array_values para mayor seguridad)
+    $paramValues = array_values($normalizedParams);
+    if (isset($paramValues[0]) && $paramValues[0] === 'ferrari') {
         $paramsOk = true;
     }
     // O verificar named params
     elseif (isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') {
         $paramsOk = true;
     }
+} else {
+    $debugInfo = "Params vacíos o no es array";
 }
 
 assert_exists(
     "Integridad de parámetros en exists()", 
     $paramsOk,
-    "Estructura recibida: " . json_encode($status['params'], JSON_FORCE_OBJECT)
+    "Estructura recibida: " . json_encode($status['params'], JSON_FORCE_OBJECT) . " | Debug: $debugInfo"
 );
 
 // echo "\n\033[32m[SUCCESS]\033[0m Gateway::exists funciona correctamente con la infraestructura actual.\n";

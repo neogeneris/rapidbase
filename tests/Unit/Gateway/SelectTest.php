@@ -1,7 +1,5 @@
 <?php
 
-namespace Tests\Unit\Gateway;
-
 // Aseguramos que las dependencias necesarias estén presentes
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';

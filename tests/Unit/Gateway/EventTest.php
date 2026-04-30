@@ -1,5 +1,4 @@
 <?php
-namespace Tests\Unit\Gateway;
 
 // Incluir dependencias del núcleo
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
