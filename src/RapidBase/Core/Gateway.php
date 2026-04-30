@@ -285,11 +285,8 @@ class Gateway
         [$sql, $params] = Q::from($table, $where)->exists();
 
         try {
-            $stmt = Executor::query($sql, $params);
-            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-            // SQLite returns the column with the full expression as key, so we take the first value
-            $exists = (bool)($row['check'] ?? reset($row));
-
+            $exists = Executor::query($sql, $params)->fetch(\PDO::FETCH_COLUMN);
+            
             $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $sql, $params, null, ['rows' => $exists ? 1 : 0], 'exists', $table, $duration);
             return $exists;
