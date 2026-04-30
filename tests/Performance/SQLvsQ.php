@@ -15,6 +15,8 @@
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
+include __DIR__ . "/../../src/RapidBase/Core/SQL_Legacy.php";
+
 
 use RapidBase\Core\SQL as SQL_Legacy;
 use RapidBase\Core\SQL\Q;

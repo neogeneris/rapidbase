@@ -7,31 +7,25 @@ namespace RapidBase\Core\SQL;
 use RapidBase\Core\SchemaMap;
 
 /**
- * Q - Fluent SQL query builder.
+ * Q - Fluent SQL query builder (strict B->F pattern).
  *
- * Single entry point, maximum performance.
+ * Maximum performance through a two-link chain:
+ *   Q::from(...)  →  terminal method (select, insert, update, delete, count, exists)
  *
  * Usage:
  *   Q::from('users', ['status' => 'active'])->select('*', Q::page(1,20), ['-created_at']);
- *   Q::from(['users', 'posts'], ['u.status' => 'active'])->select('*');
- *   Q::from('users', ['id' => 5])->update(['name' => 'John']);
  *   Q::from('users')->insert(['name' => 'Ana', 'email' => 'ana@test.com']);
+ *   Q::from('users', ['id' => 5])->update(['name' => 'John']);
  *   Q::from('users', ['id' => 5])->delete();
  *   Q::from('users', ['status' => 'active'])->count();
  *   Q::from('users', ['id' => 5])->exists();
- *   // Subquery support:
- *   Q::from('(SELECT * FROM users WHERE active = 1) AS active_users')->select('*');
- *   Q::from('SELECT * FROM users')->count();   // auto alias
+ *   Q::from('(SELECT * FROM users WHERE active=1) AS u')->select('*');
  */
 class Q
 {
-    private const T = 0; // Table
-    private const F = 1; // Filter / Where
-    private const O = 2; // Order
-    private const L = 3; // Limit
-    private const G = 4; // Group
-    private const H = 5; // Having
-    private const S = 6; // Select fields
+    // Internal state indices (numeric for speed)
+    private const T = 0; // Table (string or array)
+    private const F = 1; // Filter / Where conditions (array)
 
     private array $state;
     private string $connectionId;
@@ -42,18 +36,13 @@ class Q
         $this->state = [
             self::T => '',
             self::F => [],
-            self::O => null,
-            self::L => null,
-            self::G => null,
-            self::H => [],
-            self::S => null,
         ];
     }
 
     /**
-     * Starts a query.
+     * Starts a query (first link of the chain).
      *
-     * @param string|array $table  Table or array of tables (activates auto-join).
+     * @param string|array $table  Table name / array of tables / subquery string.
      * @param array        $filter Initial WHERE conditions.
      * @return self
      */
@@ -65,75 +54,51 @@ class Q
         return $instance;
     }
 
-    // ========== Optional fluent methods ==========
-
-    public function fields($fields): self
-    {
-        $this->state[self::S] = $fields;
-        return $this;
-    }
-
-    public function orderBy($order): self
-    {
-        $this->state[self::O] = $order;
-        return $this;
-    }
-
-    public function limit(int $limit): self
-    {
-        $this->state[self::L] = $limit;
-        return $this;
-    }
-
-    public function groupBy($fields): self
-    {
-        $this->state[self::G] = $fields;
-        return $this;
-    }
-
-    public function having(array $filter): self
-    {
-        $this->state[self::H] = $filter;
-        return $this;
-    }
-
-    // ========== Terminal methods ==========
+    // ========== Terminal methods (second link) ==========
 
     /**
      * Compiles a SELECT query.
      *
-     * @param string|array|null $fields     Columns to select.
+     * @param string|array|null $fields     Columns to select (null = '*', or state from fields() removed).
      * @param mixed             $pagination [offset, limit] array or int as limit.
      * @param string|array      $sort       Ordering (prefix - for DESC).
+     * @param string|array|null $groupBy    GROUP BY columns.
+     * @param array             $having     HAVING conditions.
      * @return array [sql, params, projectionMap]
      */
-    public function select($fields = null, $pagination = null, $sort = []): array
-    {
+    public function select(
+        $fields = null,
+        $pagination = null,
+        $sort = [],
+        $groupBy = null,
+        array $having = []
+    ): array {
         $base = $this->buildBaseState();
         $fromClause = $base['fromClause'];
         $tablesInfo = $base['tablesInfo'];
-        $whereData = ['sql' => $base['whereSql'], 'params' => $base['whereParams']];
+        $whereData  = ['sql' => $base['whereSql'], 'params' => $base['whereParams']];
 
+        // GROUP BY
         $groupSql = '';
-        if ($this->state[self::G]) {
-            $groupSql = is_array($this->state[self::G])
-                ? implode(', ', $this->state[self::G])
-                : $this->state[self::G];
+        if ($groupBy) {
+            $groupSql = is_array($groupBy) ? implode(', ', $groupBy) : $groupBy;
         }
 
-        $havingData = empty($this->state[self::H])
+        // HAVING
+        $havingData = empty($having)
             ? ['sql' => '', 'params' => []]
             : (new ConditionMatrix())->parse(
-                $this->state[self::H],
+                $having,
                 $base['context'] ?? [],
                 $base['defaultAlias'] ?? '',
                 SchemaMap::getMap($this->connectionId)
               );
 
-        $order = $sort ?: $this->state[self::O];
-        $orderSql = $order ? $this->buildOrderClause($order) : '';
+        // ORDER BY
+        $orderSql = $sort ? $this->buildOrderClause($sort) : '';
 
-        $limit = $pagination ?? $this->state[self::L];
+        // LIMIT / OFFSET
+        $limit = $pagination;
         $limitSql = '';
         $limitParams = [];
         if ($limit !== null) {
@@ -146,13 +111,14 @@ class Q
             }
         }
 
+        // Merge parameters in order: WHERE, HAVING, LIMIT
         $params = array_merge(
             $whereData['params'],
             $havingData['params'],
             $limitParams
         );
 
-        $selectFields = $fields ?? $this->state[self::S] ?? '*';
+        $selectFields = $fields ?? '*';
 
         $compiledState = [
             SqlCompiler::SEL    => $selectFields,
@@ -165,7 +131,6 @@ class Q
             SqlCompiler::PARAMS => $params,
         ];
 
-        // Generate projection map before compiling SQL
         $projectionMap = $this->buildProjectionMap($selectFields, $tablesInfo);
 
         $compiler = new SqlCompiler();
@@ -211,13 +176,9 @@ class Q
         return $compiler->compileDelete($compiledState);
     }
 
-    /**
-     * Compiles a COUNT query. Accepts multiple tables (JOINs) and subqueries.
-     */
     public function count(): array
     {
         $base = $this->buildBaseState();
-        // Remove leading "FROM " because SqlCompiler adds its own FROM
         $fromClause = preg_replace('/^FROM\s+/i', '', $base['fromClause']);
         $compiledState = [
             SqlCompiler::FROM   => $fromClause,
@@ -228,9 +189,6 @@ class Q
         return $compiler->compileCount($compiledState);
     }
 
-    /**
-     * Compiles an EXISTS query. Accepts multiple tables (JOINs) and subqueries.
-     */
     public function exists(): array
     {
         $base = $this->buildBaseState();
@@ -265,10 +223,6 @@ class Q
 
     // ========== Private helpers ==========
 
-    /**
-     * Builds the base state for queries that support multiple tables:
-     * FROM/JOIN clause, WHERE conditions, tables information.
-     */
     private function buildBaseState(): array
     {
         $joinResolver = new JoinResolver($this->connectionId);
@@ -301,10 +255,6 @@ class Q
         ];
     }
 
-    /**
-     * Generates a projection map (column alias => numeric index)
-     * for FETCH_NUM mode. For '*' it expands columns using SchemaMap.
-     */
     private function buildProjectionMap($fields, array $tablesInfo): array
     {
         $map = [];
