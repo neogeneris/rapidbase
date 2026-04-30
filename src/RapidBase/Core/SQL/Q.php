@@ -164,8 +164,10 @@ class Q
             $limitParams
         );
 
+        $selectFields = $fields ?? $this->state[self::S] ?? '*';
+
         $compiledState = [
-            SqlCompiler::SEL    => $fields ?? $this->state[self::S] ?? '*',
+            SqlCompiler::SEL    => $selectFields,
             SqlCompiler::FROM   => $fromClause,
             SqlCompiler::WHERE  => $whereData['sql'],
             SqlCompiler::GROUP  => $groupSql,
@@ -175,8 +177,13 @@ class Q
             SqlCompiler::PARAMS => $params,
         ];
 
+        // Generate projection map before compiling SQL
+        $projectionMap = $this->buildProjectionMap($selectFields, $tablesInfo);
+
         $compiler = new SqlCompiler();
-        return $compiler->compileSelect($compiledState);
+        [$sql, $params] = $compiler->compileSelect($compiledState);
+
+        return [$sql, $params, $projectionMap];
     }
 
     public function insert(array $rows): array
@@ -262,6 +269,78 @@ class Q
     }
 
     // ========== Private helpers ==========
+
+    /**
+     * Generates a projection map (column alias => numeric index)
+     * for FETCH_NUM mode. For '*' it expands columns using SchemaMap.
+     *
+     * @param string|array $fields     The effective SELECT columns.
+     * @param array        $tablesInfo Each entry: ['real'=>'table', 'alias'=>'t']
+     * @return array
+     */
+    private function buildProjectionMap($fields, array $tablesInfo): array
+    {
+        $map = [];
+        $index = 0;
+
+        if ($fields === '*') {
+            // Expand * using SchemaMap
+            $schemaMap = SchemaMap::getMap($this->connectionId);
+            $schemaTables = $schemaMap['tables'] ?? [];
+            foreach ($tablesInfo as $info) {
+                $alias = $info['alias'];
+                $real = $info['real'];
+                if (isset($schemaTables[$real])) {
+                    $columns = array_keys($schemaTables[$real]);
+                    foreach ($columns as $col) {
+                        // For FETCH_NUM, keyed by alias.column or just column for single table
+                        $map[$alias . '.' . $col] = $index;
+                        $index++;
+                    }
+                }
+            }
+        } elseif (is_array($fields)) {
+            foreach ($fields as $key => $val) {
+                if (is_string($key)) {
+                    // Associative form: $key is alias, $val is actual column (ignored)
+                    $map[$key] = $index;
+                } elseif (is_string($val)) {
+                    $this->parseFieldAlias($val, $map, $index);
+                } elseif (is_array($val) && count($val) === 2) {
+                    // Legacy ['column', 'alias']
+                    $map[$val[1]] = $index;
+                }
+                $index++;
+            }
+        } else {
+            // Single string expression
+            $this->parseFieldAlias((string)$fields, $map, $index);
+        }
+
+        return $map;
+    }
+
+    /**
+     * Extracts alias from a field expression and maps it to the current index.
+     *
+     * @param string $expression e.g. "u.name", "name", "COUNT(*) AS total"
+     * @param array  $map        Reference to projection map
+     * @param int    $index      Current numeric index
+     */
+    private function parseFieldAlias(string $expression, array &$map, int $index): void
+    {
+        // Pattern: "expr AS alias" (case insensitive)
+        if (preg_match('/\s+AS\s+([^\s,]+)$/i', $expression, $matches)) {
+            $map[trim($matches[1])] = $index;
+        } elseif (strpos($expression, '.') !== false) {
+            // table.column -> alias "column"
+            $parts = explode('.', $expression);
+            $map[trim(end($parts))] = $index;
+        } else {
+            // Simple column name
+            $map[trim($expression)] = $index;
+        }
+    }
 
     private function compileWhereSimple(): array
     {
