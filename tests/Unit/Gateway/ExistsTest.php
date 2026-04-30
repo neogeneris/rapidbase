@@ -81,7 +81,7 @@ echo "Keys: " . json_encode(array_keys($status['params'])) . "\n";
 
 assert_exists(
     "Integridad de parámetros en exists()", 
-    isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari'
+    isset($status['params'][0]) && $status['params'][0] === 'ferrari'
 );
 
 // echo "\n\033[32m[SUCCESS]\033[0m Gateway::exists funciona correctamente con la infraestructura actual.\n";
