@@ -1,7 +1,5 @@
 <?php
 
-namespace Tests\Unit\Gateway;
-
 // 1. Carga de infraestructura
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
