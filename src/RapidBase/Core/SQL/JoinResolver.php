@@ -10,17 +10,15 @@ use RapidBase\Core\SchemaMap;
  * JoinResolver - Automatically resolves FROM and JOINs from an array of tables
  * using the relationship map and schema.
  *
- * Exact behavior of buildFromWithMap() from the original SQL class.
- *
  * Supports:
  * - Simple string: 'users'
+ * - Subquery: '(SELECT ...) AS alias'   (new!)
  * - Array of strings: ['users', 'posts'] → auto-join via graph
  * - Pivot format: ['users', ['posts', 'comments']]
- * - Nested linear format: ['users', ['posts' => [... definition ...]]]
- * - Weakness ordering (outDegree)
- * - BFS tree construction from the first table
- * - Automatic ON conditions based on relationship type
- * - Internal join tree cache for maximum performance
+ * - Nested linear format with inline definitions
+ * - Subqueries in array (linear mode)
+ * - Weakness ordering, BFS tree, automatic ON conditions
+ * - Internal FROM clause and join tree caches for performance
  */
 class JoinResolver
 {
@@ -29,54 +27,115 @@ class JoinResolver
     private string $driver;
     private string $quoteChar;
 
-    /** @var array Cache for join trees indexed by normalized table list */
+    /** @var array Caches for join trees and FROM clauses */
     private static array $joinTreeCache = [];
     private static int $joinTreeCacheSize = 0;
     private static int $joinTreeCacheMaxSize = 500;
+
+    private static array $fromClauseCache = [];
+    private static int $fromClauseCacheSize = 0;
+    private static int $fromClauseCacheMaxSize = 200;
+
+    private static int $subqueryAliasCounter = 0;
 
     public function __construct(string $connectionId = 'default')
     {
         $map = SchemaMap::getMap($connectionId);
         $this->relMap = $map['relationships'] ?? ['from' => [], 'to' => []];
         $this->schema = $map['tables'] ?? [];
-
         $this->driver = 'sqlite';
         $this->quoteChar = '"';
     }
 
+    /**
+     * Resolves FROM/JOIN clauses and returns tables info.
+     *
+     * @param string|array $tables
+     * @return array ['from' => string, 'tablesInfo' => array]
+     */
     public function resolve(mixed $tables): array
     {
+        $key = $this->getCacheKey($tables);
+        if ($key !== null && isset(self::$fromClauseCache[$key])) {
+            return self::$fromClauseCache[$key];
+        }
+
         $result = $this->buildFromWithMap($tables);
-        return [
+        $data = [
             'from'       => $result[0],
             'tablesInfo' => $result[1] ?? [],
         ];
+
+        if ($key !== null) {
+            if (self::$fromClauseCacheSize >= self::$fromClauseCacheMaxSize) {
+                array_shift(self::$fromClauseCache);
+                self::$fromClauseCacheSize--;
+            }
+            self::$fromClauseCache[$key] = $data;
+            self::$fromClauseCacheSize++;
+        }
+
+        return $data;
     }
 
+    private function getCacheKey(mixed $tables): ?string
+    {
+        if (is_string($tables)) {
+            return 'str:' . $tables;
+        }
+        if (is_array($tables)) {
+            $flat = [];
+            array_walk_recursive($tables, function ($item) use (&$flat) {
+                if (is_string($item)) {
+                    $flat[] = $item;
+                }
+            });
+            sort($flat);
+            return 'arr:' . implode(',', $flat);
+        }
+        return null;
+    }
+
+    /**
+     * Main builder (same as original buildFromWithMap).
+     */
     private function buildFromWithMap(mixed $table): array
     {
         $tablesInfo = [];
 
+        // Simple string
         if (is_string($table)) {
-            $tablesInfo[] = ['real' => $table, 'alias' => $table];
+            $parsed = $this->parseTable($table);
+            $tablesInfo[] = $parsed;
+            if ($parsed['isSubquery'] ?? false) {
+                return ["FROM " . $parsed['real'] . " AS " . $this->quote($parsed['alias']), $tablesInfo];
+            }
             return ["FROM " . $this->quote($table), $tablesInfo];
         }
 
         if (!is_array($table)) {
             return ["", $tablesInfo];
         }
-
         if (count($table) === 0) {
             return ["", $tablesInfo];
         }
-
         if (count($table) === 1 && isset($table[0]) && is_string($table[0])) {
-            $single = $table[0];
-            $tablesInfo[] = ['real' => $single, 'alias' => $single];
-            return ["FROM " . $this->quote($single), $tablesInfo];
+            $parsed = $this->parseTable($table[0]);
+            $tablesInfo[] = $parsed;
+            if ($parsed['isSubquery'] ?? false) {
+                return ["FROM " . $parsed['real'] . " AS " . $this->quote($parsed['alias']), $tablesInfo];
+            }
+            return ["FROM " . $this->quote($table[0]), $tablesInfo];
         }
 
-        // Pivot format: [t1, [t2, t3, ...]]
+        // If any element is a subquery, force linear mode
+        foreach ($table as $item) {
+            if (is_string($item) && self::isSubquery($item)) {
+                return $this->buildFromLinear($table);
+            }
+        }
+
+        // Pivot format?
         if (count($table) >= 2 &&
             isset($table[0]) && is_string($table[0]) &&
             isset($table[1]) && is_array($table[1]) &&
@@ -105,6 +164,7 @@ class JoinResolver
             return $this->buildFromLinear($flat);
         }
 
+        // Array of simple table names
         $realNames = [];
         $aliases = [];
         foreach ($table as $t) {
@@ -125,15 +185,58 @@ class JoinResolver
         return $this->buildFromLinear($table);
     }
 
+    // ================== Subquery helpers ==================
+
+    private static function isSubquery(string $text): bool
+    {
+        $text = trim($text);
+        return str_starts_with($text, '(') || stripos($text, 'SELECT') !== false;
+    }
+
+    private function extractSubqueryAlias(string $text): string
+    {
+        if (preg_match('/\s+AS\s+([^\s]+)$/i', $text, $matches)) {
+            return trim($matches[1]);
+        }
+        return '_sub' . (++self::$subqueryAliasCounter);
+    }
+
+    private function parseSubquery(string $text): array
+    {
+        $text = trim($text);
+        $alias = '';
+        if (preg_match('/\s+AS\s+([^\s]+)$/i', $text, $matches)) {
+            $alias = trim($matches[1]);
+            $text = preg_replace('/\s+AS\s+[^\s]+$/i', '', $text);
+        }
+        if (!str_starts_with($text, '(')) {
+            $text = '(' . $text . ')';
+        }
+        return ['subquery' => $text, 'alias' => $alias];
+    }
+
+    // ================== Table parsing (extended) ==================
+
     private function parseTable(string|array $table): array
     {
         if (is_string($table)) {
+            if (self::isSubquery($table)) {
+                $parsed = $this->parseSubquery($table);
+                $alias = $parsed['alias'] ?: $this->extractSubqueryAlias($table);
+                return [
+                    'real'      => $parsed['subquery'],
+                    'alias'     => $alias,
+                    'isSubquery'=> true
+                ];
+            }
             $parts = preg_split('/\s+AS\s+/i', trim($table));
             return [
                 'real'  => trim($parts[0]),
-                'alias' => isset($parts[1]) ? trim($parts[1]) : trim($parts[0])
+                'alias' => isset($parts[1]) ? trim($parts[1]) : trim($parts[0]),
+                'isSubquery' => false
             ];
         }
+        // Array definition (inline)
         $keys = array_keys($table);
         $real = $keys[0];
         $val = $table[$real];
@@ -143,8 +246,10 @@ class JoinResolver
         } elseif (is_array($val) && isset($val['as'])) {
             $alias = $val['as'];
         }
-        return ['real' => $real, 'alias' => $alias];
+        return ['real' => $real, 'alias' => $alias, 'isSubquery' => false];
     }
+
+    // ================== Graph‑based JOINs ==================
 
     private function buildFromGraph(array $realNames, array $aliases, array &$tablesInfo): array
     {
@@ -172,12 +277,9 @@ class JoinResolver
             $childAlias  = $aliases[$childReal];
 
             $onClause = $this->buildJoinCondition($parentReal, $parentAlias, $childReal, $childAlias, $rel);
-            $joinPart = "LEFT JOIN " . $this->quote($childReal);
-            if ($childAlias !== $childReal) {
-                $joinPart .= " AS " . $this->quote($childAlias);
-            }
-            $joinPart .= " " . $onClause;
-            $parts[] = $joinPart;
+            $parts[] = "LEFT JOIN " . $this->quote($childReal) .
+                       ($childAlias !== $childReal ? " AS " . $this->quote($childAlias) : "") .
+                       " " . $onClause;
         }
 
         return [implode(' ', $parts), $tablesInfo];
@@ -200,12 +302,8 @@ class JoinResolver
         }
 
         uasort($degrees, static function ($a, $b) {
-            if ($a['out'] !== $b['out']) {
-                return $b['out'] <=> $a['out'];
-            }
-            if ($a['in'] !== $b['in']) {
-                return $a['in'] <=> $b['in'];
-            }
+            if ($a['out'] !== $b['out']) return $b['out'] <=> $a['out'];
+            if ($a['in'] !== $b['in']) return $a['in'] <=> $b['in'];
             return 0;
         });
 
@@ -214,15 +312,12 @@ class JoinResolver
 
     private function buildJoinTree(array $tableNames): array
     {
-        // Normalize cache key (order independent)
         sort($tableNames);
         $cacheKey = crc32(implode(',', $tableNames));
-
         if (isset(self::$joinTreeCache[$cacheKey])) {
             return self::$joinTreeCache[$cacheKey];
         }
 
-        // Build graph
         $graph = [];
         foreach ($tableNames as $t) {
             $graph[$t] = [];
@@ -239,7 +334,6 @@ class JoinResolver
                 }
             }
         }
-
         foreach ($relMapTo as $definingTable => $rels) {
             foreach ($rels as $referencedTable => $rel) {
                 if (in_array($definingTable, $tableNames, true) && in_array($referencedTable, $tableNames, true)) {
@@ -252,11 +346,9 @@ class JoinResolver
             }
         }
 
-        // BFS connectivity check
         $root = $tableNames[0];
-        $visited = [];
+        $visited = [$root => true];
         $queue = [$root];
-        $visited[$root] = true;
         while (!empty($queue)) {
             $current = array_shift($queue);
             foreach ($graph[$current] as $neighbor => $rel) {
@@ -266,12 +358,10 @@ class JoinResolver
                 }
             }
         }
-
         if (count($visited) !== count($tableNames)) {
             throw new \RuntimeException("Cannot connect all tables: " . implode(',', $tableNames));
         }
 
-        // Build tree
         $parent = [];
         $queue = [$root];
         $visited = [$root => true];
@@ -288,16 +378,11 @@ class JoinResolver
 
         $edges = [];
         foreach ($parent as $child => $info) {
-            $edges[] = [
-                'parent' => $info['parent'],
-                'child'  => $child,
-                'rel'    => $info['rel']
-            ];
+            $edges[] = ['parent' => $info['parent'], 'child' => $child, 'rel' => $info['rel']];
         }
 
         $tree = ['root' => $root, 'edges' => $edges];
 
-        // Store in cache with size limit
         if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
             array_shift(self::$joinTreeCache);
             self::$joinTreeCacheSize--;
@@ -309,21 +394,17 @@ class JoinResolver
     }
 
     private function buildJoinCondition(
-        string $parentReal,
-        string $parentAlias,
-        string $childReal,
-        string $childAlias,
+        string $parentReal, string $parentAlias,
+        string $childReal, string $childAlias,
         array $relation
     ): string {
         $localKey   = $relation['local_key']   ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
-
         $fromToMap = isset($relation['_direction']) && $relation['_direction'] === 'to';
 
         if ($fromToMap) {
             $definingTable   = $relation['_defining_table']   ?? '';
             $referencedTable = $relation['_referenced_table'] ?? '';
-
             if ($parentReal === $definingTable) {
                 return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey)
                      . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
@@ -334,24 +415,20 @@ class JoinResolver
         }
 
         $type = $relation['type'] ?? 'hasMany';
-
         if ($type === 'belongsTo') {
             return "ON " . $this->quote($childAlias) . "." . $this->quote($localKey)
                  . " = " . $this->quote($parentAlias) . "." . $this->quote($foreignKey);
         }
-
-        // hasMany / hasOne
         return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey)
              . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
     }
 
-    // Linear construction for nested arrays or when no relations are defined
+    // ================== Linear & pivot (updated for subqueries) ==================
+
     private function buildFromLinear(array $tables): array
     {
         $tablesInfo = [];
-        if (empty($tables)) {
-            return ["", $tablesInfo];
-        }
+        if (empty($tables)) return ["", $tablesInfo];
 
         $first = $tables[0];
         if (is_array($first)) {
@@ -363,9 +440,13 @@ class JoinResolver
         $firstAlias  = $firstParsed['alias'];
         $tablesInfo[] = $firstParsed;
 
-        $parts = ["FROM " . $this->quote($firstReal)];
-        if ($firstAlias !== $firstReal) {
-            $parts[] = "AS " . $this->quote($firstAlias);
+        if ($firstParsed['isSubquery'] ?? false) {
+            $parts = ["FROM " . $firstReal . " AS " . $this->quote($firstAlias)];
+        } else {
+            $parts = ["FROM " . $this->quote($firstReal)];
+            if ($firstAlias !== $firstReal) {
+                $parts[] = "AS " . $this->quote($firstAlias);
+            }
         }
 
         $currentReal  = $firstReal;
@@ -373,35 +454,33 @@ class JoinResolver
 
         for ($i = 1, $len = count($tables); $i < $len; $i++) {
             $item = $tables[$i];
-            $nextReal   = null;
-            $nextAlias  = null;
-            $relationDef = null;
+            $parsedNext = $this->parseTable($item);
+            $nextReal   = $parsedNext['real'];
+            $nextAlias  = $parsedNext['alias'];
+            $isSubquery = $parsedNext['isSubquery'] ?? false;
 
-            if (is_string($item)) {
-                $parsed = $this->parseTable($item);
-                $nextReal  = $parsed['real'];
-                $nextAlias = $parsed['alias'];
+            $tablesInfo[] = $parsedNext;
+
+            if ($isSubquery) {
+                $joinPart = "LEFT JOIN " . $nextReal;
+            } else {
+                $joinPart = "LEFT JOIN " . $this->quote($nextReal);
+            }
+            if ($nextAlias !== $nextReal || $isSubquery) {
+                $joinPart .= " AS " . $this->quote($nextAlias);
+            }
+
+            // Try to find a relationship definition (if any)
+            $relationDef = null;
+            if (is_array($item)) {
+                $keys = array_keys($item);
+                $relationDef = $item[$keys[0]] ?? null;
+            } elseif (is_string($item)) {
                 $relationDef = $this->relMap['from'][$currentReal][$nextReal]
                     ?? $this->relMap['to'][$currentReal][$nextReal]
                     ?? $this->relMap['from'][$nextReal][$currentReal]
                     ?? $this->relMap['to'][$nextReal][$currentReal]
                     ?? null;
-            } elseif (is_array($item)) {
-                $keys = array_keys($item);
-                if (count($keys) !== 1) {
-                    throw new \InvalidArgumentException("Inline relationship must have exactly one key.");
-                }
-                $nextReal = $keys[0];
-                $relationDef = $item[$nextReal];
-                $nextAlias = $relationDef['as'] ?? $nextReal;
-            } else {
-                throw new \InvalidArgumentException("Invalid table element.");
-            }
-
-            $tablesInfo[] = ['real' => $nextReal, 'alias' => $nextAlias];
-            $joinPart = "LEFT JOIN " . $this->quote($nextReal);
-            if ($nextAlias !== $nextReal) {
-                $joinPart .= " AS " . $this->quote($nextAlias);
             }
 
             if (is_array($relationDef) && isset($relationDef['local_key'], $relationDef['foreign_key'])) {
@@ -418,16 +497,12 @@ class JoinResolver
     }
 
     private function buildJoinConditionFromDef(
-        string $parentReal,
-        string $parentAlias,
-        string $childReal,
-        string $childAlias,
+        string $parentReal, string $parentAlias,
+        string $childReal, string $childAlias,
         array $def
     ): string {
-        $localKey   = $def['local_key'];
-        $foreignKey = $def['foreign_key'];
-        return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey)
-             . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
+        return "ON " . $this->quote($parentAlias) . "." . $this->quote($def['local_key'])
+             . " = " . $this->quote($childAlias) . "." . $this->quote($def['foreign_key']);
     }
 
     private function buildFromPivot(string $pivot, array $connectedTables): array
@@ -438,9 +513,13 @@ class JoinResolver
         $pivotAlias  = $pivotParsed['alias'];
         $tablesInfo[] = $pivotParsed;
 
-        $parts = ["FROM " . $this->quote($pivotReal)];
-        if ($pivotAlias !== $pivotReal) {
-            $parts[] = "AS " . $this->quote($pivotAlias);
+        if ($pivotParsed['isSubquery'] ?? false) {
+            $parts = ["FROM " . $pivotReal . " AS " . $this->quote($pivotAlias)];
+        } else {
+            $parts = ["FROM " . $this->quote($pivotReal)];
+            if ($pivotAlias !== $pivotReal) {
+                $parts[] = "AS " . $this->quote($pivotAlias);
+            }
         }
 
         if (empty($connectedTables)) {
@@ -495,6 +574,8 @@ class JoinResolver
 
         return [implode(' ', $parts), $tablesInfo];
     }
+
+    // ================== Utilities ==================
 
     private function quote(string $identifier): string
     {

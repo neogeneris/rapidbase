@@ -19,6 +19,9 @@ use RapidBase\Core\SchemaMap;
  *   Q::from('users', ['id' => 5])->delete();
  *   Q::from('users', ['status' => 'active'])->count();
  *   Q::from('users', ['id' => 5])->exists();
+ *   // Subquery support:
+ *   Q::from('(SELECT * FROM users WHERE active = 1) AS active_users')->select('*');
+ *   Q::from('SELECT * FROM users')->count();   // auto alias
  */
 class Q
 {
@@ -209,7 +212,7 @@ class Q
     }
 
     /**
-     * Compiles a COUNT query. Accepts multiple tables (JOINs).
+     * Compiles a COUNT query. Accepts multiple tables (JOINs) and subqueries.
      */
     public function count(): array
     {
@@ -226,7 +229,7 @@ class Q
     }
 
     /**
-     * Compiles an EXISTS query. Accepts multiple tables (JOINs).
+     * Compiles an EXISTS query. Accepts multiple tables (JOINs) and subqueries.
      */
     public function exists(): array
     {
