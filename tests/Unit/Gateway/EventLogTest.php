@@ -24,8 +24,14 @@ use RapidBase\Core\Conn;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\Event;
 
-// Crear directorio de logs si no existe (usando ruta absoluta)
-$logDir = rtrim(realpath(__DIR__ . '/../../tmp'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'log';
+echo "--- Prueba de registro de eventos en archivo ---\n";
+
+// Crear directorio de logs si no existe (usando ruta absoluta robusta)
+$baseDir = realpath(__DIR__ . '/../../');
+if ($baseDir === false) {
+    $baseDir = __DIR__ . '/../../';
+}
+$logDir = rtrim($baseDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . 'log';
 if (!is_dir($logDir)) {
     if (!mkdir($logDir, 0777, true)) {
         echo "ERROR: No se pudo crear el directorio $logDir\n";
@@ -83,8 +89,6 @@ Event::listen('db.log', function($data) use ($logFile) {
 // Setup DB
 Conn::setup("sqlite::memory:", "", "", "main");
 Conn::get()->exec("CREATE TABLE test_log (id INTEGER PRIMARY KEY, nombre TEXT)");
-
-echo "--- Prueba de registro de eventos en archivo ---\n";
 
 // Realizar acciones que disparen eventos
 Gateway::action('insert', 'test_log', ['nombre' => 'Evento 1']);
