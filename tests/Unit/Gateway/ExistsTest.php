@@ -71,35 +71,26 @@ assert_exists(
 );
 
 // --- TEST 4: Verificación de parámetros ---
+// Capturar el status inmediatamente después de la última operación
 $status = Gateway::status();
-// Debug: mostrar estructura real de params
-// echo \"DEBUG Params structure: \" . json_encode($status['params'], JSON_FORCE_OBJECT) . \"\\n\";
 
-// Los parámetros pueden ser:
-// 1. Named: ['p0' => 'ferrari', 'p1' => 1]
-// 2. Positional: ['ferrari', 1] o [0 => 'ferrari', 1 => 1]
-// 3. Mixed con keys numéricas strings: ['0' => 'ferrari', '1' => 1]
 $paramsOk = false;
 
-if (!empty($status['params'])) {
-    // Caso 1: Named params con clave 'p0'
-    if (isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') {
+if (!empty($status['params']) && is_array($status['params'])) {
+    // Normalizar keys a enteros para comparación
+    $normalizedParams = [];
+    foreach ($status['params'] as $key => $value) {
+        $normalizedKey = is_numeric($key) ? (int)$key : $key;
+        $normalizedParams[$normalizedKey] = $value;
+    }
+    
+    // Verificar si el primer parámetro es 'ferrari'
+    if (isset($normalizedParams[0]) && $normalizedParams[0] === 'ferrari') {
         $paramsOk = true;
     }
-    // Caso 2: Positional params (índice numérico entero 0)
-    elseif (isset($status['params'][0]) && $status['params'][0] === 'ferrari') {
+    // O verificar named params
+    elseif (isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') {
         $paramsOk = true;
-    }
-    // Caso 3: Keys numéricas como strings
-    elseif (isset($status['params']['0']) && $status['params']['0'] === 'ferrari') {
-        $paramsOk = true;
-    }
-    // Caso 4: Array secuencial simple
-    elseif (is_array($status['params']) && in_array('ferrari', $status['params'], true)) {
-        $firstVal = reset($status['params']);
-        if ($firstVal === 'ferrari') {
-            $paramsOk = true;
-        }
     }
 }
 
