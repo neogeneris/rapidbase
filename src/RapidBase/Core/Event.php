@@ -35,4 +35,18 @@ class Event {
             }
         }
     }
+
+    /**
+     * Resetear todos los listeners (útil para tests).
+     */
+    public static function reset(): void {
+        self::$listeners = [];
+    }
+
+    /**
+     * Obtener todos los listeners (útil para debugging).
+     */
+    public static function getListeners(): array {
+        return self::$listeners;
+    }
 }

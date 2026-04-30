@@ -1,29 +1,46 @@
 <?php
 
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Event.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
+// Solo cargar dependencias si no están ya cargadas
+if (!class_exists('RapidBase\Core\SQL')) {
+    require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+}
+if (!class_exists('RapidBase\Core\Conn')) {
+    require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
+}
+if (!class_exists('RapidBase\Core\Executor')) {
+    require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
+}
+if (!class_exists('RapidBase\Core\Gateway')) {
+    require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+}
+if (!class_exists('RapidBase\Core\Event')) {
+    require_once __DIR__ . '/../../../src/RapidBase/Core/Event.php';
+}
+if (!class_exists('RapidBase\Core\Cache\CacheService')) {
+    require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
+}
 
 use RapidBase\Core\Conn;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\Event;
 
-// Crear directorio de logs si no existe
-$logDir = __DIR__ . '/../../tmp/log';
+// Crear directorio de logs si no existe (usando ruta absoluta)
+$logDir = rtrim(realpath(__DIR__ . '/../../tmp'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'log';
 if (!is_dir($logDir)) {
     if (!mkdir($logDir, 0777, true)) {
         echo "ERROR: No se pudo crear el directorio $logDir\n";
         exit(1);
     }
 }
-$logFile = $logDir . '/action.log';
+$logFile = $logDir . DIRECTORY_SEPARATOR . 'action.log';
+
 // Limpiar archivo anterior
 if (file_exists($logFile)) {
     unlink($logFile);
 }
+
+// Resetear listeners para evitar duplicados cuando se ejecuta desde test-all.php
+Event::reset();
 
 // Configurar eventos para escribir en el archivo de log
 Event::listen('db.success', function($data) use ($logFile) {
