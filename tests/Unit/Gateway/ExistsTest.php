@@ -10,7 +10,7 @@ use RapidBase\Core\Conn;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\SQL;
 
-echo "--- Ejecutando: Gateway ExistsTest (Integración con SQL v2) ---\n";
+echo "--- Ejecutando: Gateway ExistsTest (IntegraciÃ³n con SQL v2) ---\n";
 
 function assert_exists($name, $assertion, $details = "") {
     if ($assertion) {
@@ -44,7 +44,7 @@ $pdo->exec("CREATE TABLE partners (
 // Insertar semilla
 $pdo->exec("INSERT INTO partners (slug, active) VALUES ('ferrari', 1)");
 
-// --- TEST 1: Registro que sí existe ---
+// --- TEST 1: Registro que sÃ­ existe ---
 SQL::reset();
 $existsTrue = Gateway::exists('partners', ['slug' => 'ferrari']);
 assert_exists(
@@ -62,19 +62,19 @@ assert_exists(
     "Se esperaba false para 'mercedes', se obtuvo true."
 );
 
-// --- TEST 3: Caso con múltiples condiciones ---
+// --- TEST 3: Caso con mÃºltiples condiciones ---
 SQL::reset();
 $existsActive = Gateway::exists('partners', ['slug' => 'ferrari', 'active' => 1]);
 assert_exists(
-    "Verificar con múltiples condiciones", 
+    "Verificar con mÃºltiples condiciones", 
     $existsActive === true
 );
 
-// --- TEST 4: Verificación de parámetros ---
-// Resetear y ejecutar una consulta específica para verificar parámetros
+// --- TEST 4: VerificaciÃ³n de parÃ¡metros ---
+// Resetear y ejecutar una consulta especÃ­fica para verificar parÃ¡metros
 SQL::reset();
 $existsCheck = Gateway::exists('partners', ['slug' => 'ferrari', 'active' => 1]);
-// Capturar el status inmediatamente después de la última operación
+// Capturar el status inmediatamente despuÃ©s de la Ãºltima operaciÃ³n
 $status = Gateway::status();
 
 $paramsOk = false;
@@ -84,7 +84,7 @@ if (!empty($status['params']) && is_array($status['params'])) {
     $paramValues = array_values($status['params']);
     $debugInfo = "Params completos: " . json_encode($status['params']) . ", Values: " . json_encode($paramValues);
     
-    // Verificación flexible: buscar los valores esperados en cualquier orden
+    // VerificaciÃ³n flexible: buscar los valores esperados en cualquier orden
     $hasFerrari = in_array('ferrari', $paramValues, true);
     $hasOne = in_array(1, $paramValues, true);
     
@@ -92,11 +92,11 @@ if (!empty($status['params']) && is_array($status['params'])) {
         $paramsOk = true;
     }
 } else {
-    $debugInfo = "Params vacíos o no es array";
+    $debugInfo = "Params vacÃ­os o no es array";
 }
 
 assert_exists(
-    "Integridad de parámetros en exists()", 
+    "Integridad de parÃ¡metros en exists()", 
     $paramsOk,
     "Estructura recibida: " . json_encode($status['params'], JSON_FORCE_OBJECT) . " | Debug: $debugInfo"
 );
