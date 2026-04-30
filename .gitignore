@@ -1,1 +1,11 @@
-Nothing should be ignored based on the provided file changes. The only modified file is a PHP test file (`tests/Unit/Gateway/test-all.php`), which is a source code file and should not be added to .gitignore.
+```
+# Database files
+*.sqlite
+
+# Temporary files
+tmp/
+tests/tmp/
+
+# Logs
+*.log
+```
