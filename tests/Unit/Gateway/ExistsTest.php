@@ -71,6 +71,9 @@ assert_exists(
 );
 
 // --- TEST 4: Verificación de parámetros ---
+// Resetear y ejecutar una consulta específica para verificar parámetros
+SQL::reset();
+$existsCheck = Gateway::exists('partners', ['slug' => 'ferrari', 'active' => 1]);
 // Capturar el status inmediatamente después de la última operación
 $status = Gateway::status();
 
@@ -89,13 +92,14 @@ if (!empty($status['params']) && is_array($status['params'])) {
     
     $debugInfo .= ", Normalized: " . json_encode($normalizedParams);
     
-    // Verificar si el primer parámetro es 'ferrari' (usando array_values para mayor seguridad)
+    // Verificar si los parámetros contienen 'ferrari' y 1 (usando array_values para mayor seguridad)
     $paramValues = array_values($normalizedParams);
-    if (isset($paramValues[0]) && $paramValues[0] === 'ferrari') {
+    if (isset($paramValues[0]) && $paramValues[0] === 'ferrari' && isset($paramValues[1]) && $paramValues[1] === 1) {
         $paramsOk = true;
     }
     // O verificar named params
-    elseif (isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') {
+    elseif ((isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') || 
+            (isset($status['params']['slug']) && $status['params']['slug'] === 'ferrari')) {
         $paramsOk = true;
     }
 } else {

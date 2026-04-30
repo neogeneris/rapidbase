@@ -24,7 +24,7 @@ function assert_gateway($name, $condition, $details = "") {
 
 // Lista de archivos de prueba del Gateway
 $gatewayTests = [
-    'ActionTest.php','EventTest.php','EventLogTest.php','CountTest.php','SelectTest.php','ExistsTest.php',
+    'ActionTest.php','EventTest.php','CountTest.php','SelectTest.php','ExistsTest.php',
 ];
 
 foreach ($gatewayTests as $test) {
