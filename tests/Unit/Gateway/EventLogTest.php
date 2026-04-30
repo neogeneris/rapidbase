@@ -1,5 +1,4 @@
 <?php
-namespace Tests\Unit\Gateway;
 
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
@@ -15,7 +14,10 @@ use RapidBase\Core\Event;
 // Crear directorio de logs si no existe
 $logDir = __DIR__ . '/../../tmp/log';
 if (!is_dir($logDir)) {
-    mkdir($logDir, 0777, true);
+    if (!mkdir($logDir, 0777, true)) {
+        echo "ERROR: No se pudo crear el directorio $logDir\n";
+        exit(1);
+    }
 }
 $logFile = $logDir . '/action.log';
 // Limpiar archivo anterior

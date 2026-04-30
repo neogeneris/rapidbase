@@ -1,1 +1,1 @@
-Nothing should be ignored based on the provided file changes. The only modified file is a PHP test file (`tests/Unit/Gateway/ExistsTest.php`), which is source code and should not be ignored.
+Nothing needs to be added to .gitignore since the changes only include PHP test files (.php) which are source code files and should not be ignored.

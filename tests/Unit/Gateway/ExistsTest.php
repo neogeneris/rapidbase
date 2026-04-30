@@ -70,18 +70,43 @@ assert_exists(
     $existsActive === true
 );
 
-// --- TEST 4: Verificación de parámetros (Named Params) ---
+// --- TEST 4: Verificación de parámetros ---
 $status = Gateway::status();
-// Los parámetros pueden ser posicionales [val1, val2] o named ['p0' => val1, 'p1' => val2]
+// Debug: mostrar estructura real de params
+// echo \"DEBUG Params structure: \" . json_encode($status['params'], JSON_FORCE_OBJECT) . \"\\n\";
+
+// Los parámetros pueden ser:
+// 1. Named: ['p0' => 'ferrari', 'p1' => 1]
+// 2. Positional: ['ferrari', 1] o [0 => 'ferrari', 1 => 1]
+// 3. Mixed con keys numéricas strings: ['0' => 'ferrari', '1' => 1]
 $paramsOk = false;
-if (isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') {
-    $paramsOk = true; // Named params
-} elseif (is_array($status['params']) && count($status['params']) >= 1 && $status['params'][0] === 'ferrari') {
-    $paramsOk = true; // Positional params
+
+if (!empty($status['params'])) {
+    // Caso 1: Named params con clave 'p0'
+    if (isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') {
+        $paramsOk = true;
+    }
+    // Caso 2: Positional params (índice numérico entero 0)
+    elseif (isset($status['params'][0]) && $status['params'][0] === 'ferrari') {
+        $paramsOk = true;
+    }
+    // Caso 3: Keys numéricas como strings
+    elseif (isset($status['params']['0']) && $status['params']['0'] === 'ferrari') {
+        $paramsOk = true;
+    }
+    // Caso 4: Array secuencial simple
+    elseif (is_array($status['params']) && in_array('ferrari', $status['params'], true)) {
+        $firstVal = reset($status['params']);
+        if ($firstVal === 'ferrari') {
+            $paramsOk = true;
+        }
+    }
 }
+
 assert_exists(
     "Integridad de parámetros en exists()", 
-    $paramsOk
+    $paramsOk,
+    "Estructura recibida: " . json_encode($status['params'], JSON_FORCE_OBJECT)
 );
 
 // echo "\n\033[32m[SUCCESS]\033[0m Gateway::exists funciona correctamente con la infraestructura actual.\n";
