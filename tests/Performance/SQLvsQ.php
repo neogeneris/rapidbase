@@ -364,9 +364,11 @@ echo "\n=== TEST 3: JOIN 3 TABLES ===\n";
 
 $sqlFn = function() {
     SQL_Legacy::reset();
+    // Use posts -> users (belongsTo) and posts -> comments (hasMany)
+    // This creates a valid join tree through posts
     SQL_Legacy::buildSelect(
-        ['u.id', 'u.name', 'p.title', 'c.name AS category'],
-        ['users AS u', 'posts AS p', 'categories AS c'],
+        ['u.id', 'u.name', 'p.title', 'cm.content'],
+        ['users AS u', 'posts AS p', 'comments AS cm'],
         ['u.status' => 'active', 'p.status' => 'published'],
         [],
         [],
@@ -376,14 +378,14 @@ $sqlFn = function() {
 };
 
 $qFn = function() {
-    Q::from(['users AS u', 'posts AS p', 'categories AS c'], 
+    Q::from(['users AS u', 'posts AS p', 'comments AS cm'], 
             ['u.status' => 'active', 'p.status' => 'published'])
-        ->select(['u.id', 'u.name', 'p.title', 'c.name AS category'], null, ['-p.views']);
+        ->select(['u.id', 'u.name', 'p.title', 'cm.content'], null, ['-p.views']);
 };
 
 $sqlResult = benchmark($sqlFn, 100);
 $qResult = benchmark($qFn, 100);
-formatResults("JOIN 3 Tables (users + posts + categories)", $sqlResult, $qResult);
+formatResults("JOIN 3 Tables (users + posts + comments)", $sqlResult, $qResult);
 
 // ==========================================
 // TEST 4: JOIN 4 Tables
@@ -392,38 +394,11 @@ echo "\n=== TEST 4: JOIN 4 TABLES ===\n";
 
 $sqlFn = function() {
     SQL_Legacy::reset();
+    // Use posts -> users (belongsTo), posts -> comments (hasMany), comments -> users (belongsTo)
+    // This creates a valid join tree through posts and comments
     SQL_Legacy::buildSelect(
-        ['u.id', 'u.name', 'p.title', 'c.name AS category', 'pc.priority'],
-        ['users AS u', 'posts AS p', 'categories AS c', 'post_category AS pc'],
-        ['u.status' => 'active', 'p.status' => 'published', 'pc.priority' => ['>' => 2]],
-        [],
-        [],
-        ['-pc.priority', '-p.views'],
-        0
-    );
-};
-
-$qFn = function() {
-    Q::from(['users AS u', 'posts AS p', 'categories AS c', 'post_category AS pc'],
-            ['u.status' => 'active', 'p.status' => 'published', 'pc.priority' => ['>' => 2]])
-        ->select(['u.id', 'u.name', 'p.title', 'c.name AS category', 'pc.priority'], 
-                 null, ['-pc.priority', '-p.views']);
-};
-
-$sqlResult = benchmark($sqlFn, 100);
-$qResult = benchmark($qFn, 100);
-formatResults("JOIN 4 Tables (users + posts + categories + post_category)", $sqlResult, $qResult);
-
-// ==========================================
-// TEST 5: JOIN 5 Tables
-// ==========================================
-echo "\n=== TEST 5: JOIN 5 TABLES ===\n";
-
-$sqlFn = function() {
-    SQL_Legacy::reset();
-    SQL_Legacy::buildSelect(
-        ['u.id', 'u.name', 'p.title', 'c.name AS category', 'cm.content', 'cm.rating'],
-        ['users AS u', 'posts AS p', 'categories AS c', 'post_category AS pc', 'comments AS cm'],
+        ['u.id', 'u.name', 'p.title', 'cm.content', 'cm.rating'],
+        ['users AS u', 'posts AS p', 'comments AS cm', 'post_category AS pc'],
         ['u.status' => 'active', 'p.status' => 'published', 'cm.is_approved' => 1],
         [],
         [],
@@ -433,9 +408,39 @@ $sqlFn = function() {
 };
 
 $qFn = function() {
-    Q::from(['users AS u', 'posts AS p', 'categories AS c', 'post_category AS pc', 'comments AS cm'],
+    Q::from(['users AS u', 'posts AS p', 'comments AS cm', 'post_category AS pc'],
             ['u.status' => 'active', 'p.status' => 'published', 'cm.is_approved' => 1])
-        ->select(['u.id', 'u.name', 'p.title', 'c.name AS category', 'cm.content', 'cm.rating'],
+        ->select(['u.id', 'u.name', 'p.title', 'cm.content', 'cm.rating'],
+                 null, ['-cm.rating', '-p.views']);
+};
+
+$sqlResult = benchmark($sqlFn, 100);
+$qResult = benchmark($qFn, 100);
+formatResults("JOIN 4 Tables (users + posts + comments + post_category)", $sqlResult, $qResult);
+
+// ==========================================
+// TEST 5: JOIN 5 Tables
+// ==========================================
+echo "\n=== TEST 5: JOIN 5 TABLES ===\n";
+
+$sqlFn = function() {
+    SQL_Legacy::reset();
+    // All tables connected through posts as the central hub
+    SQL_Legacy::buildSelect(
+        ['u.id', 'u.name', 'p.title', 'cm.content', 'cm.rating', 'pc.priority'],
+        ['users AS u', 'posts AS p', 'comments AS cm', 'post_category AS pc', 'categories AS cat'],
+        ['u.status' => 'active', 'p.status' => 'published', 'cm.is_approved' => 1],
+        [],
+        [],
+        ['-cm.rating', '-p.views'],
+        0
+    );
+};
+
+$qFn = function() {
+    Q::from(['users AS u', 'posts AS p', 'comments AS cm', 'post_category AS pc', 'categories AS cat'],
+            ['u.status' => 'active', 'p.status' => 'published', 'cm.is_approved' => 1])
+        ->select(['u.id', 'u.name', 'p.title', 'cm.content', 'cm.rating', 'pc.priority'],
                  null, ['-cm.rating', '-p.views']);
 };
 
