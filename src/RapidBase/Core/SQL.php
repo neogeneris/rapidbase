@@ -188,7 +188,7 @@ class SQL
         $fieldsStr = is_array($fields) ? implode(', ', $fields) : (string)$fields;
         
         try {
-            return Q::from($table, $config)->build(QType::SELECT, $fieldsStr);
+            return Q::from($table, $config)->select($fieldsStr);
         } catch (\Exception $e) {
             // Fallback a implementación básica si hay error
             return self::buildSelectLegacy($fields, $table, $where, $groupBy, $having, $sort, $page);
