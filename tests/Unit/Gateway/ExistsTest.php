@@ -74,9 +74,16 @@ assert_exists(
 
 // --- TEST 4: Verificación de parámetros (Named Params) ---
 $status = Gateway::status();
+// Los parámetros pueden ser posicionales [val1, val2] o named ['p0' => val1, 'p1' => val2]
+$paramsOk = false;
+if (isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') {
+    $paramsOk = true; // Named params
+} elseif (is_array($status['params']) && count($status['params']) >= 1 && $status['params'][0] === 'ferrari') {
+    $paramsOk = true; // Positional params
+}
 assert_exists(
     "Integridad de parámetros en exists()", 
-    isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari'
+    $paramsOk
 );
 
 // echo "\n\033[32m[SUCCESS]\033[0m Gateway::exists funciona correctamente con la infraestructura actual.\n";

@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../../../vendor/autoload.php';
+require_once __DIR__ . '/run-all.php';
 
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SchemaMap;
