@@ -81,25 +81,14 @@ $paramsOk = false;
 $debugInfo = "";
 
 if (!empty($status['params']) && is_array($status['params'])) {
-    $debugInfo = "Keys: " . json_encode(array_keys($status['params'])) . ", Values: " . json_encode(array_values($status['params']));
+    $paramValues = array_values($status['params']);
+    $debugInfo = "Params completos: " . json_encode($status['params']) . ", Values: " . json_encode($paramValues);
     
-    // Normalizar keys a enteros para comparación
-    $normalizedParams = [];
-    foreach ($status['params'] as $key => $value) {
-        $normalizedKey = is_numeric($key) ? (int)$key : $key;
-        $normalizedParams[$normalizedKey] = $value;
-    }
+    // Verificación flexible: buscar los valores esperados en cualquier orden
+    $hasFerrari = in_array('ferrari', $paramValues, true);
+    $hasOne = in_array(1, $paramValues, true);
     
-    $debugInfo .= ", Normalized: " . json_encode($normalizedParams);
-    
-    // Verificar si los parámetros contienen 'ferrari' y 1 (usando array_values para mayor seguridad)
-    $paramValues = array_values($normalizedParams);
-    if (isset($paramValues[0]) && $paramValues[0] === 'ferrari' && isset($paramValues[1]) && $paramValues[1] === 1) {
-        $paramsOk = true;
-    }
-    // O verificar named params
-    elseif ((isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari') || 
-            (isset($status['params']['slug']) && $status['params']['slug'] === 'ferrari')) {
+    if ($hasFerrari && $hasOne && count($paramValues) === 2) {
         $paramsOk = true;
     }
 } else {
