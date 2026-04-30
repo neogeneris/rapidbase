@@ -20,6 +20,7 @@ use RapidBase\Core\SchemaMap;
  * - Weakness ordering (outDegree)
  * - BFS tree construction from the first table
  * - Automatic ON conditions based on relationship type
+ * - Internal join tree cache for maximum performance
  */
 class JoinResolver
 {
@@ -27,6 +28,11 @@ class JoinResolver
     private array $schema;
     private string $driver;
     private string $quoteChar;
+
+    /** @var array Cache for join trees indexed by normalized table list */
+    private static array $joinTreeCache = [];
+    private static int $joinTreeCacheSize = 0;
+    private static int $joinTreeCacheMaxSize = 500;
 
     public function __construct(string $connectionId = 'default')
     {
@@ -208,6 +214,15 @@ class JoinResolver
 
     private function buildJoinTree(array $tableNames): array
     {
+        // Normalize cache key (order independent)
+        sort($tableNames);
+        $cacheKey = crc32(implode(',', $tableNames));
+
+        if (isset(self::$joinTreeCache[$cacheKey])) {
+            return self::$joinTreeCache[$cacheKey];
+        }
+
+        // Build graph
         $graph = [];
         foreach ($tableNames as $t) {
             $graph[$t] = [];
@@ -237,7 +252,7 @@ class JoinResolver
             }
         }
 
-        // BFS for connectivity check
+        // BFS connectivity check
         $root = $tableNames[0];
         $visited = [];
         $queue = [$root];
@@ -256,7 +271,7 @@ class JoinResolver
             throw new \RuntimeException("Cannot connect all tables: " . implode(',', $tableNames));
         }
 
-        // Build tree via BFS
+        // Build tree
         $parent = [];
         $queue = [$root];
         $visited = [$root => true];
@@ -280,7 +295,17 @@ class JoinResolver
             ];
         }
 
-        return ['root' => $root, 'edges' => $edges];
+        $tree = ['root' => $root, 'edges' => $edges];
+
+        // Store in cache with size limit
+        if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
+            array_shift(self::$joinTreeCache);
+            self::$joinTreeCacheSize--;
+        }
+        self::$joinTreeCache[$cacheKey] = $tree;
+        self::$joinTreeCacheSize++;
+
+        return $tree;
     }
 
     private function buildJoinCondition(

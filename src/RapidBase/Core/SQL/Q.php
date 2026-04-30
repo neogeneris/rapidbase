@@ -106,25 +106,10 @@ class Q
      */
     public function select($fields = null, $pagination = null, $sort = []): array
     {
-        $joinResolver = new JoinResolver($this->connectionId);
-        $joinResult   = $joinResolver->resolve($this->state[self::T]);
-        $fromClause   = $joinResult['from'];
-        $tablesInfo   = $joinResult['tablesInfo'];
-
-        $context = [];
-        foreach ($tablesInfo as $info) {
-            $context[$info['alias']] = $info['real'];
-        }
-        $defaultAlias = $tablesInfo[0]['alias'] ?? '';
-
-        $whereData = empty($this->state[self::F])
-            ? ['sql' => '', 'params' => []]
-            : (new ConditionMatrix())->parse(
-                $this->state[self::F],
-                $context,
-                $defaultAlias,
-                SchemaMap::getMap($this->connectionId)
-              );
+        $base = $this->buildBaseState();
+        $fromClause = $base['fromClause'];
+        $tablesInfo = $base['tablesInfo'];
+        $whereData = ['sql' => $base['whereSql'], 'params' => $base['whereParams']];
 
         $groupSql = '';
         if ($this->state[self::G]) {
@@ -137,8 +122,8 @@ class Q
             ? ['sql' => '', 'params' => []]
             : (new ConditionMatrix())->parse(
                 $this->state[self::H],
-                $context,
-                $defaultAlias,
+                $base['context'] ?? [],
+                $base['defaultAlias'] ?? '',
                 SchemaMap::getMap($this->connectionId)
               );
 
@@ -223,27 +208,34 @@ class Q
         return $compiler->compileDelete($compiledState);
     }
 
+    /**
+     * Compiles a COUNT query. Accepts multiple tables (JOINs).
+     */
     public function count(): array
     {
-        $this->ensureSingleTable();
-        $whereData = $this->compileWhereSimple();
+        $base = $this->buildBaseState();
+        // Remove leading "FROM " because SqlCompiler adds its own FROM
+        $fromClause = preg_replace('/^FROM\s+/i', '', $base['fromClause']);
         $compiledState = [
-            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
-            SqlCompiler::WHERE  => $whereData['sql'],
-            SqlCompiler::PARAMS => $whereData['params'],
+            SqlCompiler::FROM   => $fromClause,
+            SqlCompiler::WHERE  => $base['whereSql'],
+            SqlCompiler::PARAMS => $base['whereParams'],
         ];
         $compiler = new SqlCompiler();
         return $compiler->compileCount($compiledState);
     }
 
+    /**
+     * Compiles an EXISTS query. Accepts multiple tables (JOINs).
+     */
     public function exists(): array
     {
-        $this->ensureSingleTable();
-        $whereData = $this->compileWhereSimple();
+        $base = $this->buildBaseState();
+        $fromClause = preg_replace('/^FROM\s+/i', '', $base['fromClause']);
         $compiledState = [
-            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
-            SqlCompiler::WHERE  => $whereData['sql'],
-            SqlCompiler::PARAMS => $whereData['params'],
+            SqlCompiler::FROM   => $fromClause,
+            SqlCompiler::WHERE  => $base['whereSql'],
+            SqlCompiler::PARAMS => $base['whereParams'],
         ];
         $compiler = new SqlCompiler();
         return $compiler->compileExists($compiledState);
@@ -271,12 +263,44 @@ class Q
     // ========== Private helpers ==========
 
     /**
+     * Builds the base state for queries that support multiple tables:
+     * FROM/JOIN clause, WHERE conditions, tables information.
+     */
+    private function buildBaseState(): array
+    {
+        $joinResolver = new JoinResolver($this->connectionId);
+        $joinResult   = $joinResolver->resolve($this->state[self::T]);
+        $fromClause   = $joinResult['from'];
+        $tablesInfo   = $joinResult['tablesInfo'];
+
+        $context = [];
+        foreach ($tablesInfo as $info) {
+            $context[$info['alias']] = $info['real'];
+        }
+        $defaultAlias = $tablesInfo[0]['alias'] ?? '';
+
+        $whereData = empty($this->state[self::F])
+            ? ['sql' => '', 'params' => []]
+            : (new ConditionMatrix())->parse(
+                $this->state[self::F],
+                $context,
+                $defaultAlias,
+                SchemaMap::getMap($this->connectionId)
+              );
+
+        return [
+            'fromClause'   => $fromClause,
+            'tablesInfo'   => $tablesInfo,
+            'context'      => $context,
+            'defaultAlias' => $defaultAlias,
+            'whereSql'     => $whereData['sql'],
+            'whereParams'  => $whereData['params'],
+        ];
+    }
+
+    /**
      * Generates a projection map (column alias => numeric index)
      * for FETCH_NUM mode. For '*' it expands columns using SchemaMap.
-     *
-     * @param string|array $fields     The effective SELECT columns.
-     * @param array        $tablesInfo Each entry: ['real'=>'table', 'alias'=>'t']
-     * @return array
      */
     private function buildProjectionMap($fields, array $tablesInfo): array
     {
@@ -284,7 +308,6 @@ class Q
         $index = 0;
 
         if ($fields === '*') {
-            // Expand * using SchemaMap
             $schemaMap = SchemaMap::getMap($this->connectionId);
             $schemaTables = $schemaMap['tables'] ?? [];
             foreach ($tablesInfo as $info) {
@@ -293,7 +316,6 @@ class Q
                 if (isset($schemaTables[$real])) {
                     $columns = array_keys($schemaTables[$real]);
                     foreach ($columns as $col) {
-                        // For FETCH_NUM, keyed by alias.column or just column for single table
                         $map[$alias . '.' . $col] = $index;
                         $index++;
                     }
@@ -302,42 +324,29 @@ class Q
         } elseif (is_array($fields)) {
             foreach ($fields as $key => $val) {
                 if (is_string($key)) {
-                    // Associative form: $key is alias, $val is actual column (ignored)
                     $map[$key] = $index;
                 } elseif (is_string($val)) {
                     $this->parseFieldAlias($val, $map, $index);
                 } elseif (is_array($val) && count($val) === 2) {
-                    // Legacy ['column', 'alias']
                     $map[$val[1]] = $index;
                 }
                 $index++;
             }
         } else {
-            // Single string expression
             $this->parseFieldAlias((string)$fields, $map, $index);
         }
 
         return $map;
     }
 
-    /**
-     * Extracts alias from a field expression and maps it to the current index.
-     *
-     * @param string $expression e.g. "u.name", "name", "COUNT(*) AS total"
-     * @param array  $map        Reference to projection map
-     * @param int    $index      Current numeric index
-     */
     private function parseFieldAlias(string $expression, array &$map, int $index): void
     {
-        // Pattern: "expr AS alias" (case insensitive)
         if (preg_match('/\s+AS\s+([^\s,]+)$/i', $expression, $matches)) {
             $map[trim($matches[1])] = $index;
         } elseif (strpos($expression, '.') !== false) {
-            // table.column -> alias "column"
             $parts = explode('.', $expression);
             $map[trim(end($parts))] = $index;
         } else {
-            // Simple column name
             $map[trim($expression)] = $index;
         }
     }

@@ -7,10 +7,8 @@
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use RapidBase\Core\DB;
-use RapidBase\Core\SQL;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\Cache\CacheService;
-use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
 
 // Configuration
 $dsn = 'sqlite:' . __DIR__ . '/../tmp/benchmark.sqlite';
@@ -20,10 +18,22 @@ $cacheDir = __DIR__ . '/../tmp/cache';
 if (file_exists(__DIR__ . '/../tmp/benchmark.sqlite')) {
     unlink(__DIR__ . '/../tmp/benchmark.sqlite');
 }
-if (!is_dir($cacheDir)) {
+// Clean cache directory recursively
+if (is_dir($cacheDir)) {
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($cacheDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($it as $file) {
+        if ($file->isDir()) {
+            rmdir($file->getRealPath());
+        } else {
+            unlink($file->getRealPath());
+        }
+    }
+} else {
     mkdir($cacheDir, 0777, true);
 }
-array_map('unlink', glob("$cacheDir/*"));
 
 echo "==================================================\n";
 echo "PERFORMANCE BENCHMARK\n";
@@ -108,17 +118,15 @@ $timePdoSimple = benchmark("PDO Native", function() use ($pdo) {
 
 $timeRbNoCache = benchmark("RapidBase (No Cache)", function() {
     CacheService::disable();
-    SQL::setQueryCacheEnabled(false);
-    Gateway::select('*', 'users', [], [], [], [], 1, 50);
+    Gateway::select('*', 'users', [], [], [], [], [1, 50]);
 });
 
 CacheService::enable();
-SQL::setQueryCacheEnabled(true);
-// Warmup & Populate L3 and L2 cache
-Gateway::selectCached('*', 'users', [], [], [], [], 1, 50);
+// Warmup & Populate L2 cache
+Gateway::selectCached('*', 'users', [], [], [], [], [1, 50]);
 
 $timeRbCache = benchmark("RapidBase (Cache Hit)", function() {
-    Gateway::selectCached('*', 'users', [], [], [], [], 1, 50);
+    Gateway::selectCached('*', 'users', [], [], [], [], [1, 50]);
 });
 
 echo "\n--- SCENARIO 2: Join 2 Tables (50 iterations) ---\n";
@@ -131,17 +139,27 @@ $timePdoJoin2 = benchmark("PDO Native", function() use ($pdo) {
 
 $timeRbJoin2NoCache = benchmark("RapidBase (No Cache)", function() {
     CacheService::disable();
-    SQL::setQueryCacheEnabled(false);
-    Gateway::select(['p.*', 'u.name as user_name'], ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]], [], [], [], [], 1, 50);
-}, 100);
+    Gateway::select(
+        ['p.*', 'u.name as user_name'],
+        ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]],
+        [], [], [], [], [1, 50]
+    );
+});
 
 CacheService::enable();
-SQL::setQueryCacheEnabled(true);
-Gateway::selectCached(['p.*', 'u.name as user_name'], ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]], [], [], [], [], 1, 50);
+Gateway::selectCached(
+    ['p.*', 'u.name as user_name'],
+    ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]],
+    [], [], [], [], [1, 50]
+);
 
 $timeRbJoin2Cache = benchmark("RapidBase (Cache Hit)", function() {
-    Gateway::selectCached(['p.*', 'u.name as user_name'], ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]], [], [], [], [], 1, 50);
-}, 100);
+    Gateway::selectCached(
+        ['p.*', 'u.name as user_name'],
+        ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]],
+        [], [], [], [], [1, 50]
+    );
+});
 
 echo "\n--- SCENARIO 3: Join 3 Tables (20 iterations) ---\n";
 echo "Fetching posts with users and tags...\n";
@@ -160,7 +178,6 @@ $timePdoJoin3 = benchmark("PDO Native", function() use ($pdo) {
 
 $timeRbJoin3NoCache = benchmark("RapidBase (No Cache)", function() {
     CacheService::disable();
-    SQL::setQueryCacheEnabled(false);
     Gateway::select(
         ['p.*', 'u.name as user_name', 't.name as tag_name'],
         [
@@ -169,12 +186,11 @@ $timeRbJoin3NoCache = benchmark("RapidBase (No Cache)", function() {
             ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
             ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
         ],
-        [], [], [], [], 1, 50
+        [], [], [], [], [1, 50]
     );
-}, 100);
+});
 
 CacheService::enable();
-SQL::setQueryCacheEnabled(true);
 Gateway::selectCached(
     ['p.*', 'u.name as user_name', 't.name as tag_name'],
     [
@@ -183,7 +199,7 @@ Gateway::selectCached(
         ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
         ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
     ],
-    [], [], [], [], 1, 50
+    [], [], [], [], [1, 50]
 );
 
 $timeRbJoin3Cache = benchmark("RapidBase (Cache Hit)", function() {
@@ -195,9 +211,9 @@ $timeRbJoin3Cache = benchmark("RapidBase (Cache Hit)", function() {
             ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
             ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
         ],
-        [], [], [], [], 1, 50
+        [], [], [], [], [1, 50]
     );
-}, 100);
+});
 
 echo "\n==================================================\n";
 echo "SUMMARY (Relative to PDO = 1.0x)\n";

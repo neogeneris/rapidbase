@@ -7,7 +7,6 @@ use \PDO;
 use \PDOStatement;
 use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\SQL\Q;
-use RapidBase\Core\SQL\SqlCompiler; // Solo necesario si quieres las constantes, no imprescindible
 
 /**
  * Class Gateway - Control and dispatch point of the Framework.
@@ -51,6 +50,8 @@ class Gateway
         int $fetchMode  = \PDO::FETCH_ASSOC,
         ?string $class  = null
     ): array {
+        $tableName = self::tableNameFromMixed($table);
+
         // Convert pagination to Q format [offset, limit]
         $pagination = null;
         $returnedPage = 0;
@@ -64,7 +65,7 @@ class Gateway
                 $returnedLimit = $perPage;
             } else {
                 $p = max(1, (int)$page);
-                $perPage = 10; // default
+                $perPage = 10;
                 $pagination = Q::page($p, $perPage);
                 $returnedPage = $p;
                 $returnedLimit = $perPage;
@@ -79,7 +80,6 @@ class Gateway
         if (!empty($having)) {
             $query->having($having);
         }
-        // Note: for sort we pass it directly to select() terminal method
         [$sql, $params, $projectionMap] = $query->select($fields, $pagination, $sort);
 
         // Separate total count if requested
@@ -102,7 +102,6 @@ class Gateway
             }
 
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logStatus(true, $sql, $params, null, [], 'select', $tableName, $duration);
 
             return [
@@ -118,7 +117,6 @@ class Gateway
             ];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logError($e, $sql, $params, 'select', $tableName, $duration);
             throw $e;
         }
@@ -140,11 +138,11 @@ class Gateway
         int $fetchMode  = \PDO::FETCH_ASSOC,
         ?string $class  = null
     ): array {
-        $tableName = is_array($table) ? implode('_', $table) : (string)$table;
+        $tableName = self::tableNameFromMixed($table);
 
         $queryData = [$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class];
         $jsonEncoded = json_encode($queryData);
-        $queryHash = function_exists('xxh128') ? xxh128($jsonEncoded) : md5($jsonEncoded);
+        $queryHash = function_exists('xxh128') ? xxh128($jsonEncoded) : crc32($jsonEncoded);
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
@@ -178,6 +176,7 @@ class Gateway
     public static function action(string $type, ...$args): array
     {
         $table = $args[0] ?? 'unknown';
+        $tableName = self::tableNameFromMixed($table);
 
         // Build the query using Q
         $query = Q::from($table);
@@ -186,7 +185,6 @@ class Gateway
                 [$sql, $params] = $query->insert($args[1] ?? []);
                 break;
             case 'update':
-                // For update, args[1] = data, args[2] = where
                 $where = $args[2] ?? [];
                 if (empty($where)) {
                     throw new \RuntimeException("PELIGRO: Update masivo no permitido. Debes especificar condiciones WHERE.");
@@ -195,7 +193,6 @@ class Gateway
                 [$sql, $params] = $query->update($args[1] ?? []);
                 break;
             case 'delete':
-                // For delete, args[1] = where conditions
                 $where = $args[1] ?? [];
                 if (empty($where)) {
                     throw new \RuntimeException("PELIGRO: Delete masivo no permitido. Debes especificar condiciones WHERE.");
@@ -213,18 +210,18 @@ class Gateway
             $duration = (microtime(true) - $start) * 1000;
 
             if ($res['success']) {
-                self::clearCacheForTable($table);
+                self::clearCacheForTable($tableName);
             }
 
             self::logStatus(true, $sql, $params, null, [
                 'id'   => $res['lastId'],
                 'rows' => $res['count']
-            ], $type, $table, $duration);
+            ], $type, $tableName, $duration);
 
             return $res;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $sql, $params, $type, $table, $duration);
+            self::logError($e, $sql, $params, $type, $tableName, $duration);
             throw $e;
         }
     }
@@ -234,39 +231,31 @@ class Gateway
      */
     public static function batch(string $table, array $data): bool
     {
-        // Q doesn't have batch directly, so we simulate with multiple insert calls
-        // For now, we assume Executor::batch still expects a single INSERT with many rows.
-        // We'll build a multi-row insert using Q's insert method which already supports multiple rows.
-        $query = Q::from($table);
-        [$sql, $params] = $query->insert($data); // $data can be a single row or array of rows
+        $tableName = self::tableNameFromMixed($table);
 
-        // Note: The old batch() used buildInsert which returned a list of params per row.
-        // Now Q::insert() returns a flattened params array already.
-        // Executor::batch() will need to be adapted if it expects a list of params per row.
-        // For compatibility, we assume Executor::batch() uses the old interface.
-        // If not, we'll just use Executor::action instead.
+        $query = Q::from($table);
+        [$sql, $params] = $query->insert($data);
+
         $start = microtime(true);
         try {
-            // Fallback: use single query if batch is not compatible
             $res = Executor::action($sql, $params);
             $duration = (microtime(true) - $start) * 1000;
 
             if ($res['success']) {
-                self::clearCacheForTable($table);
+                self::clearCacheForTable($tableName);
             }
 
-            self::logStatus(true, $sql . " [BATCH]", $params, null, ['count' => $res['count']], 'batch', $table, $duration);
+            self::logStatus(true, $sql . " [BATCH]", $params, null, ['count' => $res['count']], 'batch', $tableName, $duration);
             return true;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $sql, $params, 'batch', $table, $duration);
+            self::logError($e, $sql, $params, 'batch', $tableName, $duration);
             return false;
         }
     }
 
     /**
      * Invalidate all cache associated with a table.
-     * (Q no longer has query cache, only result cache.)
      */
     protected static function clearCacheForTable(string $table): void
     {
@@ -274,7 +263,6 @@ class Gateway
             $prefix = "db_select_{$table}_";
             CacheService::clearByPrefix($prefix);
         }
-        // SQL::clearQueryCache() is no longer needed; removed.
     }
 
     // ========== CONVENIENCE METHODS ==========
@@ -282,17 +270,18 @@ class Gateway
     public static function exists(string $table, array $where): bool
     {
         $start = microtime(true);
+        $tableName = self::tableNameFromMixed($table);
         [$sql, $params] = Q::from($table, $where)->exists();
 
         try {
             $exists = Executor::query($sql, $params)->fetch(\PDO::FETCH_COLUMN);
-            
+
             $duration = (microtime(true) - $start) * 1000;
-            self::logStatus(true, $sql, $params, null, ['rows' => $exists ? 1 : 0], 'exists', $table, $duration);
+            self::logStatus(true, $sql, $params, null, ['rows' => $exists ? 1 : 0], 'exists', $tableName, $duration);
             return $exists;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $sql, $params, 'exists', $table, $duration);
+            self::logError($e, $sql, $params, 'exists', $tableName, $duration);
             return false;
         }
     }
@@ -305,14 +294,13 @@ class Gateway
         bool $fail = false
     ): array|object|null {
         $start = microtime(true);
+        $tableName = self::tableNameFromMixed($table);
 
         try {
-            // Use select with LIMIT 1 (page=1, perPage=1)
             $result = self::select($fields, $table, $where, [], [], [], [1, 1], false, \PDO::FETCH_ASSOC, $class);
             $row = $result['data'][0] ?? null;
 
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
 
             if ($row === null && $fail) {
                 $whereStr = json_encode($where);
@@ -325,7 +313,6 @@ class Gateway
             throw $e;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logError($e, "SELECT ONE", [], 'one', $tableName, $duration);
             throw $e;
         }
@@ -334,6 +321,7 @@ class Gateway
     public static function count(string|array $table, array $where = []): int
     {
         $start = microtime(true);
+        $tableName = self::tableNameFromMixed($table);
         [$sql, $params] = Q::from($table, $where)->count();
 
         try {
@@ -341,12 +329,10 @@ class Gateway
             $count = (int)($stmt->fetchColumn() ?: 0);
 
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logStatus(true, $sql, $params, null, ['rows' => $count], 'count', $tableName, $duration);
             return $count;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logError($e, $sql, $params, 'count', $tableName, $duration);
             return 0;
         }
@@ -407,5 +393,26 @@ class Gateway
     private static function logError(Exception $e, string $sql, array $params, ?string $type = null, ?string $table = null, ?float $duration = null): void
     {
         self::logStatus(false, $sql, $params, $e->getMessage(), ['code' => $e->getCode()], $type, $table, $duration);
+    }
+
+    /**
+     * Converts any table representation into a unique string for logging/cache keys.
+     * Handles nested arrays of tables with relationship definitions.
+     *
+     * @param mixed $table
+     * @return string
+     */
+    private static function tableNameFromMixed(mixed $table): string
+    {
+        if (is_string($table)) {
+            return $table;
+        }
+        $names = [];
+        array_walk_recursive($table, function ($value) use (&$names) {
+            if (is_string($value)) {
+                $names[] = $value;
+            }
+        });
+        return implode('_', $names);
     }
 }
