@@ -143,23 +143,25 @@ assert_db("registro eliminado", $afterDelete == 0);
 echo "\n--- Bloque 2: create, upsert, read, readAs ---\n";
 resetDB();
 
-$createId = DB::create('players', ['name' => 'Bob', 'points' => 30]);
+$createId = DB::create('players', ['name' => 'Bob', 'points' => 30, 'email' => 'bob@test.com']);
 assert_db("create devuelve lastId", $createId !== false && $createId > 0);
 
-$upsertUpdate = DB::upsert('players', ['points' => 35], ['name']);
+// UPSERT de actualización: Bob ya existe con email único, solo cambiamos puntos
+$upsertUpdate = DB::upsert('players', ['email' => 'bob@test.com', 'points' => 35], ['email']);
 assert_db("upsert actualiza existente", $upsertUpdate === true);
-$bob = DB::find('players', ['name' => 'Bob']);
+$bob = DB::find('players', ['email' => 'bob@test.com']);
 assert_db("upsert modificó puntos", $bob['points'] == 35);
 
-$upsertInsert = DB::upsert('players', ['name' => 'Carol', 'points' => 40], ['name']);
+// UPSERT de inserción: nuevo registro con email único
+$upsertInsert = DB::upsert('players', ['name' => 'Carol', 'email' => 'carol@test.com', 'points' => 40], ['email']);
 assert_db("upsert inserta nuevo", $upsertInsert > 0);
-$carol = DB::find('players', ['name' => 'Carol']);
+$carol = DB::find('players', ['email' => 'carol@test.com']);
 assert_db("nuevo registro insertado", $carol['points'] == 40);
 
-$readRecord = DB::read('players', ['name' => 'Carol']);
+$readRecord = DB::read('players', ['email' => 'carol@test.com']);
 assert_db("read funciona igual que find", $readRecord['name'] == 'Carol');
 
-$player = DB::readAs(Player::class, ['name' => 'Carol']);
+$player = DB::readAs(Player::class, ['email' => 'carol@test.com']);
 assert_db("readAs mapea a objeto Player", $player instanceof Player && $player->name == 'Carol');
 
 // BLOQUE 3: all, list, grid
