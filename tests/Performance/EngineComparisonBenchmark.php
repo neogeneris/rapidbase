@@ -236,23 +236,23 @@ class EngineComparisonBenchmark
 
     public function run(): void
     {
-        echo "╔══════════════════════════════════════════════════════════════╗\n";
-        echo "║         ENGINE COMPARISON BENCHMARK                          ║\n";
-        echo "║         Comparativa de Motores SQL con PDO                   ║\n";
-        echo "╚══════════════════════════════════════════════════════════════╝\n\n";
+        echo "+==============================================================+\n";
+        echo "|         ENGINE COMPARISON BENCHMARK                          |\n";
+        echo "|         Comparativa de Motores SQL con PDO                   |\n";
+        echo "+==============================================================+\n\n";
         
         echo "Iteraciones: {$this->iterations}\n";
         echo "Modo: " . ($this->executeQueries ? "Ejecución real" : "Solo generación de SQL") . "\n\n";
         
         // Warmup
-        echo "🔥 Calentando motores...\n";
+        echo "[WARMUP] Calentando motores...\n";
         $this->warmup();
         
         // Test 1: Consultas Simples
         echo "\n";
-        echo "┌──────────────────────────────────────────────────────────────┐\n";
-        echo "│ TEST 1: CONSULTAS SIMPLES                                    │\n";
-        echo "└──────────────────────────────────────────────────────────────┘\n";
+        echo "+--------------------------------------------------------------+\n";
+        echo "| TEST 1: CONSULTAS SIMPLES                                    |\n";
+        echo "+--------------------------------------------------------------+\n";
         $this->testSimpleSelect();
         $this->testSelectWithWhere();
         $this->testSelectWithOrderLimit();
@@ -260,18 +260,18 @@ class EngineComparisonBenchmark
         
         // Test 2: Operaciones CRUD
         echo "\n";
-        echo "┌──────────────────────────────────────────────────────────────┐\n";
-        echo "│ TEST 2: OPERACIONES CRUD                                     │\n";
-        echo "└──────────────────────────────────────────────────────────────┘\n";
+        echo "+--------------------------------------------------------------+\n";
+        echo "| TEST 2: OPERACIONES CRUD                                     |\n";
+        echo "+--------------------------------------------------------------+\n";
         $this->testInsert();
         $this->testUpdate();
         $this->testDelete();
         
         // Test 3: JOINs de 2 a 5 tablas
         echo "\n";
-        echo "┌──────────────────────────────────────────────────────────────┐\n";
-        echo "│ TEST 3: JOINS DE 2 A 5 TABLAS                                │\n";
-        echo "└──────────────────────────────────────────────────────────────┘\n";
+        echo "+--------------------------------------------------------------+\n";
+        echo "| TEST 3: JOINS DE 2 A 5 TABLAS                                |\n";
+        echo "+--------------------------------------------------------------+\n";
         $this->testJoin2Tables();
         $this->testJoin3Tables();
         $this->testJoin4Tables();
@@ -1069,11 +1069,11 @@ class EngineComparisonBenchmark
             
             $indicator = '';
             if ($engine === 'PDO') {
-                $indicator = ' 📊';
+                $indicator = ' [REF]';
             } elseif ($ratio > 2) {
-                $indicator = ' ⚠️';
+                $indicator = ' [SLOW]';
             } elseif ($ratio < 1) {
-                $indicator = ' ⚡';
+                $indicator = ' [FAST]';
             }
             
             printf("%-12s | %12.2f | %12.2f | %10.2fx%s\n", 
@@ -1089,9 +1089,9 @@ class EngineComparisonBenchmark
     private function printSummary(): void
     {
         echo "\n";
-        echo "╔══════════════════════════════════════════════════════════════╗\n";
-        echo "║                    RESUMEN FINAL                             ║\n";
-        echo "╚══════════════════════════════════════════════════════════════╝\n\n";
+        echo "+==============================================================+\n";
+        echo "|                    RESUMEN FINAL                             |\n";
+        echo "+==============================================================+\n\n";
         
         // Calcular promedios por engine
         $engineTotals = [];
@@ -1146,9 +1146,9 @@ class EngineComparisonBenchmark
         echo "\n";
         echo "NOTAS:\n";
         echo "- PDO Directo sirve como referencia base (1x)\n";
-        echo "- Los valores muestran tiempo de generación de SQL (no ejecución)\n";
-        echo "- 🏆 indica el ganador en cada categoría\n";
-        echo "- ⚠️ indica rendimiento significativamente menor (>2x más lento)\n";
+        echo "- Los valores muestran tiempo de generacion de SQL (no ejecucion)\n";
+        echo "- [WIN] indica el ganador en cada categoria\n";
+        echo "- [SLOW] indica rendimiento significativamente menor (>2x mas lento)\n";
     }
 }
 
