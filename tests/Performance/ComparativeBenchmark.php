@@ -191,9 +191,11 @@ class ComparativeBenchmark
                 [],
                 [],
                 [],
-                1,
-                10
+                null,  // Sin offset
+                null   // Sin limit (se agrega manualmente si es necesario)
             );
+            // Agregar LIMIT manualmente si SQL::buildSelect no lo soporta bien
+            $sql .= ' LIMIT 10';
             $stmt = Conn::get()->prepare($sql);
             $stmt->execute($params);
             $stmt->fetchAll(PDO::FETCH_ASSOC);
