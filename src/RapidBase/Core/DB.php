@@ -3,21 +3,40 @@
 namespace RapidBase\Core;
 
 use RapidBase\Core\Conn;
-use RapidBase\Core\SQL;
 use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\SchemaMap;
+use RapidBase\Core\SQL\ConditionMatrix;
 
 use \PDO;
 use \Generator;
 
 class DB implements DBInterface {
-	
-	public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void {
-		 Conn::setup($dsn, $user,$pass, $name);
-		 SQL::detectDriverFromPDO(Conn::get());
-	}
-	
-	/**
+
+    public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void {
+        Conn::setup($dsn, $user, $pass, $name);
+        $pdo = Conn::get($name);
+        $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        ConditionMatrix::setDriver($driver);
+
+        // --- Carga automática del Schema Map ---
+        $schemaMapPath = __DIR__ . "/../../schema_map_{$name}.php"; // Ajusta esta ruta según tu estructura
+        if (file_exists($schemaMapPath)) {
+            SchemaMap::loadFromFile($schemaMapPath, $name);
+        } else {
+            // Generar desde la base de datos
+            try {
+                \RapidBase\Meta\SchemaMapper::setOutputFile($schemaMapPath);
+                $dbName = Conn::getDatabaseName($name);
+                \RapidBase\Meta\SchemaMapper::generate($pdo, $dbName);
+                SchemaMap::loadFromFile($schemaMapPath, $name);
+            } catch (\Exception $e) {
+                // Si falla, Q funcionará sin relaciones (solo consultas simples)
+                error_log("SchemaMap auto-generation failed: " . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Obtiene la instancia de la conexión PDO actual.
      * @return \PDO|null
      */
@@ -25,17 +44,18 @@ class DB implements DBInterface {
     {
         return Conn::get();
     }
-	/**
-	 * Ejecuta una sentencia SQL directa y devuelve el resultado de Executor::action.
-	 * @param string $sql
-	 * @param array $params
-	 * @return array
-	 */
-	public static function exec(string $sql, array $params = []): array {
+
+    /**
+     * Ejecuta una sentencia SQL directa y devuelve el resultado de Executor::action.
+     * @param string $sql
+     * @param array $params
+     * @return array
+     */
+    public static function exec(string $sql, array $params = []): array {
         return Executor::action($sql, $params);
     }
-	
-	/**
+
+    /**
      * Ejecuta una consulta SQL de lectura y retorna el PDOStatement.
      * @param string $sql
      * @param array $params
@@ -80,30 +100,19 @@ class DB implements DBInterface {
         return self::status()['id'] ?? 0;
     }
 
-
-  /**
-     * Establece el mapa de relaciones que usará SQL para construir JOINs.
-     * El mapa debe tener el formato: 
-     * [
-     *   'from' => [ 'tabla_origen' => [ 'tabla_destino' => ['local_key' => 'col', 'foreign_key' => 'col'] ] ],
-     *   'to'   => [ ... ]
-     * ]
-     *
+    /**
+     * Establece el mapa de relaciones (formato antiguo, mantenido por compatibilidad).
      * @param array $map
      */
     public static function setRelationsMap(array $map): void
     {
-        SQL::setRelationsMap($map);
+        SchemaMap::setMap($map, 'main');
     }
 
     /**
-     * Carga el mapa de relaciones desde un archivo PHP que retorna un array.
-     * El archivo debe contener la clave 'relationships' con la estructura esperada.
-     * También carga la sección 'tables' en SchemaMap si existe.
-     *
+     * Carga un archivo de mapa y lo registra en SchemaMap.
      * @param string $filePath
-     * @throws \InvalidArgumentException
-     * @throws \RuntimeException
+     * @throws \InvalidArgumentException|\RuntimeException
      */
     public static function loadRelationsMap(string $filePath): void
     {
@@ -114,121 +123,54 @@ class DB implements DBInterface {
         if (!is_array($map) || !isset($map['relationships'])) {
             throw new \RuntimeException("Invalid relations map format: missing 'relationships' key");
         }
-        self::setRelationsMap($map['relationships']);
-        
-        // Cargar también la sección 'tables' en SchemaMap si existe
-        if (isset($map['tables'])) {
-            SchemaMap::setMap($map['tables'], 'main');
-        }
+        SchemaMap::setMap($map, 'main');
     }
 
+    // ========== CONSULTAS EXPRESIVAS ==========
 
-
-
-
-    // ========== CONSULTAS EXPRESIVAS (SQL Crudo) ==========
-
-    /**
-     * Obtiene un único registro que cumpla las condiciones.
-     * @param string|array $table Nombre de la tabla o array de tablas para JOIN.
-     * @param array $where Condiciones WHERE.
-     * @param string|array $fields Campos a seleccionar (default: '*').
-     * @param string|null $class Clase para hidratar o null para FETCH_ASSOC.
-     * @param bool $fail Si es true, lanza excepción si no existe el registro.
-     * @return array|object|null Registro encontrado o null si no existe.
-     * @throws \RuntimeException Si $fail es true y no se encuentra el registro.
-     */
     public static function one(
-        string|array $table, 
-        array $where, 
-        string|array $fields = '*', 
+        string|array $table,
+        array $where,
+        string|array $fields = '*',
         ?string $class = null,
         bool $fail = false
     ): array|object|null {
         return Gateway::one($table, $where, $fields, $class, $fail);
     }
 
-    /**
-     * Obtiene múltiples filas como array de arrays asociativos.
-     * @param string $sql
-     * @param array $params
-     * @return array
-     */
     public static function many(string $sql, array $params = []): array {
         $stmt = Executor::query($sql, $params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Obtiene un valor escalar (ej. COUNT, SUM, una columna).
-     * @param string $sql
-     * @param array $params
-     * @return mixed
-     */
-    public static function value(string $sql, array $params = []): mixed 
+    public static function value(string $sql, array $params = []): mixed
     {
         $stmt = self::query($sql, $params);
         return $stmt ? $stmt->fetchColumn() : null;
     }
 
-    // ========== ABSTRACCIÓN FLUIDA (Basada en Gateway) ==========
+    // ========== ABSTRACCIÓN FLUIDA ==========
 
-    /**
-     * Encuentra un único registro por condiciones.
-     * @param string $table
-     * @param array $conditions
-     * @return array|false
-     */
     public static function find(string $table, array $conditions): array|false {
         $result = Gateway::select('*', $table, $conditions, [],[],[], 1, 1, false);
         $data = $result['data'] ?? [];
         return $data[0] ?? false;
     }
 
-    /**
-     * Cuenta registros de una tabla.
-     * @param string|array $table
-     * @param array $conditions
-     * @return int
-     */
     public static function count(string|array $table, array $conditions = []): int {
         return Gateway::count($table, $conditions);
     }
 
-    /**
-     * Verifica si existe un registro que cumpla las condiciones.
-     * @param string $table
-     * @param array $conditions
-     * @return bool
-     */
     public static function exists(string $table, array $conditions): bool {
         return Gateway::exists($table, $conditions);
     }
 
-    // ========== OPERACIONES CRUD (Escritura Segura) ==========
-
-    /**
-     * Alias de find().
-     * @param string|array $table
-     * @param array $where
-     * @param array $sort (no utilizado en este alias)
-     * @return array|false
-     */
-    public static function read(string|array $table, array $where = [], array $sort = []): array|false 
+    public static function read(string|array $table, array $where = [], array $sort = []): array|false
     {
         return self::find($table, $where);
     }
 
-    /**
-     * Lee un registro y lo mapea a una instancia de la clase dada.
-     * La clase debe tener un método estático getTable() o se debe pasar el nombre de la tabla.
-     * @param string $class
-     * @param array $where
-     * @param string|null $table (opcional)
-     * @return object|false
-     * @throws \InvalidArgumentException
-     */
-    public static function readAs(string $class, array $where, ?string $table = null): object|false 
+    public static function readAs(string $class, array $where, ?string $table = null): object|false
     {
         if ($table === null) {
             if (!method_exists($class, 'getTable')) {
@@ -237,14 +179,12 @@ class DB implements DBInterface {
             $table = $class::getTable();
         }
 
-        // Usar Gateway::one que está optimizado para obtener un único registro
         $row = Gateway::one($table, $where, '*', null, false);
-        
+
         if (!$row) {
             return false;
         }
-        
-        // Hidratar objeto
+
         $object = new $class();
         foreach ($row as $key => $value) {
             if (property_exists($object, $key)) {
@@ -254,225 +194,110 @@ class DB implements DBInterface {
         return $object;
     }
 
-    /**
-     * Inserta un registro y retorna el último ID insertado (o 0 si falla).
-     * @param string $table
-     * @param array $data
-     * @return int|string
-     */
     public static function insert(string $table, array $data): int|string {
-        // Al insertar, combinamos data + identifier para tener todos los campos requeridos
-        $fullData = array_merge($data, $identifier);
-        $res = Gateway::action('insert', $table, $fullData);
+        $res = Gateway::action('insert', $table, $data);
         return $res['lastId'] ?? 0;
     }
 
-    /**
-     * Inserta un registro y retorna el último ID, o false si falla.
-     * @param string $table
-     * @param array $data
-     * @return string|int|false
-     */
     public static function create(string $table, array $data): string|int|false {
-        // Al insertar, combinamos data + identifier para tener todos los campos requeridos
-        $fullData = array_merge($data, $identifier);
-        $res = Gateway::action('insert', $table, $fullData);
+        $res = Gateway::action('insert', $table, $data);
         return $res['success'] ? $res['lastId'] : false;
     }
 
-    /**
-     * Actualiza registros que cumplan las condiciones.
-     * @param string $table
-     * @param array $data
-     * @param array $conditions
-     * @return bool
-     */
     public static function update(string $table, array $data, array $conditions): bool {
         $res = Gateway::action('update', $table, $data, $conditions);
         return $res['success'];
     }
 
-    /**
-     * Elimina registros que cumplan las condiciones.
-     * @param string $table
-     * @param array $conditions
-     * @return bool
-     */
     public static function delete(string $table, array $conditions): bool {
         $res = Gateway::action('delete', $table, $conditions);
         return $res['success'];
     }
 
-    /**
-     * Lógica de "Insertar o Actualizar" (Upsert)
-     * @param string $table
-     * @param array $data
-     * @param array $identifier
-     * @return int|string|bool - Si inserta, retorna lastId; si actualiza, retorna true; si falla, false.
-     */
-    public static function upsert(string $table, array $data, array $identifier): int|string|bool 
+    public static function upsert(string $table, array $data, array $identifier): int|string|bool
     {
         if (Gateway::exists($table, $identifier)) {
             $res = Gateway::action('update', $table, $data, $identifier);
             return $res['success'] ? true : false;
         }
-        // Al insertar, combinamos data + identifier para tener todos los campos requeridos
         $fullData = array_merge($data, $identifier);
         $res = Gateway::action('insert', $table, $fullData);
         return $res['lastId'] ?? false;
     }
 
-    // ========== MOTOR PARA GRIDS (DHTMLX) ==========
+    // ========== GRID / CACHÉ ==========
 
-    /**
-     * Versión simplificada de SELECT para obtener arrays rápidos.
-     * @param string $sql
-     * @param array $params
-     * @return array
-     */
     public static function fetch(string $sql, array $params = []): array {
         $stmt = self::query($sql, $params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // ========== ABSTRACCIÓN FLUIDA (Optimizado para Caché) ==========
-
-    /**
-     * Obtiene todos los registros de una tabla (sin paginación).
-     * @param string|array $table
-     * @param array $conditions
-     * @param array $sort
-     * @return array
-     */
     public static function all(string|array $table, array $conditions = [], array $sort = []): array {
         $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort,1,5000);
         return $res['data'];
     }
 
-    /**
-     * Versión paginada y cacheada.
-     * @param string|array $table
-     * @param array $where
-     * @param array $sort
-     * @param int $page
-     * @param int $perPage
-     * @return array
-     */
-    /**
-     * Obtiene una lista plana o asociativa de registros.
-     * Si hay >=2 columnas, retorna [col1 => col2]. Si hay 1 columna, retorna [col1].
-     * @return array|false Retorna false si no hay datos, o el array transformado.
-     */
     public static function list(
-        string|array $table, 
-        array $where = [], 
-        array $sort = [], 
+        string|array $table,
+        array $where = [],
+        array $sort = [],
         mixed $page = 0
     ): array {
         $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page);
-        
+
         $data = $res['data'] ?? [];
         if (empty($data)) return [];
 
-        // Lógica de transformación automática a Pares (Llave => Valor)
         $sample = $data[0];
         $columns = array_keys($sample);
 
         if (count($columns) >= 2) {
-            // La primera columna es la Llave, la segunda es el Valor
             return array_column($data, $columns[1], $columns[0]);
         }
-
-        // Si solo hay una columna, devolvemos lista plana
         return array_column($data, $columns[0]);
     }
 
-    /**
-     * Motor para GRIDs que retorna un objeto QueryResponse optimizado.
-     * 
-     * ## Modo de Fetching (parámetro $class):
-     * - null (default): Usa FETCH_NUM para máximo rendimiento (arrays numéricos)
-     * - 'StdClass': Usa FETCH_OBJ para objetos genéricos optimizados
-     * - Nombre de clase: Usa FETCH_CLASS para hidratación directa a esa clase
-     * 
-     * ## Beneficios de FETCH_NUM (default):
-     * - 45% menos uso de memoria vs FETCH_ASSOC
-     * - 30% más rápido en consultas grandes
-     * - Sin colisiones de columnas en JOINs (ej: users.id y posts.id no se solapan)
-     * 
-     * Estructura de respuesta esperada (con FETCH_NUM):
-     * {
-     *   "head": { "columns": ["id", "name", "email"], "titles": ["Id", "Name", "Email"] },
-     *   "data": [[1, "Alice", "alice@example.com"], [2, "Bob", "bob@example.com"]],
-     *   "page": { "current": 1, "total": 6, "limit": 10, "records": 51 },
-     *   "stats": { "exec_ms": 0.08, "cache": true }
-     * }
-     * 
-     * ## Firma optimizada:
-     * DB::grid(table, conditions, page, sort, class)
-     * $page puede ser: 
-     * - int: Número de página (perPage por defecto 10)
-     * - array: [page, perPage] ej: [1, 50]
-     * - 0: Sin límites (fetchAll)
-     * 
-     * @param string|array|object $table Tabla, Model, array de tablas o SQL.
-     * @param array $conditions Where matricial.
-     * @param mixed $page Página (int), array [page, perPage], o 0 para sin límites.
-     * @param mixed $sort Campo(s) de ordenamiento (string o array).
-     * @param string|null $class Clase para mapeo (null=FETCH_NUM, 'StdClass'=FETCH_OBJ, otra=FETCH_CLASS).
-     * @return QueryResponse
-     */
     public static function grid(
-        string|array|object $table, 
-        array $conditions = [], 
-        mixed $page = 0, 
+        string|array|object $table,
+        array $conditions = [],
+        mixed $page = 0,
         mixed $sort = [],
         ?string $class = null
     ): QueryResponse {
-        
-        // --- Lógica Polimórfica de Paginación ---
         $actualPage = $page;
-        
-        // --- Determinar modo de fetching según $class ---
+
         $fetchMode = match($class) {
-            null => \PDO::FETCH_NUM,      // Default: máximo rendimiento
-            'StdClass' => \PDO::FETCH_OBJ, // Objetos genéricos optimizados
-            default => \PDO::FETCH_CLASS,  // Hidratación a clase específica
+            null => \PDO::FETCH_NUM,
+            'StdClass' => \PDO::FETCH_OBJ,
+            default => \PDO::FETCH_CLASS,
         };
-        
-        // --- Ejecución ---
+
         $res = Gateway::selectCached(
-            '*', 
-            $table, 
-            $conditions, 
-            [], [], 
-            is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []), 
-            $actualPage, 
-            true, 
-            3600, 
+            '*',
+            $table,
+            $conditions,
+            [], [],
+            is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []),
+            $actualPage,
+            true,
+            3600,
             $fetchMode,
-            $class !== null && $class !== 'StdClass' ? $class : null // Clase solo si es FETCH_CLASS
+            $class !== null && $class !== 'StdClass' ? $class : null
         );
 
-        // Obtener nombre de la tabla (si es array, tomar la primera)
         $tableName = is_array($table) ? key($table) : $table;
-        
-        // Extraer metadata desde SchemaMap (usando connectionId 'main' por defecto)
-        // Usar getColumns() que maneja ambos formatos: directo y con clave 'columns'
+
         $columns = SchemaMap::getColumns($tableName, 'main');
-        
-        // Construir arrays de columnas y títulos
+
         $columnNames = [];
         $columnTitles = [];
-        
+
         if (!empty($columns)) {
             foreach ($columns as $colName => $colProps) {
                 $columnNames[] = $colName;
-                // Usar descripción si existe, sino usar el nombre formateado
                 $columnTitles[] = $colProps['description'] ?? self::formatTitle($colName);
             }
         } else {
-            // Fallback: intentar inferir desde projectionMap o data
             $projectionMap = $res['projectionMap'] ?? [];
             if (!empty($projectionMap) && isset($res['data'][0])) {
                 foreach ($projectionMap as $tblKey => $cols) {
@@ -488,7 +313,6 @@ class DB implements DBInterface {
                 $columnNames = array_values($columnNames);
                 $columnTitles = array_values($columnTitles);
             } elseif (!empty($res['data'])) {
-                // Último fallback: usar las claves del primer resultado (aunque debería ser FETCH_NUM)
                 $firstRow = $res['data'][0];
                 if (is_array($firstRow)) {
                     $columnNames = array_keys($firstRow);
@@ -496,11 +320,10 @@ class DB implements DBInterface {
                 }
             }
         }
-        
-        // Calcular información de paginación
+
         $limit = $res['limit'] ?? 10;
         $lastPage = $limit > 0 ? (int) ceil($res['total'] / $limit) : 1;
-        
+
         return new QueryResponse(
             data: $res['data'],
             total: $res['total'],
@@ -517,7 +340,7 @@ class DB implements DBInterface {
                 ]
             ],
             state: [
-                'page'     => $res['page'], 
+                'page'     => $res['page'],
                 'per_page' => $res['limit'],
                 'last_page' => $lastPage,
                 'offset'   => ($res['page'] - 1) * $res['limit'],
@@ -525,27 +348,14 @@ class DB implements DBInterface {
             ]
         );
     }
-    
-    /**
-     * Formatea un nombre de columna en un título legible.
-     * Ej: created_at -> Created At, user_id -> User ID
-     */
+
     private static function formatTitle(string $name): string {
-        // Reemplazar underscores con espacios
         $title = str_replace('_', ' ', $name);
-        // Capitalizar cada palabra
-        $title = ucwords($title);
-        return $title;
+        return ucwords($title);
     }
 
-    // ========== STREAMING (Telemetría de alto volumen) ==========
+    // ========== STREAMING / TRANSACCIONES ==========
 
-    /**
-     * Retorna un generador para iterar sobre filas de una consulta.
-     * @param string $sql
-     * @param array $params
-     * @return Generator
-     */
     public static function stream(string $sql, array $params = []): Generator {
         $stmt = Executor::query($sql, $params);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -553,23 +363,10 @@ class DB implements DBInterface {
         }
     }
 
-    // ========== TRANSACCIONES Y UTILIDADES ==========
-
-    /**
-     * Envuelve una serie de operaciones en una transacción atómica.
-     * @param callable $callback
-     * @return mixed
-     */
     public static function transaction(callable $callback): mixed {
         return Executor::transaction($callback);
     }
 
-    /**
-     * Crea un objeto de expresión SQL cruda para evitar el escape de caracteres.
-     * Útil para funciones SQL o nombres de columnas reservados.
-     * @param string $value
-     * @return string
-     */
     public static function raw(string $value): string {
         return $value;
     }

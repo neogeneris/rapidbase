@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace RapidBase\Core\SQL;
 
-/**
- * ConditionMatrix - Parses multidimensional condition arrays into SQL
- * with placeholders and ordered parameters.
- *
- * All methods are static for maximum performance and simplicity.
- */
 class ConditionMatrix
 {
     private static string $driver = 'sqlite';
     private static string $quoteChar = '"';
+
+    /** @var array<string, array{sql:string, params:array}> Cache por petición */
+    private static array $parseCache = [];
 
     public static function setDriver(string $driver): void
     {
@@ -26,9 +23,6 @@ class ConditionMatrix
         return self::$driver;
     }
 
-    /**
-     * Fast, fully static quoting – no instance creation.
-     */
     public static function quote(string $identifier): string
     {
         $q = self::$quoteChar;
@@ -46,16 +40,8 @@ class ConditionMatrix
         return implode('.', $quotedParts);
     }
 
-    // ===================== Core parsing (static) =====================
-
     /**
-     * Parses a conditions array into SQL and parameters.
-     *
-     * @param array  $conditions   Associative (AND) or list of groups (OR).
-     * @param array  $context      Alias => real table name mapping.
-     * @param string $defaultAlias Default alias for unprefixed columns.
-     * @param array  $tablesSchema Optional table schema for ambiguity checks.
-     * @return array ['sql' => string, 'params' => array]
+     * Parses a conditions array, with in‑memory cache based on structure.
      */
     public static function parse(
         array $conditions,
@@ -63,11 +49,27 @@ class ConditionMatrix
         string $defaultAlias = '',
         array $tablesSchema = []
     ): array {
+        $cacheKey = self::getCacheKey($conditions, $context, $tablesSchema);
+        if (isset(self::$parseCache[$cacheKey])) {
+            return self::$parseCache[$cacheKey];
+        }
+
+        $result = self::doParse($conditions, $context, $defaultAlias, $tablesSchema);
+        self::$parseCache[$cacheKey] = $result;
+        return $result;
+    }
+
+    private static function doParse(
+        array $conditions,
+        array $context,
+        string $defaultAlias,
+        array $tablesSchema
+    ): array {
         if (empty($conditions)) {
             return ['sql' => '1', 'params' => []];
         }
 
-        // --- OR groups (indexed array) ---
+        // --- OR groups ---
         if (array_is_list($conditions)) {
             $groupSql = [];
             $allParams = [];
@@ -83,7 +85,7 @@ class ConditionMatrix
             return ['sql' => $sql, 'params' => $allParams];
         }
 
-        // --- AND between conditions (associative array) ---
+        // --- AND between conditions ---
         $sqlParts = [];
         $params = [];
         $schemaTables = self::normalizeTablesSchema($tablesSchema);
@@ -97,13 +99,11 @@ class ConditionMatrix
 
             $safeColumn = self::quote($rawColumn);
 
-            // 1. NULL -> IS NULL
             if ($value === null) {
                 $sqlParts[] = "$safeColumn IS NULL";
                 continue;
             }
 
-            // 2. Array
             if (is_array($value)) {
                 if (array_is_list($value)) {
                     if (empty($value)) {
@@ -127,7 +127,6 @@ class ConditionMatrix
                 continue;
             }
 
-            // 3. Scalar value -> equality
             $sqlParts[] = "$safeColumn = ?";
             $params[] = $value;
         }
@@ -137,8 +136,6 @@ class ConditionMatrix
             'params' => $params
         ];
     }
-
-    // ===================== Private static helpers =====================
 
     private static function qualifyColumnName(
         string $column,
@@ -173,5 +170,57 @@ class ConditionMatrix
     private static function normalizeTablesSchema(array $tablesSchema): array
     {
         return $tablesSchema['tables'] ?? $tablesSchema;
+    }
+
+    /**
+     * Generates a cache key based on the structure of conditions, context, and schema.
+     * Uses crc32(json_encode(...)) for maximum speed.
+     */
+    private static function getCacheKey(
+        array $conditions,
+        array $context,
+        array $tablesSchema
+    ): string {
+        $structure = self::extractStructure($conditions);
+        $base = crc32(json_encode($structure));
+
+        $ctx = !empty($context) ? '|ctx:' . implode(',', array_keys($context)) : '';
+        $sch = !empty($tablesSchema) ? '|sch:' . crc32(serialize($tablesSchema)) : '';
+
+        return $base . $ctx . $sch;
+    }
+
+    private static function extractStructure(array $conditions): array
+    {
+        if (array_is_list($conditions)) {
+            $parts = [];
+            foreach ($conditions as $group) {
+                $parts[] = self::extractStructure(is_array($group) ? $group : [$group]);
+            }
+            sort($parts);
+            return $parts;
+        }
+
+        $keys = [];
+        foreach ($conditions as $col => $val) {
+            if ($val === null) {
+                $keys[] = "$col:IS_NULL";
+            } elseif (is_array($val)) {
+                if (array_is_list($val)) {
+                    $keys[] = "$col:IN:" . count($val);
+                } else {
+                    $ops = [];
+                    foreach ($val as $op => $operand) {
+                        $ops[] = $operand === null ? "IS_NOT_NULL" : strtoupper($op);
+                    }
+                    sort($ops);
+                    $keys[] = "$col:" . implode('.', $ops);
+                }
+            } else {
+                $keys[] = "$col:EQ";
+            }
+        }
+        sort($keys);
+        return $keys;
     }
 }
