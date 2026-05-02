@@ -6,18 +6,6 @@ use RapidBase\Core\SQL\CompiledQuery;
 
 class Executor
 {
-    /**
-     * Executes a compiled query intelligently depending on its type.
-     *
-     * @param CompiledQuery $cq             The compiled query object.
-     * @param int           $fetchMode      Fetch mode for SELECT (default FETCH_NUM).
-     * @param string|null   $class          Class name for FETCH_CLASS.
-     * @param string|null   $connectionName Connection name in Conn pool (null = default).
-     * @return mixed   - SELECT: array of rows (associative if projection map present, or per fetch mode)
-     *                 - COUNT: int
-     *                 - EXISTS: bool
-     *                 - INSERT/UPDATE/DELETE/UPSERT: array [success, lastId, count, action]
-     */
     public static function execute(
         CompiledQuery $cq,
         int $fetchMode = \PDO::FETCH_NUM,
@@ -36,11 +24,9 @@ class Executor
                     return $stmt->fetchAll($fetchMode);
                 }
 
-                // FETCH_NUM + projection map conversion
                 $rows = $stmt->fetchAll(\PDO::FETCH_NUM);
                 $map = $cq->getProjectionMap();
                 
-                // Si no hay mapa de proyección, intentar construirlo desde los metadatos de columnas
                 if (empty($map) && !empty($rows)) {
                     $map = [];
                     $columnCount = $stmt->columnCount();
@@ -74,7 +60,6 @@ class Executor
                 $stmt = self::query($cq->getSql(), $cq->getParams(), $connectionName);
                 return (bool) $stmt->fetchColumn();
 
-            // ── Todas las escrituras retornan el array completo con 'action' ──
             case CompiledQuery::INSERT:
                 $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
                 $result['action'] = 'insert';
@@ -99,8 +84,6 @@ class Executor
                 throw new \RuntimeException("Unknown compiled query type: {$cq->getType()}");
         }
     }
-
-    // ========== Legacy methods ==========
 
     public static function query(string $sql, array $params = [], ?string $connectionName = null): \PDOStatement
     {

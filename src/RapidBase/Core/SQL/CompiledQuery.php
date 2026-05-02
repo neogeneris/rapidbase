@@ -15,7 +15,7 @@ class CompiledQuery
     public const INSERT = 4;
     public const UPDATE = 5;
     public const DELETE = 6;
-    public const UPSERT = 7;   // <-- NUEVO
+    public const UPSERT = 7;
 
     private string $sql;
     private array $params;
@@ -52,8 +52,13 @@ class CompiledQuery
     }
 
     /**
-     * Ejecución inteligente.
-     * Para escrituras, devuelve array con [success, lastId, count, action].
+     * Intelligent execution depending on query type.
+     *
+     * @param int         $fetchMode      Fetch mode for SELECT (default FETCH_NUM for max speed)
+     * @param string|null $class          Class name for FETCH_CLASS
+     * @param string|null $connectionName Name of the connection in Conn (null = default)
+     *
+     * @return mixed
      */
     public function run(?int $fetchMode = null, ?string $class = null, ?string $connectionName = null): mixed
     {

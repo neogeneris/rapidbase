@@ -3,17 +3,10 @@
 /**
  * Suite de Pruebas para Core\DB
  * Versión extendida que cubre los métodos más importantes.
+ * Ahora con impresión de DB::status() en cada fallo.
  */
 
-require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/QueryResponse.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
 
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
@@ -45,6 +38,7 @@ function assert_db($msg, $cond) {
         echo "  [OK] $msg\n";
     } else {
         echo "  [FAIL] $msg\n";
+        echo "       DB::status() -> " . json_encode(DB::status(), JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n";
         $failed++;
     }
 }
@@ -62,7 +56,6 @@ function deleteDirectory($dir) {
 function resetDB() {
     global $testCachePath;
     
-    // Asegurar que la ruta sea válida antes de usarla
     if (empty($testCachePath) || !is_string($testCachePath)) {
         $testCachePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'rapidbase_cache_test';
     }
@@ -119,7 +112,7 @@ $lastId = DB::insert('players', ['name' => 'Alice', 'points' => 50]);
 assert_db("insert retorna lastId > 0", $lastId > 0);
 
 $found = DB::find('players', ['name' => 'Alice']);
-assert_db("find encuentra registro", is_array($found) && $found['points'] == 50);
+assert_db("find encuentra registro", is_array($found) && ($found['points'] ?? 0) == 50);
 
 $total = DB::count('players');
 assert_db("count devuelve número correcto", $total == 1);
@@ -132,7 +125,7 @@ assert_db("exists false para inexistente", $notExists === false);
 $updated = DB::update('players', ['points' => 75], ['name' => 'Alice']);
 assert_db("update retorna true", $updated === true);
 $updatedRecord = DB::find('players', ['name' => 'Alice']);
-assert_db("update modificó puntos", $updatedRecord['points'] == 75);
+assert_db("update modificó puntos", ($updatedRecord['points'] ?? 0) == 75);
 
 $deleted = DB::delete('players', ['name' => 'Alice']);
 assert_db("delete retorna true", $deleted === true);
@@ -146,20 +139,28 @@ resetDB();
 $createId = DB::create('players', ['name' => 'Bob', 'points' => 30, 'email' => 'bob@test.com']);
 assert_db("create devuelve lastId", $createId !== false && $createId > 0);
 
-// UPSERT de actualización: Bob ya existe con email único, solo cambiamos puntos
-$upsertUpdate = DB::upsert('players', ['email' => 'bob@test.com', 'points' => 35], ['email']);
-assert_db("upsert actualiza existente", $upsertUpdate === true);
+// UPSERT de actualización (Bob ya existe por el create)
+$upsertUpdate = DB::upsert('players', ['name' => 'Bob', 'email' => 'bob@test.com', 'points' => 35], ['email']);
+assert_db("upsert actualiza existente", 
+    is_array($upsertUpdate) && 
+    ($upsertUpdate['action'] ?? '') === 'upsert' && 
+    ($upsertUpdate['count'] ?? 0) > 0 && 
+    ($upsertUpdate['lastId'] ?? 0) == 0
+);
 $bob = DB::find('players', ['email' => 'bob@test.com']);
-assert_db("upsert modificó puntos", $bob['points'] == 35);
+assert_db("upsert modificó puntos", ($bob['points'] ?? 0) == 35);
 
-// UPSERT de inserción: nuevo registro con email único
+// UPSERT de inserción
 $upsertInsert = DB::upsert('players', ['name' => 'Carol', 'email' => 'carol@test.com', 'points' => 40], ['email']);
-assert_db("upsert inserta nuevo", $upsertInsert > 0);
+assert_db("upsert inserta nuevo", 
+    is_array($upsertInsert) && 
+    ($upsertInsert['lastId'] ?? 0) > 0
+);
 $carol = DB::find('players', ['email' => 'carol@test.com']);
-assert_db("nuevo registro insertado", $carol['points'] == 40);
+assert_db("nuevo registro insertado", ($carol['points'] ?? 0) == 40);
 
 $readRecord = DB::read('players', ['email' => 'carol@test.com']);
-assert_db("read funciona igual que find", $readRecord['name'] == 'Carol');
+assert_db("read funciona igual que find", ($readRecord['name'] ?? '') == 'Carol');
 
 $player = DB::readAs(Player::class, ['email' => 'carol@test.com']);
 assert_db("readAs mapea a objeto Player", $player instanceof Player && $player->name == 'Carol');
@@ -177,9 +178,6 @@ assert_db("all respeta orden", $all[0]['points'] == 10 && $all[2]['points'] == 3
 
 $list = DB::list('players', [], ['-points'], [1, 2]);
 assert_db("list respeta límite", count($list) == 2);
-// list retorna array asociativo [id => points] o lista plana según columnas
-// Con '*', las primeras 2 columnas son id y name (o id y points según orden)
-// Verificamos que sea un array con 2 elementos y que los valores sean correctos
 assert_db("list es array", is_array($list));
 assert_db("list tiene 2 elementos", count($list) === 2);
 
@@ -212,7 +210,7 @@ assert_db("getAffectedRows es entero", is_int($rows) && $rows >= 0);
 $error = DB::getLastError();
 assert_db("getLastError puede ser null", $error === null || is_string($error));
 
-// Probar error forzado usando un método que pase por Gateway (no lanza excepción, solo registra error)
+// Probar error forzado
 DB::count('tabla_inexistente');
 $errorMsg = DB::getLastError();
 assert_db("getLastError captura error", !empty($errorMsg));

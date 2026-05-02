@@ -8,16 +8,11 @@ use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SQL\CompiledQuery;
 
-/**
- * Class Gateway - Control and dispatch point of the Framework.
- */
 class Gateway
 {
     private static array $lastStatus = [];
     private static ?bool $hasEvents = null;
     private static ?bool $hasCacheService = null;
-
-    // ========== Core SELECT ==========
 
     public static function select(
         mixed $fields   = '*',
@@ -70,6 +65,8 @@ class Gateway
         try {
             $data = $compiled->run($fetchMode, $class);
             $duration = (microtime(true) - $start) * 1000;
+
+            // Registrar el estado ANTES de retornar
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [], 'select', $tableName, $duration);
 
             return [
@@ -129,15 +126,6 @@ class Gateway
         return $result;
     }
 
-    // ========== Unified write action ==========
-
-    /**
-     * Executes a write action using Q and returns the unified result array.
-     *
-     * @param string $type 'insert', 'update', 'delete', 'upsert'
-     * @param mixed ...$args Variable arguments depending on type.
-     * @return array [success => bool, lastId => int|string, count => int, action => string]
-     */
     public static function action(string $type, ...$args): array
     {
         $table = $args[0] ?? 'unknown';
@@ -170,7 +158,7 @@ class Gateway
 
         $start = microtime(true);
         try {
-            $result = $compiled->run();   // ya devuelve [success, lastId, count, action]
+            $result = $compiled->run();
             $duration = (microtime(true) - $start) * 1000;
 
             if ($result['success']) {
@@ -190,9 +178,6 @@ class Gateway
         }
     }
 
-    /**
-     * UPSERT universal. Returns the unified result array.
-     */
     public static function upsert(string $table, array $data, array $conflictColumns = []): array
     {
         $start = microtime(true);
@@ -200,7 +185,7 @@ class Gateway
         $compiled = Q::into($table)->upsert($data, $conflictColumns);
 
         try {
-            $result = $compiled->run();   // [success, lastId, count, action]
+            $result = $compiled->run();
             $duration = (microtime(true) - $start) * 1000;
 
             if ($result['success']) {
@@ -225,8 +210,6 @@ class Gateway
         }
     }
 
-    // ========== Convenience methods (return unified array) ==========
-
     public static function insert(string $table, array $data): array
     {
         return self::action('insert', $table, $data);
@@ -241,8 +224,6 @@ class Gateway
     {
         return self::action('delete', $table, $where);
     }
-
-    // ========== Readers (unchanged) ==========
 
     public static function exists(string $table, array $where): bool
     {
@@ -315,8 +296,6 @@ class Gateway
     {
         return self::$lastStatus;
     }
-
-    // ========== Logging & Events ==========
 
     private static function logStatus(
         bool $success,

@@ -49,7 +49,6 @@ class DB implements DBInterface {
         SchemaMap::setMap($map, 'main');
     }
 
-    // ──── Helper para eliminar prefijos de tabla (users.name → name) ────
     private static function normalizeRow(array $row): array {
         $normalized = [];
         foreach ($row as $key => $value) {
@@ -63,7 +62,6 @@ class DB implements DBInterface {
         return $normalized;
     }
 
-    // ──── Métodos de lectura que devuelven filas normalizadas ────
     public static function one(
         string|array $table, array $where, string|array $fields = '*',
         ?string $class = null, bool $fail = false
@@ -86,7 +84,7 @@ class DB implements DBInterface {
     }
 
     public static function find(string $table, array $conditions): array|false {
-        $result = Gateway::select('*', $table, $conditions, [],[],[], 1, 1, false);
+        $result = Gateway::select('*', $table, $conditions, [],[],[], [1, 1], false);
         $row = $result['data'][0] ?? false;
         return $row ? self::normalizeRow($row) : false;
     }
@@ -100,7 +98,7 @@ class DB implements DBInterface {
     }
 
     public static function read(string|array $table, array $where = [], array $sort = []): array|false {
-        return self::find($table, $where);  // find ya normaliza
+        return self::find($table, $where);
     }
 
     public static function readAs(string $class, array $where, ?string $table = null): object|false {
@@ -122,7 +120,6 @@ class DB implements DBInterface {
         return $object;
     }
 
-    // ──── Escritura ────
     public static function insert(string $table, array $data): int|string {
         $res = Gateway::action('insert', $table, $data);
         return $res['lastId'] ?? 0;
@@ -147,7 +144,6 @@ class DB implements DBInterface {
         return Gateway::upsert($table, $data, $conflictColumns);
     }
 
-    // ──── Varios ────
     public static function fetch(string $sql, array $params = []): array {
         $stmt = self::query($sql, $params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
