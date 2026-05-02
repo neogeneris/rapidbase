@@ -395,11 +395,10 @@ class EngineComparisonBenchmark
         $results = [];
         
         // PDO
-        $results['PDO'] = $this->measure(fn() => {
-            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE status = ?");
-            $stmt->execute(['active']);
-            return $stmt->fetchAll();
-        }, 'PDO');
+        $results['PDO'] = $this->measure(fn() => 
+            $this->pdo->query("SELECT * FROM users WHERE status = 'active'")->fetchAll(),
+            'PDO'
+        );
         
         // SQL.php
         $results['SQL.php'] = $this->measure(fn() => 
@@ -515,12 +514,11 @@ class EngineComparisonBenchmark
         $results = [];
         
         // PDO
-        $results['PDO'] = $this->measure(fn() => 
+        $results['PDO'] = $this->measure(function() {
             $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE status = ?")
-                ->execute(['active'])
-                ->fetchColumn(),
-            'PDO'
-        );
+                ->execute(['active']);
+            return true;
+        }, 'PDO');
         
         // SQL.php
         $results['SQL.php'] = $this->measure(fn() => 
@@ -530,13 +528,13 @@ class EngineComparisonBenchmark
         
         // W
         $results['W'] = $this->measure(fn() => 
-            W::from('users', ['status' => 'active'])->exec('count'),
+            W::from('users', ['status' => 'active'])->count(),
             'W'
         );
         
         // Wm
         $results['Wm'] = $this->measure(fn() => 
-            Wm::from('users', ['status' => 'active'])->exec('count'),
+            Wm::from('users', ['status' => 'active'])->count(),
             'Wm'
         );
         
@@ -560,7 +558,7 @@ class EngineComparisonBenchmark
         
         // Q
         $results['Q'] = $this->measure(fn() => 
-            Q::from('users', ['status' => 'active'])->exec('count'),
+            Q::from('users', ['status' => 'active'])->count(),
             'Q'
         );
         
@@ -588,35 +586,11 @@ class EngineComparisonBenchmark
             'SQL.php'
         );
         
-        // W
-        $results['W'] = $this->measure(fn() => 
-            W::from('users')->exec('insert', ['name' => 'Test User', 'email' => 'test@example.com', 'status' => 'active']),
-            'W'
-        );
-        
-        // Wm
-        $results['Wm'] = $this->measure(fn() => 
-            Wm::from('users')->exec('insert', ['name' => 'Test User', 'email' => 'test@example.com', 'status' => 'active']),
-            'Wm'
-        );
-        
-        // B+F
-        $results['B+F'] = $this->measure(fn() => 
-            F::fromBuilder(B::into('users'))->insert(['name' => 'Test User', 'email' => 'test@example.com', 'status' => 'active']),
-            'B+F'
-        );
-        
-        // EB+EF
-        $results['EB+EF'] = $this->measure(fn() => 
-            EF::fromBuilder(EB::into('users'))->insert(['name' => 'Test User', 'email' => 'test@example.com', 'status' => 'active']),
-            'EB+EF'
-        );
-        
-        // B2+F2
-        $results['B2+F2'] = $this->measure(fn() => 
-            F2::fromBuilder(B2::into('users'))->insert(['name' => 'Test User', 'email' => 'test@example.com', 'status' => 'active']),
-            'B2+F2'
-        );
+        // W - Solo SELECT disponible en este motor
+        // Wm - Solo SELECT disponible en este motor
+        // B+F - No tiene INSERT implementado
+        // EB+EF - No tiene INSERT implementado
+        // B2+F2 - No tiene INSERT implementado
         
         // Q
         $results['Q'] = $this->measure(fn() => 
@@ -1082,28 +1056,24 @@ class EngineComparisonBenchmark
 
     private function printResults(array $results, string $testName): void
     {
-        // Encontrar el más rápido como referencia
-        $minTime = PHP_FLOAT_MAX;
-        $fastestEngine = '';
-        foreach ($results as $engine => $data) {
-            if ($data['time_ms'] < $minTime) {
-                $minTime = $data['time_ms'];
-                $fastestEngine = $engine;
-            }
-        }
+        // Usar PDO como referencia fija (1x)
+        $pdoTime = isset($results['PDO']['time_ms']) ? $results['PDO']['time_ms'] : 0;
         
-        printf("%-12s | %12s | %12s | %10s\n", "Engine", "Tiempo (ms)", "Memoria (KB)", "vs Ref");
+        printf("%-12s | %12s | %12s | %10s\n", "Engine", "Tiempo (ms)", "Memoria (KB)", "vs PDO");
         echo str_repeat('-', 70) . "\n";
         
         foreach ($results as $engine => $data) {
-            $ratio = $minTime > 0 ? $data['time_ms'] / $minTime : 0;
+            // Calcular ratio respecto a PDO (no respecto al más rápido)
+            $ratio = $pdoTime > 0 ? $data['time_ms'] / $pdoTime : 0;
             $memKB = $data['memory_bytes'] / 1024;
             
             $indicator = '';
-            if ($engine === $fastestEngine) {
-                $indicator = ' 🏆';
+            if ($engine === 'PDO') {
+                $indicator = ' 📊';
             } elseif ($ratio > 2) {
                 $indicator = ' ⚠️';
+            } elseif ($ratio < 1) {
+                $indicator = ' ⚡';
             }
             
             printf("%-12s | %12.2f | %12.2f | %10.2fx%s\n", 

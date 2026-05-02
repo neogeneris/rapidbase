@@ -110,6 +110,11 @@ class W
         $instance->state[self::T_OFF] = null;
         $instance->state[self::T_GRP] = '';
         $instance->state[self::T_HAV] = '';
+        
+        // Asegurar que T_JON siempre sea string
+        if (!isset($instance->state[self::T_JON])) {
+            $instance->state[self::T_JON] = '';
+        }
 
         return $instance;
     }
@@ -372,7 +377,7 @@ class W
         return "LEFT JOIN {$quotedReal} AS {$quotedAlias}";
     }
 
-    public function select($fields = '*', $limit = null, $sort = null, array $group = [], array $having = []): array
+    public function select($fields = '*', $limit = null, $sort = null, $group = [], array $having = []): array
     {
         $this->state[self::T_SEL] = is_array($fields) ? implode(', ', $fields) : $fields;
 
@@ -385,7 +390,7 @@ class W
         }
 
         if (!empty($group)) {
-            $this->state[self::T_GRP] = implode(', ', $group);
+            $this->state[self::T_GRP] = is_array($group) ? implode(', ', $group) : $group;
         }
 
         if (!empty($having)) {
@@ -447,8 +452,9 @@ class W
         $sql = "SELECT {$this->state[self::T_SEL]} FROM {$this->state[self::T_FRO]}";
         
         // Agregar JOINs si existen
-        if (!empty($this->state[self::T_JON])) {
-            $sql .= " " . $this->state[self::T_JON];
+        $joins = $this->state[self::T_JON];
+        if (!empty($joins)) {
+            $sql .= " " . (is_array($joins) ? implode(' ', $joins) : $joins);
         }
         
         $params = $this->state[self::T_PRM];
