@@ -5,20 +5,10 @@ declare(strict_types=1);
 namespace RapidBase\Core\SQL;
 
 /**
- * ConditionMatrix - Parses multidimensional condition arrays into SQL with placeholders and ordered parameters.
+ * ConditionMatrix - Parses multidimensional condition arrays into SQL
+ * with placeholders and ordered parameters.
  *
- * Exact functional replica of buildWhere() from the original SQL class.
- *
- * Supports:
- * - Implicit AND (associative array)
- * - Explicit OR (indexed array of groups)
- * - Multiple operators per column: '>', '<', '>=', '<=', '!=', '<>', 'LIKE', etc.
- * - IN (indexed array of values)
- * - IS NULL / IS NOT NULL (via null value or ['!=' => null])
- * - Table alias resolution using context and schema
- * - Ambiguity prevention
- * - Positional placeholders ? for maximum speed
- * - Driver-dependent quoting (MySQL → backticks, others → double quotes)
+ * All methods are static for maximum performance and simplicity.
  */
 class ConditionMatrix
 {
@@ -29,6 +19,11 @@ class ConditionMatrix
     {
         self::$driver = strtolower($driver);
         self::$quoteChar = (self::$driver === 'mysql') ? '`' : '"';
+    }
+
+    public static function getDriver(): string
+    {
+        return self::$driver;
     }
 
     /**
@@ -51,8 +46,10 @@ class ConditionMatrix
         return implode('.', $quotedParts);
     }
 
+    // ===================== Core parsing (static) =====================
+
     /**
-     * Parses a conditions array.
+     * Parses a conditions array into SQL and parameters.
      *
      * @param array  $conditions   Associative (AND) or list of groups (OR).
      * @param array  $context      Alias => real table name mapping.
@@ -60,7 +57,7 @@ class ConditionMatrix
      * @param array  $tablesSchema Optional table schema for ambiguity checks.
      * @return array ['sql' => string, 'params' => array]
      */
-    public function parse(
+    public static function parse(
         array $conditions,
         array $context = [],
         string $defaultAlias = '',
@@ -78,7 +75,7 @@ class ConditionMatrix
                 if (!is_array($group)) {
                     $group = [$group];
                 }
-                $sub = $this->parse($group, $context, $defaultAlias, $tablesSchema);
+                $sub = self::parse($group, $context, $defaultAlias, $tablesSchema);
                 $groupSql[] = '(' . $sub['sql'] . ')';
                 $allParams = array_merge($allParams, $sub['params']);
             }
@@ -89,14 +86,13 @@ class ConditionMatrix
         // --- AND between conditions (associative array) ---
         $sqlParts = [];
         $params = [];
-        $schemaTables = $this->normalizeTablesSchema($tablesSchema);
+        $schemaTables = self::normalizeTablesSchema($tablesSchema);
 
         foreach ($conditions as $column => $value) {
             $rawColumn = trim($column);
 
-            // Qualify column if no dot and not an expression
             if (!str_contains($rawColumn, '.') && !preg_match('/[^\w]/', $rawColumn)) {
-                $rawColumn = $this->qualifyColumnName($rawColumn, $context, $defaultAlias, $schemaTables);
+                $rawColumn = self::qualifyColumnName($rawColumn, $context, $defaultAlias, $schemaTables);
             }
 
             $safeColumn = self::quote($rawColumn);
@@ -110,19 +106,16 @@ class ConditionMatrix
             // 2. Array
             if (is_array($value)) {
                 if (array_is_list($value)) {
-                    // Flat list -> IN (...)
                     if (empty($value)) {
-                        $sqlParts[] = '0'; // empty IN never matches
+                        $sqlParts[] = '0';
                     } else {
                         $placeholders = implode(', ', array_fill(0, count($value), '?'));
                         $sqlParts[] = "$safeColumn IN ($placeholders)";
                         array_push($params, ...array_values($value));
                     }
                 } else {
-                    // Operator map
                     foreach ($value as $operator => $operand) {
                         $op = strtoupper(trim($operator));
-                        // IS NOT NULL (operator != or <> with null value)
                         if ($operand === null && in_array($op, ['!=', '<>'], true)) {
                             $sqlParts[] = "$safeColumn IS NOT NULL";
                         } else {
@@ -145,7 +138,9 @@ class ConditionMatrix
         ];
     }
 
-    private function qualifyColumnName(
+    // ===================== Private static helpers =====================
+
+    private static function qualifyColumnName(
         string $column,
         array $context,
         string $defaultAlias,
@@ -175,14 +170,8 @@ class ConditionMatrix
         return $defaultAlias !== '' ? "$defaultAlias.$column" : $column;
     }
 
-    private function normalizeTablesSchema(array $tablesSchema): array
+    private static function normalizeTablesSchema(array $tablesSchema): array
     {
         return $tablesSchema['tables'] ?? $tablesSchema;
-    }
-
-    /** @deprecated Use self::quote() instead */
-    public function quoteIdentifier(string $identifier): string
-    {
-        return self::quote($identifier);
     }
 }

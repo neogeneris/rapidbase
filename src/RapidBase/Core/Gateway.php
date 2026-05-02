@@ -79,7 +79,8 @@ class Gateway
 
         $start = microtime(true);
         try {
-            $data = $compiled->run($fetchMode, $class);
+            // CORRECCIÓN: primer argumento null para usar la conexión por defecto
+            $data = $compiled->run(null, $fetchMode, $class);
             $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [], 'select', $tableName, $duration);
 
