@@ -53,13 +53,7 @@ class Gateway
         }
 
         $query = Q::from($table, $where ?? []);
-        if (!empty($groupBy)) {
-            $query->groupBy($groupBy);
-        }
-        if (!empty($having)) {
-            $query->having($having);
-        }
-        $compiled = $query->select($fields, $pagination, $sort);
+        $compiled = $query->select($fields, $pagination, $sort, !empty($groupBy) ? $groupBy : null, $having);
 
         $total = 0;
         if ($withTotal) {

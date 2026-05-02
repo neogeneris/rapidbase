@@ -1,30 +1,56 @@
 ```
-# Test artifacts
-tests/_output/
-tests/_support/_generated/
-.sass-cache/
-*.phpt~
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+dist/
+build/
+target/
 
 # Dependencies
+.venv/
+venv/
+node_modules/
 vendor/
 composer.lock
 
-# Logs
+# Logs and temp files
 *.log
-tests/_output/*
+*.tmp
+*.swp
+*.swo
 
 # Environment
 .env
 .env.local
 .env.*
 
-# IDE
-.idea/
+# Editors
 .vscode/
+.idea/
 *.swp
 *.swo
 
-# OS
+# OS specific
 .DS_Store
 Thumbs.db
+
+# Testing
+.coverage
+coverage/
+htmlcov/
+
+# Package management
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# PHP specific
+*.php~
+.htaccess
+
+# Backup files
+*~
+\#*\#
 ```

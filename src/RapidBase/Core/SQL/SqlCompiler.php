@@ -158,7 +158,7 @@ class SqlCompiler
                 $alias = $info['alias'];
                 if (isset($schema['tables'][$realTable])) {
                     foreach ($schema['tables'][$realTable] as $col => $def) {
-                        $map[$index] = $alias . '.' . $col;
+                        $map[$alias . '.' . $col] = $index;
                         $index++;
                     }
                 }
@@ -177,9 +177,13 @@ class SqlCompiler
         foreach ($parts as $field) {
             $field = trim($field);
             
+            // Check for alias with AS keyword
             if (preg_match('/\s+as\s+(\w+)/i', $field, $matches)) {
-                $map[$index] = $matches[1];
-            } elseif (preg_match('/(\w+)\.\*/', $field, $matches)) {
+                $map[$matches[1]] = $index;
+                $index++;
+            } 
+            // Check for table.* expansion
+            elseif (preg_match('/(\w+)\.\*/', $field, $matches)) {
                 $tableAlias = $matches[1];
                 $schema = SchemaMap::getMap();
                 foreach ($tablesInfo as $info) {
@@ -187,18 +191,25 @@ class SqlCompiler
                         $realTable = $info['real'];
                         if (isset($schema['tables'][$realTable])) {
                             foreach ($schema['tables'][$realTable] as $col => $def) {
-                                $map[$index] = $tableAlias . '.' . $col;
+                                $map[$tableAlias . '.' . $col] = $index;
                                 $index++;
                             }
                         }
                         break;
                     }
                 }
-            } else {
+            } 
+            // Regular field or function
+            else {
+                // Extract simple column name or use the whole expression as alias
                 if (strpos($field, '.') !== false && !preg_match('/^\w+\(/', $field)) {
-                    $map[$index] = $field;
+                    // table.column format - use full qualified name
+                    $map[$field] = $index;
                 } else {
-                    $map[$index] = $field;
+                    // Simple column or function - extract base name or use as-is
+                    $cleanField = preg_replace('/^\w+\((.*?)\)$/', '$1', $field);
+                    $cleanField = preg_replace('/\s+/', '', $cleanField);
+                    $map[$cleanField] = $index;
                 }
                 $index++;
             }
