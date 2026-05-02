@@ -187,7 +187,7 @@ class Gateway
      * @param array  $conflictColumns Columns that define the conflict (PK / unique)
      * @return int                    Affected rows
      */
-    public static function upsert(string $table, array $data, array $conflictColumns = []): int
+    public static function upsert(string $table, array $data, array $conflictColumns = []): int|string|bool
     {
         $start = microtime(true);
         $tableName = self::tableNameFromMixed($table);
@@ -206,11 +206,21 @@ class Gateway
                 'rows' => $result['count']
             ], 'upsert', $tableName, $duration);
 
-            return $result['count'];
+            // Si hay rows afectadas > 0 y lastId es 0 o null, fue una actualización -> retornar true
+            if ($result['count'] > 0 && empty($result['lastId'])) {
+                return true;
+            }
+            // Si hay lastId, fue una inserción -> retornar el ID
+            if (!empty($result['lastId'])) {
+                return $result['lastId'];
+            }
+            // Caso especial SQLite: count puede ser 0 en UPDATE, pero lastId también
+            // Verificar si realmente hubo cambio comparando con affected rows
+            return $result['count'] > 0 ? true : $result['lastId'];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
             self::logError($e, $compiled->getSql(), $compiled->getParams(), 'upsert', $tableName, $duration);
-            return 0;
+            return false;
         }
     }
 

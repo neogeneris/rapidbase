@@ -146,12 +146,12 @@ resetDB();
 $createId = DB::create('players', ['name' => 'Bob', 'points' => 30]);
 assert_db("create devuelve lastId", $createId !== false && $createId > 0);
 
-$upsertUpdate = DB::upsert('players', ['points' => 35], ['name' => 'Bob']);
+$upsertUpdate = DB::upsert('players', ['points' => 35], ['name']);
 assert_db("upsert actualiza existente", $upsertUpdate === true);
 $bob = DB::find('players', ['name' => 'Bob']);
 assert_db("upsert modificó puntos", $bob['points'] == 35);
 
-$upsertInsert = DB::upsert('players', ['name' => 'Carol', 'points' => 40], ['name' => 'Carol']);
+$upsertInsert = DB::upsert('players', ['name' => 'Carol', 'points' => 40], ['name']);
 assert_db("upsert inserta nuevo", $upsertInsert > 0);
 $carol = DB::find('players', ['name' => 'Carol']);
 assert_db("nuevo registro insertado", $carol['points'] == 40);
