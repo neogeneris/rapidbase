@@ -1,0 +1,41 @@
+<?php return array(
+    'root' => array(
+        'name' => '__root__',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'bd94dc1c574a7a163bf051d0e1a2a6d42fe08d3f',
+        'type' => 'library',
+        'install_path' => __DIR__ . '/../../',
+        'aliases' => array(),
+        'dev' => true,
+    ),
+    'versions' => array(
+        '__root__' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'bd94dc1c574a7a163bf051d0e1a2a6d42fe08d3f',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'bcosca/fatfree' => array(
+            'pretty_version' => '3.9.2',
+            'version' => '3.9.2.0',
+            'reference' => '199052ea367873bace9c20a07efe1a1032674952',
+            'type' => 'project',
+            'install_path' => __DIR__ . '/../bcosca/fatfree',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'bcosca/fatfree-core' => array(
+            'pretty_version' => '3.9.2',
+            'version' => '3.9.2.0',
+            'reference' => '3ba261541e529d20b32615fe5f7b5740ea0951a3',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../bcosca/fatfree-core',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+    ),
+);

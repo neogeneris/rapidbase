@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bae42c2a8fab260f5642d09e230647a8",
+    "content-hash": "590cba96ba5e99cedc5cd9e645a58181",
     "packages": [
         {
             "name": "usmanhalalit/pixie",
-            "version": "2.0.2",
+            "version": "dev-master",
             "source": {
                 "type": "git",
                 "url": "https://github.com/usmanhalalit/pixie.git",
-                "reference": "873e70e63b6802634050d9fb3d38a9bc0c5d23fc"
+                "reference": "4ea93b064b0b460120d16659654a523625797456"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/usmanhalalit/pixie/zipball/873e70e63b6802634050d9fb3d38a9bc0c5d23fc",
-                "reference": "873e70e63b6802634050d9fb3d38a9bc0c5d23fc",
+                "url": "https://api.github.com/repos/usmanhalalit/pixie/zipball/4ea93b064b0b460120d16659654a523625797456",
+                "reference": "4ea93b064b0b460120d16659654a523625797456",
                 "shasum": ""
             },
             "require": {
@@ -28,6 +28,7 @@
                 "mockery/mockery": "0.9.4",
                 "phpunit/phpunit": "^4.8"
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-0": {
@@ -64,7 +65,13 @@
                 "issues": "https://github.com/usmanhalalit/pixie/issues",
                 "source": "https://github.com/usmanhalalit/pixie/tree/master"
             },
-            "time": "2019-11-16T12:29:06+00:00"
+            "funding": [
+                {
+                    "url": "https://github.com/usmanhalalit",
+                    "type": "github"
+                }
+            ],
+            "time": "2020-04-07T07:35:32+00:00"
         },
         {
             "name": "usmanhalalit/viocon",
@@ -121,7 +128,9 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "usmanhalalit/pixie": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": [],

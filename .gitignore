@@ -1,7 +1,7 @@
 ```
 # Dependencies
 vendor/
-composer/
+composer.lock
 
 # Logs and temp files
 *.log
@@ -12,35 +12,19 @@ composer/
 .env.local
 .env.*
 
-# Editors
+# IDE
 .vscode/
 .idea/
 
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
 
-# Archives
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+# Tests
+tests/*/vendor/
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
 ```
