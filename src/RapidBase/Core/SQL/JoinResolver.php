@@ -320,90 +320,121 @@ class JoinResolver
         return array_keys($degrees);
     }
 
-    private function buildJoinTree(array $tableNames): array
-    {
-        sort($tableNames);
-        $cacheKey = crc32(implode(',', $tableNames));
-        if (isset(self::$joinTreeCache[$cacheKey])) {
-            return self::$joinTreeCache[$cacheKey];
-        }
-
-        $graph = [];
-        foreach ($tableNames as $t) {
-            $graph[$t] = [];
-        }
-
-        $relMapFrom = $this->relMap['from'] ?? [];
-        $relMapTo   = $this->relMap['to']   ?? [];
-
-        foreach ($relMapFrom as $from => $rels) {
-            foreach ($rels as $to => $rel) {
-                if (in_array($from, $tableNames, true) && in_array($to, $tableNames, true)) {
-                    $graph[$from][$to] = $rel;
-                    $graph[$to][$from] = $rel;
-                }
-            }
-        }
-        foreach ($relMapTo as $definingTable => $rels) {
-            foreach ($rels as $referencedTable => $rel) {
-                if (in_array($definingTable, $tableNames, true) && in_array($referencedTable, $tableNames, true)) {
-                    $rel['_direction'] = 'to';
-                    $rel['_defining_table'] = $definingTable;
-                    $rel['_referenced_table'] = $referencedTable;
-                    $graph[$definingTable][$referencedTable] = $rel;
-                    $graph[$referencedTable][$definingTable] = $rel;
-                }
-            }
-        }
-
-        $root = $tableNames[0];
-        $visited = [$root => true];
-        $queue = [$root];
-        while (!empty($queue)) {
-            $current = array_shift($queue);
-            foreach ($graph[$current] as $neighbor => $rel) {
-                if (!isset($visited[$neighbor])) {
-                    $visited[$neighbor] = true;
-                    $queue[] = $neighbor;
-                }
-            }
-        }
-        if (count($visited) !== count($tableNames)) {
-            throw new \RuntimeException("Cannot connect all tables: " . implode(',', $tableNames));
-        }
-
-        $parent = [];
-        $queue = [$root];
-        $visited = [$root => true];
-        while (!empty($queue)) {
-            $current = array_shift($queue);
-            foreach ($graph[$current] as $neighbor => $rel) {
-                if (!isset($visited[$neighbor])) {
-                    $visited[$neighbor] = true;
-                    $parent[$neighbor] = ['parent' => $current, 'rel' => $rel];
-                    $queue[] = $neighbor;
-                }
-            }
-        }
-
-        $edges = [];
-        foreach ($parent as $child => $info) {
-            $edges[] = ['parent' => $info['parent'], 'child' => $child, 'rel' => $info['rel']];
-        }
-
-        $tree = ['root' => $root, 'edges' => $edges];
-
-        if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
-            array_shift(self::$joinTreeCache);
-            self::$joinTreeCacheSize--;
-        }
-        self::$joinTreeCache[$cacheKey] = $tree;
-        self::$joinTreeCacheSize++;
-
-        return $tree;
+private function buildJoinTree(array $tableNames): array
+{  
+    $sorted = $tableNames;
+    sort($sorted);
+    $cacheKey = crc32(implode(',', $sorted));
+    if (isset(self::$joinTreeCache[$cacheKey])) {
+        return self::$joinTreeCache[$cacheKey];
     }
 
-    private function buildJoinCondition(
+    $graph = [];
+    foreach ($tableNames as $t) {
+        $graph[$t] = [];
+    }
+
+    // Helper para buscar relación entre dos tablas en cualquier dirección
+    $findRelation = function (string $a, string $b): ?array {
+        $from = $this->relMap['from'] ?? [];
+        $to   = $this->relMap['to']   ?? [];
+
+        // a -> b en from
+        if (isset($from[$a][$b])) {
+            return $from[$a][$b];
+        }
+        // b -> a en from (inversa)
+        if (isset($from[$b][$a])) {
+            $rel = $from[$b][$a];
+            // Invertir la dirección
+            return [
+                'type'        => 'belongsTo',
+                'local_key'   => $rel['foreign_key'],
+                'foreign_key' => $rel['local_key'],
+            ];
+        }
+        // a -> b en to
+        if (isset($to[$a][$b])) {
+            return $to[$a][$b];
+        }
+        // b -> a en to (inversa)
+        if (isset($to[$b][$a])) {
+            $rel = $to[$b][$a];
+            return [
+                'type'        => ($rel['type'] === 'belongsTo') ? 'hasMany' : 'belongsTo',
+                'local_key'   => $rel['foreign_key'],
+                'foreign_key' => $rel['local_key'],
+            ];
+        }
+        return null;
+    };
+
+    // Rellenar el grafo para cada par de tablas
+    for ($i = 0; $i < count($tableNames); $i++) {
+        for ($j = $i + 1; $j < count($tableNames); $j++) {
+            $a = $tableNames[$i];
+            $b = $tableNames[$j];
+            $rel = $findRelation($a, $b);
+            if ($rel !== null) {
+                $graph[$a][$b] = $rel;
+                $graph[$b][$a] = $rel; // simétrico para BFS
+            }
+        }
+    }
+
+    // BFS connectivity check
+    $root = $tableNames[0];
+    $visited = [$root => true];
+    $queue = [$root];
+    while (!empty($queue)) {
+        $current = array_shift($queue);
+        foreach ($graph[$current] as $neighbor => $rel) {
+            if (!isset($visited[$neighbor])) {
+                $visited[$neighbor] = true;
+                $queue[] = $neighbor;
+            }
+        }
+    }
+    if (count($visited) !== count($tableNames)) {
+        throw new \RuntimeException("Cannot connect all tables: " . implode(',', $tableNames));
+    }
+
+    // Build tree
+    $parent = [];
+    $queue = [$root];
+    $visited = [$root => true];
+    while (!empty($queue)) {
+        $current = array_shift($queue);
+        foreach ($graph[$current] as $neighbor => $rel) {
+            if (!isset($visited[$neighbor])) {
+                $visited[$neighbor] = true;
+                $parent[$neighbor] = ['parent' => $current, 'rel' => $rel];
+                $queue[] = $neighbor;
+            }
+        }
+    }
+
+    $edges = [];
+    foreach ($parent as $child => $info) {
+        $edges[] = ['parent' => $info['parent'], 'child' => $child, 'rel' => $info['rel']];
+    }
+
+    $tree = ['root' => $root, 'edges' => $edges];
+
+    // Store in cache
+    if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
+        array_shift(self::$joinTreeCache);
+        self::$joinTreeCacheSize--;
+    }
+    self::$joinTreeCache[$cacheKey] = $tree;
+    self::$joinTreeCacheSize++;
+
+
+    return $tree;
+}   
+
+
+   private function buildJoinCondition(
         string $parentReal, string $parentAlias,
         string $childReal, string $childAlias,
         array $relation
@@ -433,7 +464,7 @@ class JoinResolver
              . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
     }
 
-    // ================== Linear & pivot (updated for subqueries) ==================
+    // ================== Linear & pivot (unchanged) ==================
 
     private function buildFromLinear(array $tables): array
     {
@@ -471,16 +502,14 @@ class JoinResolver
 
             $tablesInfo[] = $parsedNext;
 
-            if ($isSubquery) {
-                $joinPart = "LEFT JOIN " . $nextReal;
-            } else {
-                $joinPart = "LEFT JOIN " . $this->quote($nextReal);
-            }
+            $joinPart = $isSubquery
+                ? "LEFT JOIN " . $nextReal
+                : "LEFT JOIN " . $this->quote($nextReal);
+
             if ($nextAlias !== $nextReal || $isSubquery) {
                 $joinPart .= " AS " . $this->quote($nextAlias);
             }
 
-            // Try to find a relationship definition (if any)
             $relationDef = null;
             if (is_array($item)) {
                 $keys = array_keys($item);
