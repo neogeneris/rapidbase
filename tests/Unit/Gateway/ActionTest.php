@@ -46,6 +46,24 @@ Conn::setup("sqlite:$tempDb", "", "", "main");
 $pdo = Conn::get();
 $pdo->exec("PRAGMA busy_timeout = 5000");
 $pdo->exec("PRAGMA journal_mode = WAL");
+
+// Configurar SchemaMap para que projectionMap funcione correctamente
+$schema = [
+    'relationships' => [
+        'from' => [],
+        'to' => []
+    ],
+    'tables' => [
+        'pilotos' => [
+            'id'      => ['type' => 'int'],
+            'nombre'  => ['type' => 'varchar'],
+            'escuderia' => ['type' => 'varchar'],
+            'puntos'  => ['type' => 'int']
+        ]
+    ]
+];
+\RapidBase\Core\SchemaMap::setMap($schema, 'main');
+
 $pdo->exec("CREATE TABLE pilotos (
     id INTEGER PRIMARY KEY AUTOINCREMENT, 
     nombre TEXT, 

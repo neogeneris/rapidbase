@@ -430,7 +430,7 @@ class Q
                     $cols = array_keys($schemaTables[$realTable]);
                     $map = [];
                     foreach ($cols as $i => $col) {
-                        $map[$realTable . '.' . $col] = $i;
+                        $map[$col] = $i;
                     }
                     self::$starProjectionCache[$realTable] = $map;
                 } else {
@@ -444,6 +444,32 @@ class Q
             $map = [];
             foreach ($fields as $i => $f) {
                 $map[is_string($f) ? $f : "col_$i"] = $i;
+            }
+            return $map;
+        }
+
+        // Parse string fields like "field1, field2 AS alias, COUNT(*) as total"
+        if (is_string($fields)) {
+            $parts = explode(',', $fields);
+            $map = [];
+            $index = 0;
+            foreach ($parts as $field) {
+                $field = trim($field);
+                // Check for AS alias
+                if (preg_match('/\s+as\s+(\w+)/i', $field, $matches)) {
+                    $map[$matches[1]] = $index;
+                } 
+                // Check for table.column
+                elseif (strpos($field, '.') !== false && !preg_match('/^\w+\(/', $field)) {
+                    $map[$field] = $index;
+                } 
+                // Simple column or function - extract base name
+                else {
+                    $cleanField = preg_replace('/^\w+\((.*?)\)$/', '$1', $field);
+                    $cleanField = preg_replace('/\s+/', '', $cleanField);
+                    $map[$cleanField] = $index;
+                }
+                $index++;
             }
             return $map;
         }
