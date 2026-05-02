@@ -758,8 +758,7 @@ class EngineComparisonBenchmark
         // B+F con JOIN manual
         $results['B+F'] = $this->measure(fn() => 
             F::fromBuilder(
-                B::from('users')
-                    ->join('INNER JOIN posts p ON u.id = p.user_id')
+                B::from(['users', 'posts'])
                     ->where(['u.status' => 'active'])
                     ->limit(20)
             )->select('u.*, p.title, p.content'),
@@ -769,8 +768,7 @@ class EngineComparisonBenchmark
         // EB+EF con JOIN
         $results['EB+EF'] = $this->measure(fn() => 
             EF::fromBuilder(
-                EB::from('users')
-                    ->join('LEFT', '"posts" AS "p"', '"u"."id" = "p"."user_id"')
+                EB::from(['users', 'posts'])
                     ->where(['u.status' => 'active'])
                     ->limit(20)
             )->select('u.*, p.title, p.content'),
