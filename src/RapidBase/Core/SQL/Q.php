@@ -9,8 +9,8 @@ use RapidBase\Core\SQL\CompiledQuery;
 
 class Q
 {
-    private const T = 0;
-    private const F = 1;
+    private const T = 0; // Table
+    private const F = 1; // Filter / Where
 
     private array $state;
     private string $connectionId;
@@ -19,7 +19,7 @@ class Q
     /** @var array<string, array> Cache de proyección para '*' */
     private static array $starProjectionCache = [];
 
-    private function __construct(string $connectionId = 'default')
+    private function __construct(string $connectionId = 'main')
     {
         $this->connectionId = $connectionId;
         $this->state = [
@@ -239,7 +239,7 @@ class Q
         $driver = ConditionMatrix::getDriver();
         if ($joinCondition === null) {
             $sourceTables = $source->getSourceTables();
-            $joinCondition = $this->inferJoinCondition($targetTable, $sourceTables);
+            $joinCondition = $this->inferJoinCondition($this->resolveSingleTableName(), $sourceTables);
         }
 
         $setParts = [];
@@ -373,10 +373,15 @@ class Q
         }
 
         $selectFields = $fields ?? '*';
+        // Convert array of fields to string
+        if (is_array($selectFields)) {
+            $selectFields = implode(', ', $selectFields);
+        }
         $sql = "SELECT $selectFields FROM $table$whereSql$orderSql$limitSql";
 
-        $projectionMap = $this->getSimpleProjection($selectFields);
-        return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap);
+        $projectionMap = $this->getSimpleProjection($fields ?? '*');
+        $sourceTables = [$this->state[self::T]];
+		return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap, $sourceTables);
     }
 
     private function compileSimpleCount(): CompiledQuery
