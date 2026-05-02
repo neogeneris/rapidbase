@@ -77,7 +77,7 @@ class Wm extends W
         return $instance;
     }
     
-    public function select($fields = '*', $limit = null, $sort = null, array $group = [], array $having = []): array
+    public function select($fields = '*', $limit = null, $sort = null, $group = [], array $having = []): array
     {
         if (!self::$enabled) {
             return parent::select($fields, $limit, $sort, $group, $having);

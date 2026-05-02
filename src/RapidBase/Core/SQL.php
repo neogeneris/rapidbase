@@ -214,7 +214,8 @@ class SQL
                     $rows = [$rows];
                 }
             }
-            return Q::from($table)->build(QType::INSERT, $rows);
+            $compiled = Q::from($table)->insert($rows);
+            return ['sql' => $compiled->getSql(), 'params' => $compiled->getParams()];
         } catch (\Exception $e) {
             return self::buildInsertLegacy($table, $rows);
         }
@@ -231,7 +232,8 @@ class SQL
         }
         
         try {
-            return Q::from($table, $config)->build(QType::UPDATE, $data);
+            $compiled = Q::from($table, $config)->update($data);
+            return ['sql' => $compiled->getSql(), 'params' => $compiled->getParams()];
         } catch (\Exception $e) {
             return self::buildUpdateLegacy($table, $data, $where, $force);
         }
@@ -248,7 +250,8 @@ class SQL
         }
         
         try {
-            return Q::from($table, $config)->build(QType::DELETE);
+            $compiled = Q::from($table, $config)->delete();
+            return ['sql' => $compiled->getSql(), 'params' => $compiled->getParams()];
         } catch (\Exception $e) {
             return self::buildDeleteLegacy($table, $where, $force);
         }
@@ -276,17 +279,19 @@ class SQL
      */
     public static function buildCount(mixed $table, array $where = [], array $groupBy = []): array
     {
-        $config = [];
-        foreach ($where as $key => $value) {
-            $config[$key] = $value;
-        }
-        
-        if (!empty($groupBy)) {
-            $config['_group'] = is_array($groupBy) ? implode(',', $groupBy) : $groupBy;
-        }
-        
         try {
-            return Q::from($table, $config)->build(QType::COUNT);
+            $config = [];
+            foreach ($where as $key => $value) {
+                $config[$key] = $value;
+            }
+            
+            if (!empty($groupBy)) {
+                $config['_group'] = is_array($groupBy) ? implode(',', $groupBy) : $groupBy;
+            }
+            
+            $query = \RapidBase\Core\SQL\Q::from($table, $config);
+            $compiled = $query->count();
+            return ['sql' => $compiled->getSql(), 'params' => $compiled->getParams()];
         } catch (\Exception $e) {
             return self::buildCountLegacy($table, $where, $groupBy);
         }
