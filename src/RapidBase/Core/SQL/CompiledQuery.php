@@ -84,15 +84,15 @@ class CompiledQuery
     /**
      * Convenience method that executes the compiled query through the central Executor.
      *
+     * @param string|null $connectionName Connection name in the Conn pool (null = default)
      * @param int|null    $fetchMode      PDO fetch mode (default FETCH_NUM)
      * @param string|null $class          Class name for FETCH_CLASS
-     * @param string|null $connectionName Connection name in the Conn pool (null = default)
      * @return mixed
      */
     public function run(
+        ?string $connectionName = null,
         ?int $fetchMode = null,
-        ?string $class = null,
-        ?string $connectionName = null
+        ?string $class = null
     ): mixed {
         $fetchMode = $fetchMode ?? \PDO::FETCH_NUM;
 
