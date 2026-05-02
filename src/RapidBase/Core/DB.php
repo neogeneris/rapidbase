@@ -49,10 +49,31 @@ class DB implements DBInterface {
         SchemaMap::setMap($map, 'main');
     }
 
+    // ──── Helper para eliminar prefijos de tabla (users.name → name) ────
+    private static function normalizeRow(array $row): array {
+        $normalized = [];
+        foreach ($row as $key => $value) {
+            if (strpos($key, '.') !== false) {
+                $parts = explode('.', $key);
+                $normalized[end($parts)] = $value;
+            } else {
+                $normalized[$key] = $value;
+            }
+        }
+        return $normalized;
+    }
+
+    // ──── Métodos de lectura que devuelven filas normalizadas ────
     public static function one(
         string|array $table, array $where, string|array $fields = '*',
         ?string $class = null, bool $fail = false
-    ): array|object|null { return Gateway::one($table, $where, $fields, $class, $fail); }
+    ): array|object|null {
+        $result = Gateway::one($table, $where, $fields, $class, $fail);
+        if (is_array($result) && $class === null) {
+            return self::normalizeRow($result);
+        }
+        return $result;
+    }
 
     public static function many(string $sql, array $params = []): array {
         $stmt = Executor::query($sql, $params);
@@ -66,25 +87,42 @@ class DB implements DBInterface {
 
     public static function find(string $table, array $conditions): array|false {
         $result = Gateway::select('*', $table, $conditions, [],[],[], 1, 1, false);
-        return $result['data'][0] ?? false;
+        $row = $result['data'][0] ?? false;
+        return $row ? self::normalizeRow($row) : false;
     }
 
-    public static function count(string|array $table, array $conditions = []): int { return Gateway::count($table, $conditions); }
-    public static function exists(string $table, array $conditions): bool { return Gateway::exists($table, $conditions); }
-    public static function read(string|array $table, array $where = [], array $sort = []): array|false { return self::find($table, $where); }
+    public static function count(string|array $table, array $conditions = []): int {
+        return Gateway::count($table, $conditions);
+    }
+
+    public static function exists(string $table, array $conditions): bool {
+        return Gateway::exists($table, $conditions);
+    }
+
+    public static function read(string|array $table, array $where = [], array $sort = []): array|false {
+        return self::find($table, $where);  // find ya normaliza
+    }
 
     public static function readAs(string $class, array $where, ?string $table = null): object|false {
         if ($table === null) {
-            if (!method_exists($class, 'getTable')) { throw new \InvalidArgumentException("La clase $class debe tener un método estático getTable()"); }
+            if (!method_exists($class, 'getTable')) {
+                throw new \InvalidArgumentException("La clase $class debe tener un método estático getTable()");
+            }
             $table = $class::getTable();
         }
         $row = Gateway::one($table, $where, '*', null, false);
         if (!$row) return false;
+        $row = self::normalizeRow($row);   // <── NUEVO
         $object = new $class();
-        foreach ($row as $key => $value) { if (property_exists($object, $key)) $object->$key = $value; }
+        foreach ($row as $key => $value) {
+            if (property_exists($object, $key)) {
+                $object->$key = $value;
+            }
+        }
         return $object;
     }
 
+    // ──── Escritura ────
     public static function insert(string $table, array $data): int|string {
         $res = Gateway::action('insert', $table, $data);
         return $res['lastId'] ?? 0;
@@ -105,14 +143,11 @@ class DB implements DBInterface {
         return $res['success'];
     }
 
-    /**
-     * UPSERT atómico (INSERT ON CONFLICT / ON DUPLICATE KEY UPDATE)
-     */
-    public static function upsert(string $table, array $data, array $conflictColumns = []): int|string|bool
-    {
+    public static function upsert(string $table, array $data, array $conflictColumns = []): int|string|bool {
         return Gateway::upsert($table, $data, $conflictColumns);
     }
 
+    // ──── Varios ────
     public static function fetch(string $sql, array $params = []): array {
         $stmt = self::query($sql, $params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -120,7 +155,7 @@ class DB implements DBInterface {
 
     public static function all(string|array $table, array $conditions = [], array $sort = []): array {
         $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort,1,5000);
-        return $res['data'];
+        return array_map([self::class, 'normalizeRow'], $res['data']);   // <── NUEVO
     }
 
     public static function list(

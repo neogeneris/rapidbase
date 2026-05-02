@@ -187,43 +187,34 @@ class Gateway
      * @param array  $conflictColumns Columns that define the conflict (PK / unique)
      * @return int                    Affected rows
      */
-    public static function upsert(string $table, array $data, array $conflictColumns = []): int|string|bool
-    {
-        $start = microtime(true);
-        $tableName = self::tableNameFromMixed($table);
-        $compiled = Q::into($table)->upsert($data, $conflictColumns);
+    public static function upsert(string $table, array $data, array $conflictColumns = []): int|bool
+	{
+		$start = microtime(true);
+		$tableName = self::tableNameFromMixed($table);
+		$compiled = Q::into($table)->upsert($data, $conflictColumns);
 
-        try {
-            $result = \RapidBase\Core\Executor::action($compiled->getSql(), $compiled->getParams());
-            $duration = (microtime(true) - $start) * 1000;
+		try {
+			$result = \RapidBase\Core\Executor::action($compiled->getSql(), $compiled->getParams());
+			$duration = (microtime(true) - $start) * 1000;
 
-            if ($result['success']) {
-                self::clearCacheForTable($tableName);
-            }
+			if ($result['success']) {
+				self::clearCacheForTable($tableName);
+			}
 
-            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
-                'id'   => $result['lastId'],
-                'rows' => $result['count']
-            ], 'upsert', $tableName, $duration);
+			self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
+				'id'   => $result['lastId'],
+				'rows' => $result['count']
+			], 'upsert', $tableName, $duration);
 
-            // Si hay rows afectadas > 0 y lastId es 0 o null, fue una actualización -> retornar true
-            if ($result['count'] > 0 && empty($result['lastId'])) {
-                return true;
-            }
-            // Si hay lastId, fue una inserción -> retornar el ID
-            if (!empty($result['lastId'])) {
-                return $result['lastId'];
-            }
-            // Caso especial SQLite: count puede ser 0 en UPDATE, pero lastId también
-            // Verificar si realmente hubo cambio comparando con affected rows
-            return $result['count'] > 0 ? true : $result['lastId'];
-        } catch (Exception $e) {
-            $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $compiled->getSql(), $compiled->getParams(), 'upsert', $tableName, $duration);
-            return false;
-        }
-    }
-
+			// Si hay un ID generado (inserción), lo devolvemos; si no, true (actualización)
+			$lastId = $result['lastId'];
+			return ($lastId && $lastId !== '0') ? $lastId : true;
+		} catch (Exception $e) {
+			$duration = (microtime(true) - $start) * 1000;
+			self::logError($e, $compiled->getSql(), $compiled->getParams(), 'upsert', $tableName, $duration);
+			return false;
+		}
+	}
     // ========== Convenience methods ==========
 
     public static function exists(string $table, array $where): bool
