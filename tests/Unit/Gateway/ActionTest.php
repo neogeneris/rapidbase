@@ -13,6 +13,7 @@ require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Q.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/CompiledQuery.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/ConditionMatrix.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/ConditionParser.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/DeterministicJoin.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/JoinResolver.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/JoinStrategy.php';
