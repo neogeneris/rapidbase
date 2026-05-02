@@ -1,4 +1,16 @@
-# Test directories
-tests/*/Unit/*/JoinTest.php
-tests/Unit/Core/JoinTest.php
-tests/Unit/SQL/JoinTest.php
+```
+# Dependencies
+vendor/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Tests
+tests/
+```

@@ -9,7 +9,6 @@ require_once __DIR__ . '/SchemaMap.php';
 require_once __DIR__ . '/SQL/QType.php';
 require_once __DIR__ . '/SQL/JoinStrategy.php';
 require_once __DIR__ . '/SQL/DeterministicJoin.php';
-require_once __DIR__ . '/SQL/ConditionParser.php';
 require_once __DIR__ . '/SQL/ConditionMatrix.php';
 require_once __DIR__ . '/SQL/JoinResolver.php';
 require_once __DIR__ . '/SQL/SqlCompiler.php';
