@@ -1,30 +1,45 @@
 ```
 # Dependencies
 vendor/
-composer.lock
+composer/
 
-# Logs and temp files
-*.log
-*.tmp
+# Cache and temporary files
+tests/tmp/
+.cache/
 
 # Environment
 .env
 .env.local
 .env.*
 
-# IDE
+# Logs
+*.log
+
+# Editor/IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*.tmp
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py.class
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Tests
-tests/*/vendor/
-
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
 ```

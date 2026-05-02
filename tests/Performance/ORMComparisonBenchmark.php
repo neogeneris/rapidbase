@@ -481,6 +481,319 @@ class F3Adapter {
     }
 }
 
+class PDOAdapter {
+    private $pdo;
+    
+    public function __construct($pdo) {
+        $this->pdo = $pdo;
+    }
+
+    public function selectSimple($table, $columns = '*', $where = []) {
+        $condition = '';
+        $params = [];
+        
+        if (!empty($where)) {
+            $conditions = [];
+            foreach ($where as $key => $value) {
+                $conditions[] = "$key = ?";
+                $params[] = $value;
+            }
+            $condition = " WHERE " . implode(' AND ', $conditions);
+        }
+        
+        $stmt = $this->pdo->prepare("SELECT $columns FROM $table$condition");
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin2Tables() {
+        $stmt = $this->pdo->prepare("
+            SELECT posts.id, posts.title, users.name as author
+            FROM posts
+            JOIN users ON posts.user_id = users.id
+            LIMIT 100
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin3Tables() {
+        $stmt = $this->pdo->prepare("
+            SELECT posts.id, posts.title, users.name as author, categories.name as category
+            FROM posts
+            JOIN users ON posts.user_id = users.id
+            JOIN post_categories ON posts.id = post_categories.post_id
+            JOIN categories ON post_categories.category_id = categories.id
+            LIMIT 100
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin4Tables() {
+        $stmt = $this->pdo->prepare("
+            SELECT posts.id, posts.title, users.name as author, categories.name as category, comments.content as comment
+            FROM posts
+            JOIN users ON posts.user_id = users.id
+            JOIN post_categories ON posts.id = post_categories.post_id
+            JOIN categories ON post_categories.category_id = categories.id
+            JOIN comments ON posts.id = comments.post_id
+            LIMIT 100
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin5Tables() {
+        $stmt = $this->pdo->prepare("
+            SELECT posts.id, posts.title, users.name as author, categories.name as category, comments.content as comment, tags.name as tag
+            FROM posts
+            JOIN users ON posts.user_id = users.id
+            JOIN post_categories ON posts.id = post_categories.post_id
+            JOIN categories ON post_categories.category_id = categories.id
+            JOIN comments ON posts.id = comments.post_id
+            JOIN post_tags ON posts.id = post_tags.post_id
+            JOIN tags ON post_tags.tag_id = tags.id
+            LIMIT 100
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function insert($table, $data) {
+        $columns = implode(', ', array_keys($data));
+        $placeholders = implode(', ', array_fill(0, count($data), '?'));
+        $values = array_values($data);
+        
+        $stmt = $this->pdo->prepare("INSERT INTO $table ($columns) VALUES ($placeholders)");
+        $stmt->execute($values);
+        return $this->pdo->lastInsertId();
+    }
+
+    public function update($table, $data, $where) {
+        $set = [];
+        $params = [];
+        
+        foreach ($data as $key => $value) {
+            $set[] = "$key = ?";
+            $params[] = $value;
+        }
+        
+        foreach ($where as $key => $value) {
+            $conditions[] = "$key = ?";
+            $params[] = $value;
+        }
+        
+        $sql = "UPDATE $table SET " . implode(', ', $set) . " WHERE " . implode(' AND ', $conditions);
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
+    }
+
+    public function delete($table, $where) {
+        $conditions = [];
+        $params = [];
+        
+        foreach ($where as $key => $value) {
+            $conditions[] = "$key = ?";
+            $params[] = $value;
+        }
+        
+        $sql = "DELETE FROM $table WHERE " . implode(' AND ', $conditions);
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
+    }
+}
+
+class QNoCacheAdapter {
+    private $pdo;
+    private $connectionId = 'benchmark_nocache';
+
+    public function __construct($pdo) {
+        $this->pdo = $pdo;
+        
+        // Configurar Conn SIN schema_map (sin caché de relaciones)
+        \RapidBase\Core\Conn::setup('sqlite::memory:', '', '', $this->connectionId);
+        // Reemplazar la conexión creada con la que ya tenemos
+        $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
+        $poolProperty = $reflection->getProperty('pool');
+        $poolProperty->setAccessible(true);
+        $pool = $poolProperty->getValue();
+        $pool[$this->connectionId] = $pdo;
+        $poolProperty->setValue(null, $pool);
+        
+        $defaultProperty = $reflection->getProperty('default');
+        $defaultProperty->setAccessible(true);
+        if ($defaultProperty->getValue() === 'main' && !isset($pool['main'])) {
+            $defaultProperty->setValue(null, $this->connectionId);
+        }
+        
+        // NO cargar schema_map - esto es Q sin caché
+        
+        Q::setDriver('sqlite');
+    }
+
+    public function selectSimple($table, $columns = '*', $where = []) {
+        $query = Q::from($table, $where);
+        $result = $query->select($columns)->run();
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin2Tables() {
+        $query = Q::from(['posts', 'users'], ['posts.user_id' => 'users.id'])
+            ->select(['posts.id', 'posts.title', 'users.name as author']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin3Tables() {
+        $query = Q::from(['posts', 'users', 'post_categories', 'categories'], [
+            'posts.user_id' => 'users.id',
+            'posts.id' => 'post_categories.post_id',
+            'post_categories.category_id' => 'categories.id'
+        ])
+            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin4Tables() {
+        $query = Q::from(['posts', 'users', 'post_categories', 'categories', 'comments'], [
+            'posts.user_id' => 'users.id',
+            'posts.id' => 'post_categories.post_id',
+            'post_categories.category_id' => 'categories.id',
+            'posts.id' => 'comments.post_id'
+        ])
+            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin5Tables() {
+        $query = Q::from(['posts', 'users', 'post_categories', 'categories', 'comments', 'post_tags', 'tags'], [
+            'posts.user_id' => 'users.id',
+            'posts.id' => 'post_categories.post_id',
+            'post_categories.category_id' => 'categories.id',
+            'posts.id' => 'comments.post_id',
+            'posts.id' => 'post_tags.post_id',
+            'post_tags.tag_id' => 'tags.id'
+        ])
+            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment', 'tags.name as tag']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function insert($table, $data) {
+        return Q::into($table)->insert($data)->run();
+    }
+
+    public function update($table, $data, $where) {
+        $query = Q::from($table, $where);
+        return $query->update($data)->run();
+    }
+
+    public function delete($table, $where) {
+        $query = Q::from($table, $where);
+        return $query->delete()->run();
+    }
+}
+
+class QCacheAdapter {
+    private $pdo;
+    private $connectionId = 'benchmark_cache';
+
+    public function __construct($pdo) {
+        $this->pdo = $pdo;
+        
+        // Configurar Conn CON schema_map (con caché de relaciones)
+        \RapidBase\Core\Conn::setup('sqlite::memory:', '', '', $this->connectionId);
+        // Reemplazar la conexión creada con la que ya tenemos
+        $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
+        $poolProperty = $reflection->getProperty('pool');
+        $poolProperty->setAccessible(true);
+        $pool = $poolProperty->getValue();
+        $pool[$this->connectionId] = $pdo;
+        $poolProperty->setValue(null, $pool);
+        
+        $defaultProperty = $reflection->getProperty('default');
+        $defaultProperty->setAccessible(true);
+        if ($defaultProperty->getValue() === 'main' && !isset($pool['main'])) {
+            $defaultProperty->setValue(null, $this->connectionId);
+        }
+        
+        // Cargar schema_map.php generado - esto habilita la caché de relaciones
+        $schemaMapFile = __DIR__ . '/schema_map.php';
+        if (file_exists($schemaMapFile)) {
+            SchemaMap::loadFromFile($schemaMapFile, $this->connectionId);
+        }
+        
+        Q::setDriver('sqlite');
+    }
+
+    public function selectSimple($table, $columns = '*', $where = []) {
+        $query = Q::from($table, $where);
+        $result = $query->select($columns)->run();
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin2Tables() {
+        $query = Q::from(['posts', 'users'], ['posts.user_id' => 'users.id'])
+            ->select(['posts.id', 'posts.title', 'users.name as author']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin3Tables() {
+        $query = Q::from(['posts', 'users', 'post_categories', 'categories'], [
+            'posts.user_id' => 'users.id',
+            'posts.id' => 'post_categories.post_id',
+            'post_categories.category_id' => 'categories.id'
+        ])
+            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin4Tables() {
+        $query = Q::from(['posts', 'users', 'post_categories', 'categories', 'comments'], [
+            'posts.user_id' => 'users.id',
+            'posts.id' => 'post_categories.post_id',
+            'post_categories.category_id' => 'categories.id',
+            'posts.id' => 'comments.post_id'
+        ])
+            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function selectJoin5Tables() {
+        $query = Q::from(['posts', 'users', 'post_categories', 'categories', 'comments', 'post_tags', 'tags'], [
+            'posts.user_id' => 'users.id',
+            'posts.id' => 'post_categories.post_id',
+            'post_categories.category_id' => 'categories.id',
+            'posts.id' => 'comments.post_id',
+            'posts.id' => 'post_tags.post_id',
+            'post_tags.tag_id' => 'tags.id'
+        ])
+            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment', 'tags.name as tag']);
+        $result = $query->run(100);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function insert($table, $data) {
+        return Q::into($table)->insert($data)->run();
+    }
+
+    public function update($table, $data, $where) {
+        $query = Q::from($table, $where);
+        return $query->update($data)->run();
+    }
+
+    public function delete($table, $where) {
+        $query = Q::from($table, $where);
+        return $query->delete()->run();
+    }
+}
+
 class QAdapter {
     private $pdo;
     private $connectionId = 'benchmark';
@@ -758,7 +1071,7 @@ function formatResults($results) {
 // ============================================================================
 
 echo "ORM Performance Benchmark\n";
-echo "Comparing: Medoo, Pixie, F3 (DB), Q, Redbean\n";
+echo "Comparing: PDO, Medoo, Pixie, F3 (DB), Q (no cache), Q (cache), Redbean\n";
 echo str_repeat('=', 80) . "\n\n";
 
 // Crear PDO base
@@ -772,6 +1085,25 @@ seedTestData($basePdo, 100, 500, 20, 1000, 50);
 echo "Database ready with test data.\n\n";
 
 $results = [];
+
+// ----------------------------------------------------------------------------
+// PDO (Nativo)
+// ----------------------------------------------------------------------------
+echo "Running PDO benchmarks...\n";
+$pdoPdo = new PDO('sqlite::memory:');
+$pdoPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+createTestTables($pdoPdo);
+seedTestData($pdoPdo, 100, 500, 20, 1000, 50);
+$pdo = new PDOAdapter($pdoPdo);
+
+$results[] = ['orm' => 'PDO', 'test' => 'Select Simple', ...runBenchmark('PDO Select Simple', fn() => $pdo->selectSimple('users', '*', ['id' => 1]))];
+$results[] = ['orm' => 'PDO', 'test' => 'JOIN 2 Tables', ...runBenchmark('PDO JOIN 2', fn() => $pdo->selectJoin2Tables())];
+$results[] = ['orm' => 'PDO', 'test' => 'JOIN 3 Tables', ...runBenchmark('PDO JOIN 3', fn() => $pdo->selectJoin3Tables())];
+$results[] = ['orm' => 'PDO', 'test' => 'JOIN 4 Tables', ...runBenchmark('PDO JOIN 4', fn() => $pdo->selectJoin4Tables())];
+$results[] = ['orm' => 'PDO', 'test' => 'JOIN 5 Tables', ...runBenchmark('PDO JOIN 5', fn() => $pdo->selectJoin5Tables())];
+$results[] = ['orm' => 'PDO', 'test' => 'Insert', ...runBenchmark('PDO Insert', fn() => $pdo->insert('users', ['name' => 'Test User', 'email' => 'test@test.com']))];
+$results[] = ['orm' => 'PDO', 'test' => 'Update', ...runBenchmark('PDO Update', fn() => $pdo->update('users', ['name' => 'Updated'], ['id' => 1]))];
+$results[] = ['orm' => 'PDO', 'test' => 'Delete', ...runBenchmark('PDO Delete', fn() => $pdo->delete('users', ['id' => 1]))];
 
 // ----------------------------------------------------------------------------
 // MEDOO
@@ -831,7 +1163,45 @@ $results[] = ['orm' => 'F3', 'test' => 'Update', ...runBenchmark('F3 Update', fn
 $results[] = ['orm' => 'F3', 'test' => 'Delete', ...runBenchmark('F3 Delete', fn() => $f3->delete('users', ['id' => 1]))];
 
 // ----------------------------------------------------------------------------
-// Q (RapidBase)
+// Q NO CACHE (RapidBase sin schema_map)
+// ----------------------------------------------------------------------------
+echo "Running Q (No Cache) benchmarks...\n";
+$qNoCachePdo = new PDO('sqlite::memory:');
+$qNoCachePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+createTestTables($qNoCachePdo);
+seedTestData($qNoCachePdo, 100, 500, 20, 1000, 50);
+$qNoCache = new QNoCacheAdapter($qNoCachePdo);
+
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'Select Simple', ...runBenchmark('Q-NoCache Select Simple', fn() => $qNoCache->selectSimple('users', '*', ['id' => 1]))];
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'JOIN 2 Tables', ...runBenchmark('Q-NoCache JOIN 2', fn() => $qNoCache->selectJoin2Tables())];
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'JOIN 3 Tables', ...runBenchmark('Q-NoCache JOIN 3', fn() => $qNoCache->selectJoin3Tables())];
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'JOIN 4 Tables', ...runBenchmark('Q-NoCache JOIN 4', fn() => $qNoCache->selectJoin4Tables())];
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'JOIN 5 Tables', ...runBenchmark('Q-NoCache JOIN 5', fn() => $qNoCache->selectJoin5Tables())];
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'Insert', ...runBenchmark('Q-NoCache Insert', fn() => $qNoCache->insert('users', ['name' => 'Test User', 'email' => 'test@test.com']))];
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'Update', ...runBenchmark('Q-NoCache Update', fn() => $qNoCache->update('users', ['name' => 'Updated'], ['id' => 1]))];
+$results[] = ['orm' => 'Q-NoCache', 'test' => 'Delete', ...runBenchmark('Q-NoCache Delete', fn() => $qNoCache->delete('users', ['id' => 1]))];
+
+// ----------------------------------------------------------------------------
+// Q WITH CACHE (RapidBase con schema_map)
+// ----------------------------------------------------------------------------
+echo "Running Q (With Cache) benchmarks...\n";
+$qCachePdo = new PDO('sqlite::memory:');
+$qCachePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+createTestTables($qCachePdo);
+seedTestData($qCachePdo, 100, 500, 20, 1000, 50);
+$qCache = new QCacheAdapter($qCachePdo);
+
+$results[] = ['orm' => 'Q-Cache', 'test' => 'Select Simple', ...runBenchmark('Q-Cache Select Simple', fn() => $qCache->selectSimple('users', '*', ['id' => 1]))];
+$results[] = ['orm' => 'Q-Cache', 'test' => 'JOIN 2 Tables', ...runBenchmark('Q-Cache JOIN 2', fn() => $qCache->selectJoin2Tables())];
+$results[] = ['orm' => 'Q-Cache', 'test' => 'JOIN 3 Tables', ...runBenchmark('Q-Cache JOIN 3', fn() => $qCache->selectJoin3Tables())];
+$results[] = ['orm' => 'Q-Cache', 'test' => 'JOIN 4 Tables', ...runBenchmark('Q-Cache JOIN 4', fn() => $qCache->selectJoin4Tables())];
+$results[] = ['orm' => 'Q-Cache', 'test' => 'JOIN 5 Tables', ...runBenchmark('Q-Cache JOIN 5', fn() => $qCache->selectJoin5Tables())];
+$results[] = ['orm' => 'Q-Cache', 'test' => 'Insert', ...runBenchmark('Q-Cache Insert', fn() => $qCache->insert('users', ['name' => 'Test User', 'email' => 'test@test.com']))];
+$results[] = ['orm' => 'Q-Cache', 'test' => 'Update', ...runBenchmark('Q-Cache Update', fn() => $qCache->update('users', ['name' => 'Updated'], ['id' => 1]))];
+$results[] = ['orm' => 'Q-Cache', 'test' => 'Delete', ...runBenchmark('Q-Cache Delete', fn() => $qCache->delete('users', ['id' => 1]))];
+
+// ----------------------------------------------------------------------------
+// Q (RapidBase) - alias para backward compatibility
 // ----------------------------------------------------------------------------
 echo "Running Q benchmarks...\n";
 $qPdo = new PDO('sqlite::memory:');
