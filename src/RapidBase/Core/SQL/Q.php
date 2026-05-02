@@ -20,15 +20,23 @@ use RapidBase\Core\SchemaMap;
  *   Q::from('users', ['status' => 'active'])->count();
  *   Q::from('users', ['id' => 5])->exists();
  *   Q::from('(SELECT * FROM users WHERE active=1) AS u')->select('*');
+ *
+ *   // Nested subqueries
+ *   $sub = Q::from('users', ['active' => 1])->select('id, name');
+ *   $count = Q::from($sub)->count();
+ *
+ *   // INSERT SELECT
+ *   $source = Q::from('users', ['active' => 1])->select('id, name');
+ *   $insert = Q::into('active_users')->insertSelect($source, ['id', 'name']);
  */
 class Q
 {
-    // Internal state indices (numeric for speed)
-    private const T = 0; // Table (string or array)
-    private const F = 1; // Filter / Where conditions (array)
+    private const T = 0; // Table
+    private const F = 1; // Filter / Where
 
     private array $state;
     private string $connectionId;
+    private array $compiledParams = [];
 
     private function __construct(string $connectionId = 'default')
     {
@@ -39,52 +47,60 @@ class Q
         ];
     }
 
+    // ----- Entry points -----
+
     /**
-     * Starts a query (first link of the chain).
-     *
-     * @param string|array $table  Table name / array of tables / subquery string.
-     * @param array        $filter Initial WHERE conditions.
-     * @return self
+     * Starts a query from a table, array of tables, subquery string, or CompiledQuery.
      */
     public static function from($table, array $filter = []): self
     {
         $instance = new self();
-        $instance->state[self::T] = $table;
+
+        if ($table instanceof CompiledQuery) {
+            $instance->state[self::T] = (string) $table; // __toString returns (sql)
+            $instance->compiledParams = $table->getParams();
+        } else {
+            $instance->state[self::T] = $table;
+            $instance->compiledParams = [];
+        }
+
         $instance->state[self::F] = $filter;
         return $instance;
     }
 
-    // ========== Terminal methods (second link) ==========
-
     /**
-     * Compiles a SELECT query.
-     *
-     * @param string|array|null $fields     Columns to select (null = '*', or state from fields() removed).
-     * @param mixed             $pagination [offset, limit] array or int as limit.
-     * @param string|array      $sort       Ordering (prefix - for DESC).
-     * @param string|array|null $groupBy    GROUP BY columns.
-     * @param array             $having     HAVING conditions.
-     * @return array [sql, params, projectionMap]
+     * Starts an INSERT SELECT operation. `into` sets the target table.
+     * Use ->insertSelect() to complete the chain.
      */
+    public static function into(string $table): self
+    {
+        $instance = new self();
+        $instance->state[self::T] = $table;
+        // No filter
+        return $instance;
+    }
+
+    // ========== Terminal methods ==========
+
+    // --- Standard operations (unchanged except insertSelect) ---
+
     public function select(
         $fields = null,
         $pagination = null,
         $sort = [],
         $groupBy = null,
         array $having = []
-    ): array {
+    ): CompiledQuery {
         $base = $this->buildBaseState();
         $fromClause = $base['fromClause'];
         $tablesInfo = $base['tablesInfo'];
         $whereData  = ['sql' => $base['whereSql'], 'params' => $base['whereParams']];
 
-        // GROUP BY
         $groupSql = '';
         if ($groupBy) {
             $groupSql = is_array($groupBy) ? implode(', ', $groupBy) : $groupBy;
         }
 
-        // HAVING
         $havingData = empty($having)
             ? ['sql' => '', 'params' => []]
             : (new ConditionMatrix())->parse(
@@ -94,10 +110,8 @@ class Q
                 SchemaMap::getMap($this->connectionId)
               );
 
-        // ORDER BY
         $orderSql = $sort ? $this->buildOrderClause($sort) : '';
 
-        // LIMIT / OFFSET
         $limit = $pagination;
         $limitSql = '';
         $limitParams = [];
@@ -111,7 +125,6 @@ class Q
             }
         }
 
-        // Merge parameters in order: WHERE, HAVING, LIMIT
         $params = array_merge(
             $whereData['params'],
             $havingData['params'],
@@ -136,10 +149,10 @@ class Q
         $compiler = new SqlCompiler();
         [$sql, $params] = $compiler->compileSelect($compiledState);
 
-        return [$sql, $params, $projectionMap];
+        return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap);
     }
 
-    public function insert(array $rows): array
+    public function insert(array $rows): CompiledQuery
     {
         $this->ensureSingleTable();
         $compiler = new SqlCompiler();
@@ -147,10 +160,42 @@ class Q
             SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
             SqlCompiler::PARAMS => [],
         ];
-        return $compiler->compileInsert($compiledState, $rows);
+        [$sql, $params] = $compiler->compileInsert($compiledState, $rows);
+        return new CompiledQuery($sql, $params, CompiledQuery::INSERT);
     }
 
-    public function update(array $data): array
+    /**
+     * INSERT INTO ... SELECT ...
+     *
+     * @param CompiledQuery $source   The compiled SELECT query to use as source.
+     * @param string[]      $columns  Columns in the target table (if empty, inferred from source projection map).
+     * @return CompiledQuery
+     */
+    public function insertSelect(CompiledQuery $source, array $columns = []): CompiledQuery
+    {
+        $table = ConditionMatrix::quote($this->state[self::T]);
+
+        if (empty($columns)) {
+            $map = $source->getProjectionMap();
+            if (empty($map)) {
+                throw new \InvalidArgumentException(
+                    'Columns must be specified or the source CompiledQuery must have a projection map.'
+                );
+            }
+            // Extract column names from projection map keys (handles "table.column" vs "column")
+            $columns = array_map(function ($key) {
+                return strpos($key, '.') !== false ? substr($key, strrpos($key, '.') + 1) : $key;
+            }, array_keys($map));
+            $columns = array_unique($columns);
+        }
+
+        $colsSql = implode(', ', array_map([ConditionMatrix::class, 'quote'], $columns));
+        $sql = "INSERT INTO $table ($colsSql) " . $source->getSql();
+
+        return new CompiledQuery($sql, $source->getParams(), CompiledQuery::INSERT);
+    }
+
+    public function update(array $data): CompiledQuery
     {
         $this->ensureSingleTable();
         $whereData = $this->compileWhereSimple();
@@ -160,10 +205,11 @@ class Q
             SqlCompiler::PARAMS => $whereData['params'],
         ];
         $compiler = new SqlCompiler();
-        return $compiler->compileUpdate($compiledState, $data);
+        [$sql, $params] = $compiler->compileUpdate($compiledState, $data);
+        return new CompiledQuery($sql, $params, CompiledQuery::UPDATE);
     }
 
-    public function delete(): array
+    public function delete(): CompiledQuery
     {
         $this->ensureSingleTable();
         $whereData = $this->compileWhereSimple();
@@ -173,10 +219,11 @@ class Q
             SqlCompiler::PARAMS => $whereData['params'],
         ];
         $compiler = new SqlCompiler();
-        return $compiler->compileDelete($compiledState);
+        [$sql, $params] = $compiler->compileDelete($compiledState);
+        return new CompiledQuery($sql, $params, CompiledQuery::DELETE);
     }
 
-    public function count(): array
+    public function count(): CompiledQuery
     {
         $base = $this->buildBaseState();
         $fromClause = preg_replace('/^FROM\s+/i', '', $base['fromClause']);
@@ -186,10 +233,11 @@ class Q
             SqlCompiler::PARAMS => $base['whereParams'],
         ];
         $compiler = new SqlCompiler();
-        return $compiler->compileCount($compiledState);
+        [$sql, $params] = $compiler->compileCount($compiledState);
+        return new CompiledQuery($sql, $params, CompiledQuery::COUNT);
     }
 
-    public function exists(): array
+    public function exists(): CompiledQuery
     {
         $base = $this->buildBaseState();
         $fromClause = preg_replace('/^FROM\s+/i', '', $base['fromClause']);
@@ -199,7 +247,8 @@ class Q
             SqlCompiler::PARAMS => $base['whereParams'],
         ];
         $compiler = new SqlCompiler();
-        return $compiler->compileExists($compiledState);
+        [$sql, $params] = $compiler->compileExists($compiledState);
+        return new CompiledQuery($sql, $params, CompiledQuery::EXISTS);
     }
 
     // ========== Static helpers ==========
@@ -244,6 +293,8 @@ class Q
                 $defaultAlias,
                 SchemaMap::getMap($this->connectionId)
               );
+
+        $whereData['params'] = array_merge($this->compiledParams, $whereData['params']);
 
         return [
             'fromClause'   => $fromClause,
@@ -307,9 +358,11 @@ class Q
     private function compileWhereSimple(): array
     {
         if (empty($this->state[self::F])) {
-            return ['sql' => '1', 'params' => []];
+            return ['sql' => '1', 'params' => $this->compiledParams];
         }
-        return (new ConditionMatrix())->parse($this->state[self::F]);
+        $whereData = (new ConditionMatrix())->parse($this->state[self::F]);
+        $whereData['params'] = array_merge($this->compiledParams, $whereData['params']);
+        return $whereData;
     }
 
     private function buildOrderClause($order): string
@@ -349,13 +402,13 @@ class Q
             $parts = preg_split('/\s+AS\s+/i', trim($table));
             return trim($parts[0]);
         }
-        throw new \RuntimeException('INSERT, UPDATE, DELETE, COUNT and EXISTS require a single table.');
+        throw new \RuntimeException('INSERT, UPDATE, and DELETE require a single table.');
     }
 
     private function ensureSingleTable(): void
     {
         if (is_array($this->state[self::T])) {
-            throw new \RuntimeException('INSERT, UPDATE, DELETE, COUNT and EXISTS only support a single table.');
+            throw new \RuntimeException('INSERT, UPDATE, and DELETE, only support a single table.');
         }
     }
 }

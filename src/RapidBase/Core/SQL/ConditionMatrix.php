@@ -32,6 +32,26 @@ class ConditionMatrix
     }
 
     /**
+     * Fast, fully static quoting – no instance creation.
+     */
+    public static function quote(string $identifier): string
+    {
+        $q = self::$quoteChar;
+        $identifier = trim($identifier);
+
+        if ($identifier === '*' || str_starts_with($identifier, $q)) {
+            return $identifier;
+        }
+
+        $parts = explode('.', $identifier);
+        $quotedParts = array_map(function ($part) use ($q) {
+            return $part === '*' ? '*' : $q . trim($part, $q) . $q;
+        }, $parts);
+
+        return implode('.', $quotedParts);
+    }
+
+    /**
      * Parses a conditions array.
      *
      * @param array  $conditions   Associative (AND) or list of groups (OR).
@@ -79,7 +99,7 @@ class ConditionMatrix
                 $rawColumn = $this->qualifyColumnName($rawColumn, $context, $defaultAlias, $schemaTables);
             }
 
-            $safeColumn = $this->quoteIdentifier($rawColumn);
+            $safeColumn = self::quote($rawColumn);
 
             // 1. NULL -> IS NULL
             if ($value === null) {
@@ -160,26 +180,9 @@ class ConditionMatrix
         return $tablesSchema['tables'] ?? $tablesSchema;
     }
 
+    /** @deprecated Use self::quote() instead */
     public function quoteIdentifier(string $identifier): string
     {
-        $q = self::$quoteChar;
-        $identifier = trim($identifier);
-
-        if ($identifier === '*' || str_starts_with($identifier, $q)) {
-            return $identifier;
-        }
-
-        $parts = explode('.', $identifier);
-        $quotedParts = array_map(function ($part) use ($q) {
-            return $part === '*' ? '*' : $q . trim($part, $q) . $q;
-        }, $parts);
-
-        return implode('.', $quotedParts);
-    }
-
-    public static function quote(string $identifier): string
-    {
-        $instance = new self();
-        return $instance->quoteIdentifier($identifier);
+        return self::quote($identifier);
     }
 }

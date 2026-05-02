@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+
 require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php'; // <-- Línea añadida
 
 use RapidBase\Core\Conn;
