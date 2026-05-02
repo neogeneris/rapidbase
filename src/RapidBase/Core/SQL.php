@@ -13,6 +13,7 @@ require_once __DIR__ . '/SQL/ConditionParser.php';
 require_once __DIR__ . '/SQL/ConditionMatrix.php';
 require_once __DIR__ . '/SQL/JoinResolver.php';
 require_once __DIR__ . '/SQL/SqlCompiler.php';
+require_once __DIR__ . '/SQL/CompiledQuery.php';
 require_once __DIR__ . '/SQL/Q.php';
 
 use RapidBase\Core\SQL\Q;

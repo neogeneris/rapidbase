@@ -3,13 +3,22 @@
         'name' => 'rapidbase/rapidbase',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '28f559b74c955286e65ce39866ad329ed27d76e7',
+        'reference' => '1d8dc5a3fee0493bf6594e9e5afcbfadba24924e',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
+        'bcosca/fatfree-core' => array(
+            'pretty_version' => '3.9.2',
+            'version' => '3.9.2.0',
+            'reference' => '3ba261541e529d20b32615fe5f7b5740ea0951a3',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../bcosca/fatfree-core',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'gabordemooij/redbean' => array(
             'pretty_version' => 'v5.7.5',
             'version' => '5.7.5.0',
@@ -112,7 +121,7 @@
         'rapidbase/rapidbase' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '28f559b74c955286e65ce39866ad329ed27d76e7',
+            'reference' => '1d8dc5a3fee0493bf6594e9e5afcbfadba24924e',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
