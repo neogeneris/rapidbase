@@ -18,179 +18,70 @@ class DB implements DBInterface {
         $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
         ConditionMatrix::setDriver($driver);
 
-        // --- Carga automática del Schema Map ---
-        $schemaMapPath = __DIR__ . "/../../schema_map_{$name}.php"; // Ajusta esta ruta según tu estructura
+        $schemaMapPath = __DIR__ . "/../../schema_map_{$name}.php";
         if (file_exists($schemaMapPath)) {
             SchemaMap::loadFromFile($schemaMapPath, $name);
         } else {
-            // Generar desde la base de datos
             try {
                 \RapidBase\Meta\SchemaMapper::setOutputFile($schemaMapPath);
                 $dbName = Conn::getDatabaseName($name);
                 \RapidBase\Meta\SchemaMapper::generate($pdo, $dbName);
                 SchemaMap::loadFromFile($schemaMapPath, $name);
             } catch (\Exception $e) {
-                // Si falla, Q funcionará sin relaciones (solo consultas simples)
                 error_log("SchemaMap auto-generation failed: " . $e->getMessage());
             }
         }
     }
 
-    /**
-     * Obtiene la instancia de la conexión PDO actual.
-     * @return \PDO|null
-     */
-    public static function getConnection(): ?\PDO
-    {
-        return Conn::get();
-    }
+    public static function getConnection(): ?\PDO { return Conn::get(); }
+    public static function exec(string $sql, array $params = []): array { return Executor::action($sql, $params); }
+    public static function query(string $sql, array $params = []): \PDOStatement|false { return Executor::query($sql, $params); }
+    public static function status(): array { return Gateway::status(); }
+    public static function getLastError(): ?string { return self::status()['error'] ?? null; }
+    public static function getAffectedRows(): int { return self::status()['rows'] ?? 0; }
+    public static function lastInsertId(): string|int { return self::status()['id'] ?? 0; }
 
-    /**
-     * Ejecuta una sentencia SQL directa y devuelve el resultado de Executor::action.
-     * @param string $sql
-     * @param array $params
-     * @return array
-     */
-    public static function exec(string $sql, array $params = []): array {
-        return Executor::action($sql, $params);
-    }
-
-    /**
-     * Ejecuta una consulta SQL de lectura y retorna el PDOStatement.
-     * @param string $sql
-     * @param array $params
-     * @return \PDOStatement|false
-     */
-    public static function query(string $sql, array $params = []): \PDOStatement|false
-    {
-       return Executor::query($sql, $params);
-    }
-
-    // ========== ESTADO Y METADATOS ==========
-
-    /**
-     * Retorna el estado de la última operación.
-     * @return array
-     */
-    public static function status(): array {
-        return Gateway::status();
-    }
-
-    /**
-     * Retorna el último mensaje de error, si existe.
-     * @return string|null
-     */
-    public static function getLastError(): ?string {
-        return self::status()['error'] ?? null;
-    }
-
-    /**
-     * Retorna el número de filas afectadas por la última operación.
-     * @return int
-     */
-    public static function getAffectedRows(): int {
-        return self::status()['rows'] ?? 0;
-    }
-
-    /**
-     * Retorna el último ID insertado.
-     * @return string|int
-     */
-    public static function lastInsertId(): string|int {
-        return self::status()['id'] ?? 0;
-    }
-
-    /**
-     * Establece el mapa de relaciones (formato antiguo, mantenido por compatibilidad).
-     * @param array $map
-     */
-    public static function setRelationsMap(array $map): void
-    {
-        SchemaMap::setMap($map, 'main');
-    }
-
-    /**
-     * Carga un archivo de mapa y lo registra en SchemaMap.
-     * @param string $filePath
-     * @throws \InvalidArgumentException|\RuntimeException
-     */
-    public static function loadRelationsMap(string $filePath): void
-    {
-        if (!file_exists($filePath)) {
-            throw new \InvalidArgumentException("Relations map file not found: $filePath");
-        }
+    public static function setRelationsMap(array $map): void { SchemaMap::setMap($map, 'main'); }
+    public static function loadRelationsMap(string $filePath): void {
+        if (!file_exists($filePath)) { throw new \InvalidArgumentException("Relations map file not found: $filePath"); }
         $map = include $filePath;
-        if (!is_array($map) || !isset($map['relationships'])) {
-            throw new \RuntimeException("Invalid relations map format: missing 'relationships' key");
-        }
+        if (!is_array($map) || !isset($map['relationships'])) { throw new \RuntimeException("Invalid relations map format: missing 'relationships' key"); }
         SchemaMap::setMap($map, 'main');
     }
-
-    // ========== CONSULTAS EXPRESIVAS ==========
 
     public static function one(
-        string|array $table,
-        array $where,
-        string|array $fields = '*',
-        ?string $class = null,
-        bool $fail = false
-    ): array|object|null {
-        return Gateway::one($table, $where, $fields, $class, $fail);
-    }
+        string|array $table, array $where, string|array $fields = '*',
+        ?string $class = null, bool $fail = false
+    ): array|object|null { return Gateway::one($table, $where, $fields, $class, $fail); }
 
     public static function many(string $sql, array $params = []): array {
         $stmt = Executor::query($sql, $params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public static function value(string $sql, array $params = []): mixed
-    {
+    public static function value(string $sql, array $params = []): mixed {
         $stmt = self::query($sql, $params);
         return $stmt ? $stmt->fetchColumn() : null;
     }
 
-    // ========== ABSTRACCIÓN FLUIDA ==========
-
     public static function find(string $table, array $conditions): array|false {
         $result = Gateway::select('*', $table, $conditions, [],[],[], 1, 1, false);
-        $data = $result['data'] ?? [];
-        return $data[0] ?? false;
+        return $result['data'][0] ?? false;
     }
 
-    public static function count(string|array $table, array $conditions = []): int {
-        return Gateway::count($table, $conditions);
-    }
+    public static function count(string|array $table, array $conditions = []): int { return Gateway::count($table, $conditions); }
+    public static function exists(string $table, array $conditions): bool { return Gateway::exists($table, $conditions); }
+    public static function read(string|array $table, array $where = [], array $sort = []): array|false { return self::find($table, $where); }
 
-    public static function exists(string $table, array $conditions): bool {
-        return Gateway::exists($table, $conditions);
-    }
-
-    public static function read(string|array $table, array $where = [], array $sort = []): array|false
-    {
-        return self::find($table, $where);
-    }
-
-    public static function readAs(string $class, array $where, ?string $table = null): object|false
-    {
+    public static function readAs(string $class, array $where, ?string $table = null): object|false {
         if ($table === null) {
-            if (!method_exists($class, 'getTable')) {
-                throw new \InvalidArgumentException("La clase $class debe tener un método estático getTable() o proporcionar explícitamente el nombre de la tabla.");
-            }
+            if (!method_exists($class, 'getTable')) { throw new \InvalidArgumentException("La clase $class debe tener un método estático getTable()"); }
             $table = $class::getTable();
         }
-
         $row = Gateway::one($table, $where, '*', null, false);
-
-        if (!$row) {
-            return false;
-        }
-
+        if (!$row) return false;
         $object = new $class();
-        foreach ($row as $key => $value) {
-            if (property_exists($object, $key)) {
-                $object->$key = $value;
-            }
-        }
+        foreach ($row as $key => $value) { if (property_exists($object, $key)) $object->$key = $value; }
         return $object;
     }
 
@@ -214,18 +105,13 @@ class DB implements DBInterface {
         return $res['success'];
     }
 
-    public static function upsert(string $table, array $data, array $identifier): int|string|bool
+    /**
+     * UPSERT atómico (INSERT ON CONFLICT / ON DUPLICATE KEY UPDATE)
+     */
+    public static function upsert(string $table, array $data, array $conflictColumns = []): int|string|bool
     {
-        if (Gateway::exists($table, $identifier)) {
-            $res = Gateway::action('update', $table, $data, $identifier);
-            return $res['success'] ? true : false;
-        }
-        $fullData = array_merge($data, $identifier);
-        $res = Gateway::action('insert', $table, $fullData);
-        return $res['lastId'] ?? false;
+        return Gateway::upsert($table, $data, $conflictColumns);
     }
-
-    // ========== GRID / CACHÉ ==========
 
     public static function fetch(string $sql, array $params = []): array {
         $stmt = self::query($sql, $params);
@@ -238,57 +124,33 @@ class DB implements DBInterface {
     }
 
     public static function list(
-        string|array $table,
-        array $where = [],
-        array $sort = [],
-        mixed $page = 0
+        string|array $table, array $where = [], array $sort = [], mixed $page = 0
     ): array {
         $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page);
-
         $data = $res['data'] ?? [];
         if (empty($data)) return [];
-
-        $sample = $data[0];
-        $columns = array_keys($sample);
-
-        if (count($columns) >= 2) {
-            return array_column($data, $columns[1], $columns[0]);
-        }
+        $columns = array_keys($data[0]);
+        if (count($columns) >= 2) return array_column($data, $columns[1], $columns[0]);
         return array_column($data, $columns[0]);
     }
 
     public static function grid(
-        string|array|object $table,
-        array $conditions = [],
-        mixed $page = 0,
-        mixed $sort = [],
-        ?string $class = null
+        string|array|object $table, array $conditions = [], mixed $page = 0,
+        mixed $sort = [], ?string $class = null
     ): QueryResponse {
         $actualPage = $page;
-
         $fetchMode = match($class) {
-            null => \PDO::FETCH_NUM,
-            'StdClass' => \PDO::FETCH_OBJ,
-            default => \PDO::FETCH_CLASS,
+            null => \PDO::FETCH_NUM, 'StdClass' => \PDO::FETCH_OBJ, default => \PDO::FETCH_CLASS,
         };
 
-        $res = Gateway::selectCached(
-            '*',
-            $table,
-            $conditions,
-            [], [],
+        $res = Gateway::selectCached('*', $table, $conditions, [], [],
             is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []),
-            $actualPage,
-            true,
-            3600,
-            $fetchMode,
+            $actualPage, true, 3600, $fetchMode,
             $class !== null && $class !== 'StdClass' ? $class : null
         );
 
         $tableName = is_array($table) ? key($table) : $table;
-
         $columns = SchemaMap::getColumns($tableName, 'main');
-
         $columnNames = [];
         $columnTitles = [];
 
@@ -308,10 +170,8 @@ class DB implements DBInterface {
                         }
                     }
                 }
-                ksort($columnNames);
-                ksort($columnTitles);
-                $columnNames = array_values($columnNames);
-                $columnTitles = array_values($columnTitles);
+                ksort($columnNames); $columnNames = array_values($columnNames);
+                ksort($columnTitles); $columnTitles = array_values($columnTitles);
             } elseif (!empty($res['data'])) {
                 $firstRow = $res['data'][0];
                 if (is_array($firstRow)) {
@@ -334,40 +194,23 @@ class DB implements DBInterface {
                 'projection_map' => $res['projectionMap'] ?? [],
                 'execution_time' => $res['metadata']['execution_time'] ?? 0,
                 'sort_status' => $res['metadata']['sort_status'] ?? null,
-                'cache_info' => [
-                    'used' => $res['source'] === 'cache',
-                    'type' => $res['source'] === 'cache' ? 'L2' : null,
-                ]
+                'cache_info' => ['used' => $res['source'] === 'cache', 'type' => $res['source'] === 'cache' ? 'L2' : null]
             ],
             state: [
-                'page'     => $res['page'],
-                'per_page' => $res['limit'],
-                'last_page' => $lastPage,
-                'offset'   => ($res['page'] - 1) * $res['limit'],
-                'source'   => $res['source']
+                'page' => $res['page'], 'per_page' => $res['limit'],
+                'last_page' => $lastPage, 'offset' => ($res['page'] - 1) * $res['limit'],
+                'source' => $res['source']
             ]
         );
     }
 
-    private static function formatTitle(string $name): string {
-        $title = str_replace('_', ' ', $name);
-        return ucwords($title);
-    }
-
-    // ========== STREAMING / TRANSACCIONES ==========
+    private static function formatTitle(string $name): string { return ucwords(str_replace('_', ' ', $name)); }
 
     public static function stream(string $sql, array $params = []): Generator {
         $stmt = Executor::query($sql, $params);
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            yield $row;
-        }
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) yield $row;
     }
 
-    public static function transaction(callable $callback): mixed {
-        return Executor::transaction($callback);
-    }
-
-    public static function raw(string $value): string {
-        return $value;
-    }
+    public static function transaction(callable $callback): mixed { return Executor::transaction($callback); }
+    public static function raw(string $value): string { return $value; }
 }

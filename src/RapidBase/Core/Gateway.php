@@ -10,9 +10,6 @@ use RapidBase\Core\SQL\CompiledQuery;
 
 /**
  * Class Gateway - Control and dispatch point of the Framework.
- *
- * Uses the Q fluent builder and CompiledQuery for intelligent execution.
- * Centralizes caching, logging, and events.
  */
 class Gateway
 {
@@ -22,11 +19,6 @@ class Gateway
 
     // ========== Core SELECT ==========
 
-    /**
-     * Executes a SELECT query with optional JOINs, grouping, sorting and pagination.
-     *
-     * @return array Keys: data, total, page, limit, source, timestamp, projectionMap.
-     */
     public static function select(
         mixed $fields   = '*',
         mixed $table    = '',
@@ -41,7 +33,6 @@ class Gateway
     ): array {
         $tableName = self::tableNameFromMixed($table);
 
-        // Pagination normalization
         $pagination = null;
         $returnedPage = 0;
         $returnedLimit = 0;
@@ -61,7 +52,6 @@ class Gateway
             }
         }
 
-        // Build SELECT query
         $query = Q::from($table, $where ?? []);
         if (!empty($groupBy)) {
             $query->groupBy($groupBy);
@@ -71,7 +61,6 @@ class Gateway
         }
         $compiled = $query->select($fields, $pagination, $sort);
 
-        // Separate total count if requested
         $total = 0;
         if ($withTotal) {
             $total = Q::from($table, $where ?? [])->count()->run();
@@ -79,8 +68,7 @@ class Gateway
 
         $start = microtime(true);
         try {
-            // CORRECCIÓN: primer argumento null para usar la conexión por defecto
-            $data = $compiled->run(null, $fetchMode, $class);
+            $data = $compiled->run($fetchMode, $class);
             $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [], 'select', $tableName, $duration);
 
@@ -102,9 +90,6 @@ class Gateway
         }
     }
 
-    /**
-     * Cached SELECT.
-     */
     public static function selectCached(
         mixed $fields   = '*',
         mixed $table    = '',
@@ -144,15 +129,8 @@ class Gateway
         return $result;
     }
 
-    // ========== Actions (INSERT, UPDATE, DELETE) ==========
+    // ========== Actions ==========
 
-    /**
-     * Executes a write action and invalidates cache.
-     *
-     * @param string $type 'insert', 'update', 'delete'
-     * @param mixed ...$args Variable arguments depending on type.
-     * @return array Original Executor::action() result.
-     */
     public static function action(string $type, ...$args): array
     {
         $table = $args[0] ?? 'unknown';
@@ -185,8 +163,6 @@ class Gateway
 
         $start = microtime(true);
         try {
-            // run() returns lastId or affected rows depending on type,
-            // but we need the full Executor::action() array for backward compatibility
             $res = \RapidBase\Core\Executor::action($compiled->getSql(), $compiled->getParams());
             $duration = (microtime(true) - $start) * 1000;
 
@@ -207,33 +183,44 @@ class Gateway
         }
     }
 
-    /**
-     * Batch insert.
-     */
-    public static function batch(string $table, array $data): bool
-    {
-        $tableName = self::tableNameFromMixed($table);
-        $compiled = Q::from($table)->insert($data);
+    // ========== UPSERT ==========
 
+    /**
+     * UPSERT universal (INSERT ON CONFLICT / ON DUPLICATE KEY UPDATE)
+     *
+     * @param string $table           Target table
+     * @param array  $data            Column => value to insert/update
+     * @param array  $conflictColumns Columns that define the conflict (PK / unique)
+     * @return int                    Affected rows
+     */
+    public static function upsert(string $table, array $data, array $conflictColumns = []): int
+    {
         $start = microtime(true);
+        $tableName = self::tableNameFromMixed($table);
+        $compiled = Q::into($table)->upsert($data, $conflictColumns);
+
         try {
-            $res = \RapidBase\Core\Executor::action($compiled->getSql(), $compiled->getParams());
+            $result = \RapidBase\Core\Executor::action($compiled->getSql(), $compiled->getParams());
             $duration = (microtime(true) - $start) * 1000;
 
-            if ($res['success']) {
+            if ($result['success']) {
                 self::clearCacheForTable($tableName);
             }
 
-            self::logStatus(true, $compiled->getSql() . " [BATCH]", $compiled->getParams(), null, ['count' => $res['count'] ?? 0], 'batch', $tableName, $duration);
-            return true;
+            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
+                'id'   => $result['lastId'],
+                'rows' => $result['count']
+            ], 'upsert', $tableName, $duration);
+
+            return $result['count'];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $compiled->getSql(), $compiled->getParams(), 'batch', $tableName, $duration);
-            return false;
+            self::logError($e, $compiled->getSql(), $compiled->getParams(), 'upsert', $tableName, $duration);
+            return 0;
         }
     }
 
-    // ========== Convenience methods (using run() directly) ==========
+    // ========== Convenience methods ==========
 
     public static function exists(string $table, array $where): bool
     {
@@ -242,7 +229,7 @@ class Gateway
         $compiled = Q::from($table, $where)->exists();
 
         try {
-            $exists = $compiled->run(); // returns bool
+            $exists = $compiled->run();
             $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, ['rows' => $exists ? 1 : 0], 'exists', $tableName, $duration);
             return $exists;
@@ -291,7 +278,7 @@ class Gateway
         $compiled = Q::from($table, $where)->count();
 
         try {
-            $count = $compiled->run(); // returns int
+            $count = $compiled->run();
             $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, ['rows' => $count], 'count', $tableName, $duration);
             return $count;
