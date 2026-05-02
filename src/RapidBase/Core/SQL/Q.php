@@ -11,23 +11,7 @@ use RapidBase\Core\SchemaMap;
  *
  * Maximum performance through a two-link chain:
  *   Q::from(...)  →  terminal method (select, insert, update, delete, count, exists)
- *
- * Usage:
- *   Q::from('users', ['status' => 'active'])->select('*', Q::page(1,20), ['-created_at']);
- *   Q::from('users')->insert(['name' => 'Ana', 'email' => 'ana@test.com']);
- *   Q::from('users', ['id' => 5])->update(['name' => 'John']);
- *   Q::from('users', ['id' => 5])->delete();
- *   Q::from('users', ['status' => 'active'])->count();
- *   Q::from('users', ['id' => 5])->exists();
- *   Q::from('(SELECT * FROM users WHERE active=1) AS u')->select('*');
- *
- *   // Nested subqueries
- *   $sub = Q::from('users', ['active' => 1])->select('id, name');
- *   $count = Q::from($sub)->count();
- *
- *   // INSERT SELECT
- *   $source = Q::from('users', ['active' => 1])->select('id, name');
- *   $insert = Q::into('active_users')->insertSelect($source, ['id', 'name']);
+ *   Q::into(...)  →  terminal method (insert, upsert, insertFrom)
  */
 class Q
 {
@@ -46,8 +30,6 @@ class Q
             self::F => [],
         ];
     }
-
-    // ----- Entry points -----
 
     /**
      * Starts a query from a table, array of tables, subquery string, or CompiledQuery.
@@ -69,21 +51,28 @@ class Q
     }
 
     /**
-     * Starts an INSERT SELECT operation. `into` sets the target table.
-     * Use ->insertSelect() to complete the chain.
+     * Starts an INSERT, UPSERT or INSERT SELECT operation.
      */
     public static function into(string $table): self
     {
         $instance = new self();
         $instance->state[self::T] = $table;
-        // No filter
+        // no filter
         return $instance;
     }
 
     // ========== Terminal methods ==========
 
-    // --- Standard operations (unchanged except insertSelect) ---
-
+    /**
+     * Compiles a SELECT query.
+     *
+     * @param string|array|null $fields     Columns to select.
+     * @param mixed             $pagination [offset, limit] array or int as limit.
+     * @param string|array      $sort       Ordering (prefix - for DESC).
+     * @param string|array|null $groupBy    GROUP BY columns.
+     * @param array             $having     HAVING conditions.
+     * @return CompiledQuery
+     */
     public function select(
         $fields = null,
         $pagination = null,
@@ -146,30 +135,31 @@ class Q
 
         $projectionMap = $this->buildProjectionMap($selectFields, $tablesInfo);
 
+        // Extraer nombres reales de tablas para futura inferencia de relaciones
+        $sourceTables = [];
+        foreach ($tablesInfo as $info) {
+            if (!empty($info['real']) && is_string($info['real']) && !str_starts_with($info['real'], '(')) {
+                $sourceTables[] = $info['real'];
+            }
+        }
+
         $compiler = new SqlCompiler();
         [$sql, $params] = $compiler->compileSelect($compiledState);
 
-        return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap);
-    }
-
-    public function insert(array $rows): CompiledQuery
-    {
-        $this->ensureSingleTable();
-        $compiler = new SqlCompiler();
-        $compiledState = [
-            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
-            SqlCompiler::PARAMS => [],
-        ];
-        [$sql, $params] = $compiler->compileInsert($compiledState, $rows);
-        return new CompiledQuery($sql, $params, CompiledQuery::INSERT);
+        return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap, $sourceTables);
     }
 
     /**
      * INSERT INTO ... SELECT ...
-     *
-     * @param CompiledQuery $source   The compiled SELECT query to use as source.
-     * @param string[]      $columns  Columns in the target table (if empty, inferred from source projection map).
-     * @return CompiledQuery
+     * Renamed to insertFrom for semantic clarity.
+     */
+    public function insertFrom(CompiledQuery $source, array $columns = []): CompiledQuery
+    {
+        return $this->insertSelect($source, $columns);
+    }
+
+    /**
+     * INSERT INTO ... SELECT ... (alias)
      */
     public function insertSelect(CompiledQuery $source, array $columns = []): CompiledQuery
     {
@@ -182,9 +172,10 @@ class Q
                     'Columns must be specified or the source CompiledQuery must have a projection map.'
                 );
             }
-            // Extract column names from projection map keys (handles "table.column" vs "column")
             $columns = array_map(function ($key) {
-                return strpos($key, '.') !== false ? substr($key, strrpos($key, '.') + 1) : $key;
+                return strpos($key, '.') !== false
+                    ? substr($key, strrpos($key, '.') + 1)
+                    : $key;
             }, array_keys($map));
             $columns = array_unique($columns);
         }
@@ -193,6 +184,136 @@ class Q
         $sql = "INSERT INTO $table ($colsSql) " . $source->getSql();
 
         return new CompiledQuery($sql, $source->getParams(), CompiledQuery::INSERT);
+    }
+
+    /**
+     * UPDATE ... FROM (SELECT ...) – uses source CompiledQuery.
+     *
+     * @param CompiledQuery $source        The compiled SELECT providing the data.
+     * @param array         $data          [column => value] pairs to update in the target table.
+     * @param string|null   $joinCondition Optional custom join condition (e.g., 'ON target.user_id = source.id').
+     *                                     If omitted, it will be auto‑inferred from the relationship map.
+     * @return CompiledQuery
+     */
+    public function updateFrom(CompiledQuery $source, array $data, ?string $joinCondition = null): CompiledQuery
+    {
+        $targetTable = ConditionMatrix::quote($this->state[self::T]);
+        $driver = ConditionMatrix::getDriver();
+
+        // Resolve join condition automatically if not provided
+        if ($joinCondition === null) {
+            $sourceTables = $source->getSourceTables();
+            $joinCondition = $this->inferJoinCondition($targetTable, $sourceTables);
+        }
+
+        // Build SET clause
+        $setParts = [];
+        $setParams = [];
+        foreach ($data as $col => $val) {
+            $setParts[] = ConditionMatrix::quote($col) . ' = ?';
+            $setParams[] = $val;
+        }
+        $setSql = implode(', ', $setParts);
+
+        // Merge parameters: SET params first, then source params
+        $params = array_merge($setParams, $source->getParams());
+
+        $sourceSql = $source->getSql();
+        // In SQLite/PostgreSQL we can put the subquery directly in FROM
+        // In MySQL we need a JOIN
+        if ($driver === 'mysql') {
+            // For MySQL we need to join on the source
+            $sql = "UPDATE $targetTable INNER JOIN ($sourceSql) AS _src $joinCondition SET $setSql";
+        } else {
+            // PostgreSQL / SQLite: use FROM + WHERE
+            $sql = "UPDATE $targetTable SET $setSql FROM ($sourceSql) AS _src WHERE $joinCondition";
+        }
+
+        return new CompiledQuery($sql, $params, CompiledQuery::UPDATE);
+    }
+
+    /**
+     * UPSERT – INSERT ON CONFLICT / ON DUPLICATE KEY UPDATE
+     */
+    public function upsert(array $data, array $conflictColumns = []): CompiledQuery
+    {
+        $table = ConditionMatrix::quote($this->state[self::T]);
+        $columns = array_keys($data);
+        $quotedCols = array_map([ConditionMatrix::class, 'quote'], $columns);
+
+        $params = [];
+        $placeholders = [];
+        foreach ($columns as $col) {
+            $placeholders[] = '?';
+            $params[] = $data[$col];
+        }
+
+        $driver = ConditionMatrix::getDriver();
+
+        switch ($driver) {
+            case 'mysql':
+                $insert = sprintf(
+                    'INSERT INTO %s (%s) VALUES (%s)',
+                    $table,
+                    implode(', ', $quotedCols),
+                    implode(', ', $placeholders)
+                );
+                $updates = [];
+                foreach ($columns as $col) {
+                    if (!in_array($col, $conflictColumns, true)) {
+                        $qcol = ConditionMatrix::quote($col);
+                        $updates[] = "$qcol = VALUES($qcol)";
+                    }
+                }
+                $sql = !empty($updates)
+                    ? $insert . ' ON DUPLICATE KEY UPDATE ' . implode(', ', $updates)
+                    : str_replace('INSERT INTO', 'INSERT IGNORE INTO', $insert);
+                break;
+
+            case 'sqlite':
+            case 'pgsql':
+            default:
+                $conflictCols = array_map(
+                    [ConditionMatrix::class, 'quote'],
+                    $conflictColumns
+                );
+                $conflictStr = implode(', ', $conflictCols);
+                $insert = sprintf(
+                    'INSERT INTO %s (%s) VALUES (%s)',
+                    $table,
+                    implode(', ', $quotedCols),
+                    implode(', ', $placeholders)
+                );
+                if (!empty($conflictColumns)) {
+                    $updates = [];
+                    foreach ($columns as $col) {
+                        if (!in_array($col, $conflictColumns, true)) {
+                            $qcol = ConditionMatrix::quote($col);
+                            $updates[] = "$qcol = excluded.$qcol";
+                        }
+                    }
+                    $sql = !empty($updates)
+                        ? $insert . ' ON CONFLICT (' . $conflictStr . ') DO UPDATE SET ' . implode(', ', $updates)
+                        : $insert . ' ON CONFLICT (' . $conflictStr . ') DO NOTHING';
+                } else {
+                    $sql = $insert;
+                }
+                break;
+        }
+
+        return new CompiledQuery($sql, $params, CompiledQuery::INSERT);
+    }
+
+    public function insert(array $rows): CompiledQuery
+    {
+        $this->ensureSingleTable();
+        $compiler = new SqlCompiler();
+        $compiledState = [
+            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::PARAMS => [],
+        ];
+        [$sql, $params] = $compiler->compileInsert($compiledState, $rows);
+        return new CompiledQuery($sql, $params, CompiledQuery::INSERT);
     }
 
     public function update(array $data): CompiledQuery
@@ -410,5 +531,69 @@ class Q
         if (is_array($this->state[self::T])) {
             throw new \RuntimeException('INSERT, UPDATE, and DELETE, only support a single table.');
         }
+    }
+
+    /**
+     * Tries to infer join condition between a target table and a list of source tables
+     * using the relationship map.
+     *
+     * @param string   $targetTable  Name of the target table (without quotes)
+     * @param string[] $sourceTables Real table names used in the source SELECT
+     * @return string                e.g. "target.user_id = _src.id"
+     * @throws \RuntimeException If no relationship can be inferred.
+     */
+    private function inferJoinCondition(string $targetTable, array $sourceTables): string
+    {
+        $map = SchemaMap::getMap($this->connectionId);
+        $fromRels = $map['relationships']['from'] ?? [];
+        $toRels   = $map['relationships']['to']   ?? [];
+
+        // Search a relation between target and any source table
+        foreach ($sourceTables as $sourceTable) {
+            // Check target -> source
+            if (isset($fromRels[$targetTable][$sourceTable])) {
+                $rel = $fromRels[$targetTable][$sourceTable];
+                return sprintf(
+                    '%s.%s = _src.%s',
+                    ConditionMatrix::quote($targetTable),
+                    ConditionMatrix::quote($rel['local_key']),
+                    ConditionMatrix::quote($rel['foreign_key'])
+                );
+            }
+            // Check source -> target (inverse)
+            if (isset($fromRels[$sourceTable][$targetTable])) {
+                $rel = $fromRels[$sourceTable][$targetTable];
+                return sprintf(
+                    '%s.%s = _src.%s',
+                    ConditionMatrix::quote($targetTable),
+                    ConditionMatrix::quote($rel['foreign_key']),
+                    ConditionMatrix::quote($rel['local_key'])
+                );
+            }
+            // Check 'to' relations as well
+            if (isset($toRels[$targetTable][$sourceTable])) {
+                $rel = $toRels[$targetTable][$sourceTable];
+                return sprintf(
+                    '%s.%s = _src.%s',
+                    ConditionMatrix::quote($targetTable),
+                    ConditionMatrix::quote($rel['local_key']),
+                    ConditionMatrix::quote($rel['foreign_key'])
+                );
+            }
+            if (isset($toRels[$sourceTable][$targetTable])) {
+                $rel = $toRels[$sourceTable][$targetTable];
+                return sprintf(
+                    '%s.%s = _src.%s',
+                    ConditionMatrix::quote($targetTable),
+                    ConditionMatrix::quote($rel['foreign_key']),
+                    ConditionMatrix::quote($rel['local_key'])
+                );
+            }
+        }
+
+        throw new \RuntimeException(
+            "Could not infer join condition between '$targetTable' and any of the source tables: "
+            . implode(', ', $sourceTables) . '. Please provide it explicitly.'
+        );
     }
 }

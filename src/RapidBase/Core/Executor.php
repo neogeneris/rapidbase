@@ -5,17 +5,23 @@ namespace RapidBase\Core;
 /**
  * Clase Executor - Ejecutor atómico de sentencias SQL.
  * Centraliza la ejecución, el manejo de errores y las transacciones.
+ *
+ * Ahora todos los métodos aceptan un parámetro opcional $connectionName
+ * para seleccionar la conexión deseada del pool de Conn.
  */
-class Executor {
-
+class Executor
+{
     /**
      * Ejecuta una sentencia SELECT y retorna el PDOStatement.
-     * @param string $sql
-     * @param array $params
+     *
+     * @param string      $sql
+     * @param array       $params
+     * @param string|null $connectionName Nombre de conexión en Conn (null = default)
      * @return \PDOStatement
      */
-    public static function query(string $sql, array $params = []): \PDOStatement {
-        $pdo = Conn::get();
+    public static function query(string $sql, array $params = [], ?string $connectionName = null): \PDOStatement
+    {
+        $pdo = Conn::get($connectionName);
         try {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
@@ -27,9 +33,15 @@ class Executor {
 
     /**
      * Ejecuta sentencias de escritura (INSERT, UPDATE, DELETE).
+     *
+     * @param string      $sql
+     * @param array       $params
+     * @param string|null $connectionName
+     * @return array
      */
-    public static function action(string $sql, array $params = []): array {
-        $pdo = Conn::get();
+    public static function action(string $sql, array $params = [], ?string $connectionName = null): array
+    {
+        $pdo = Conn::get($connectionName);
         try {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
@@ -47,9 +59,9 @@ class Executor {
     /**
      * Crea un Generador (Cursor) para iterar resultados masivos sin agotar la RAM.
      */
-    public static function stream(string $sql, array $params = []): \Generator {
-        $stmt = self::query($sql, $params);
-        
+    public static function stream(string $sql, array $params = [], ?string $connectionName = null): \Generator
+    {
+        $stmt = self::query($sql, $params, $connectionName);
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
             yield $row;
         }
@@ -58,8 +70,9 @@ class Executor {
     /**
      * Ejecuta una serie de operaciones dentro de una transacción atómica.
      */
-    public static function transaction(callable $callback): mixed {
-        $pdo = Conn::get();
+    public static function transaction(callable $callback, ?string $connectionName = null): mixed
+    {
+        $pdo = Conn::get($connectionName);
         try {
             $pdo->beginTransaction();
             $result = $callback($pdo);
@@ -76,8 +89,9 @@ class Executor {
     /**
      * Ejecuta la misma sentencia SQL para múltiples conjuntos de parámetros.
      */
-    public static function batch(string $sql, array $params_list): int {
-        $pdo = Conn::get();
+    public static function batch(string $sql, array $params_list, ?string $connectionName = null): int
+    {
+        $pdo = Conn::get($connectionName);
         $totalAffected = 0;
         try {
             $pdo->beginTransaction();
