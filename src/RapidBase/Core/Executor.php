@@ -4,13 +4,6 @@ namespace RapidBase\Core;
 
 use RapidBase\Core\SQL\CompiledQuery;
 
-/**
- * Class Executor - Atomic SQL statement executor.
- * Centralizes execution, error handling and transactions.
- *
- * Now features an intelligent execute() method that acts based on the
- * CompiledQuery type, and accepts an optional connection name.
- */
 class Executor
 {
     /**
@@ -23,8 +16,7 @@ class Executor
      * @return mixed   - SELECT: array of rows (associative if projection map present, or per fetch mode)
      *                 - COUNT: int
      *                 - EXISTS: bool
-     *                 - INSERT: string|int (last insert ID)
-     *                 - UPDATE/DELETE: int (affected rows)
+     *                 - INSERT/UPDATE/DELETE/UPSERT: array [success, lastId, count, action]
      */
     public static function execute(
         CompiledQuery $cq,
@@ -82,30 +74,34 @@ class Executor
                 $stmt = self::query($cq->getSql(), $cq->getParams(), $connectionName);
                 return (bool) $stmt->fetchColumn();
 
+            // ── Todas las escrituras retornan el array completo con 'action' ──
             case CompiledQuery::INSERT:
                 $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
-                return $result['lastId'] ?? false;
+                $result['action'] = 'insert';
+                return $result;
 
             case CompiledQuery::UPDATE:
+                $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
+                $result['action'] = 'update';
+                return $result;
+
             case CompiledQuery::DELETE:
                 $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
-                return $result['count'] ?? 0;
+                $result['action'] = 'delete';
+                return $result;
+
+            case CompiledQuery::UPSERT:
+                $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
+                $result['action'] = 'upsert';
+                return $result;
 
             default:
                 throw new \RuntimeException("Unknown compiled query type: {$cq->getType()}");
         }
     }
 
-    // ========== Legacy methods (string $sql, array $params) ==========
+    // ========== Legacy methods ==========
 
-    /**
-     * Executes a SELECT statement and returns the PDOStatement.
-     *
-     * @param string      $sql
-     * @param array       $params
-     * @param string|null $connectionName
-     * @return \PDOStatement
-     */
     public static function query(string $sql, array $params = [], ?string $connectionName = null): \PDOStatement
     {
         $pdo = Conn::get($connectionName);
@@ -118,14 +114,6 @@ class Executor
         }
     }
 
-    /**
-     * Executes write statements (INSERT, UPDATE, DELETE).
-     *
-     * @param string      $sql
-     * @param array       $params
-     * @param string|null $connectionName
-     * @return array
-     */
     public static function action(string $sql, array $params = [], ?string $connectionName = null): array
     {
         $pdo = Conn::get($connectionName);
@@ -143,9 +131,6 @@ class Executor
         }
     }
 
-    /**
-     * Creates a Generator (Cursor) for iterating massive results without RAM exhaustion.
-     */
     public static function stream(string $sql, array $params = [], ?string $connectionName = null): \Generator
     {
         $stmt = self::query($sql, $params, $connectionName);
@@ -154,9 +139,6 @@ class Executor
         }
     }
 
-    /**
-     * Executes a series of operations inside an atomic transaction.
-     */
     public static function transaction(callable $callback, ?string $connectionName = null): mixed
     {
         $pdo = Conn::get($connectionName);
@@ -173,9 +155,6 @@ class Executor
         }
     }
 
-    /**
-     * Executes the same SQL statement for multiple parameter sets.
-     */
     public static function batch(string $sql, array $params_list, ?string $connectionName = null): int
     {
         $pdo = Conn::get($connectionName);

@@ -53,7 +53,13 @@ class Gateway
         }
 
         $query = Q::from($table, $where ?? []);
-        $compiled = $query->select($fields, $pagination, $sort, !empty($groupBy) ? $groupBy : null, $having);
+        if (!empty($groupBy)) {
+            $query->groupBy($groupBy);
+        }
+        if (!empty($having)) {
+            $query->having($having);
+        }
+        $compiled = $query->select($fields, $pagination, $sort, $groupBy, $having);
 
         $total = 0;
         if ($withTotal) {
@@ -123,8 +129,15 @@ class Gateway
         return $result;
     }
 
-    // ========== Actions ==========
+    // ========== Unified write action ==========
 
+    /**
+     * Executes a write action using Q and returns the unified result array.
+     *
+     * @param string $type 'insert', 'update', 'delete', 'upsert'
+     * @param mixed ...$args Variable arguments depending on type.
+     * @return array [success => bool, lastId => int|string, count => int, action => string]
+     */
     public static function action(string $type, ...$args): array
     {
         $table = $args[0] ?? 'unknown';
@@ -157,19 +170,19 @@ class Gateway
 
         $start = microtime(true);
         try {
-            $res = \RapidBase\Core\Executor::action($compiled->getSql(), $compiled->getParams());
+            $result = $compiled->run();   // ya devuelve [success, lastId, count, action]
             $duration = (microtime(true) - $start) * 1000;
 
-            if ($res['success']) {
+            if ($result['success']) {
                 self::clearCacheForTable($tableName);
             }
 
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
-                'id'   => $res['lastId'],
-                'rows' => $res['count'],
+                'id'   => $result['lastId'],
+                'rows' => $result['count'],
             ], $type, $tableName, $duration);
 
-            return $res;
+            return $result;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
             self::logError($e, $compiled->getSql(), $compiled->getParams(), $type, $tableName, $duration);
@@ -177,45 +190,59 @@ class Gateway
         }
     }
 
-    // ========== UPSERT ==========
-
     /**
-     * UPSERT universal (INSERT ON CONFLICT / ON DUPLICATE KEY UPDATE)
-     *
-     * @param string $table           Target table
-     * @param array  $data            Column => value to insert/update
-     * @param array  $conflictColumns Columns that define the conflict (PK / unique)
-     * @return int                    Affected rows
+     * UPSERT universal. Returns the unified result array.
      */
-    public static function upsert(string $table, array $data, array $conflictColumns = []): int|bool
-	{
-		$start = microtime(true);
-		$tableName = self::tableNameFromMixed($table);
-		$compiled = Q::into($table)->upsert($data, $conflictColumns);
+    public static function upsert(string $table, array $data, array $conflictColumns = []): array
+    {
+        $start = microtime(true);
+        $tableName = self::tableNameFromMixed($table);
+        $compiled = Q::into($table)->upsert($data, $conflictColumns);
 
-		try {
-			$result = \RapidBase\Core\Executor::action($compiled->getSql(), $compiled->getParams());
-			$duration = (microtime(true) - $start) * 1000;
+        try {
+            $result = $compiled->run();   // [success, lastId, count, action]
+            $duration = (microtime(true) - $start) * 1000;
 
-			if ($result['success']) {
-				self::clearCacheForTable($tableName);
-			}
+            if ($result['success']) {
+                self::clearCacheForTable($tableName);
+            }
 
-			self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
-				'id'   => $result['lastId'],
-				'rows' => $result['count']
-			], 'upsert', $tableName, $duration);
+            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
+                'id'   => $result['lastId'],
+                'rows' => $result['count'],
+            ], 'upsert', $tableName, $duration);
 
-			// Si hay un ID generado (inserción), lo devolvemos; si no, true (actualización)
-			$lastId = $result['lastId'];
-			return ($lastId && $lastId !== '0') ? $lastId : true;
-		} catch (Exception $e) {
-			$duration = (microtime(true) - $start) * 1000;
-			self::logError($e, $compiled->getSql(), $compiled->getParams(), 'upsert', $tableName, $duration);
-			return false;
-		}
-	}
-    // ========== Convenience methods ==========
+            return $result;
+        } catch (Exception $e) {
+            $duration = (microtime(true) - $start) * 1000;
+            self::logError($e, $compiled->getSql(), $compiled->getParams(), 'upsert', $tableName, $duration);
+            return [
+                'success' => false,
+                'lastId'  => null,
+                'count'   => 0,
+                'action'  => 'upsert',
+            ];
+        }
+    }
+
+    // ========== Convenience methods (return unified array) ==========
+
+    public static function insert(string $table, array $data): array
+    {
+        return self::action('insert', $table, $data);
+    }
+
+    public static function update(string $table, array $data, array $where = []): array
+    {
+        return self::action('update', $table, $data, $where);
+    }
+
+    public static function delete(string $table, array $where = []): array
+    {
+        return self::action('delete', $table, $where);
+    }
+
+    // ========== Readers (unchanged) ==========
 
     public static function exists(string $table, array $where): bool
     {
@@ -282,24 +309,6 @@ class Gateway
             self::logError($e, $compiled->getSql(), $compiled->getParams(), 'count', $tableName, $duration);
             return 0;
         }
-    }
-
-    public static function insert(string $table, array $data)
-    {
-        $result = self::action('insert', $table, $data);
-        return $result['success'] ? $result['lastId'] : false;
-    }
-
-    public static function update(string $table, array $data, array $where = []): int
-    {
-        $result = self::action('update', $table, $data, $where);
-        return $result['count'];
-    }
-
-    public static function delete(string $table, array $where = []): int
-    {
-        $result = self::action('delete', $table, $where);
-        return $result['count'];
     }
 
     public static function status(): array

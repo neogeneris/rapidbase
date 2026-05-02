@@ -112,7 +112,7 @@ class DB implements DBInterface {
         }
         $row = Gateway::one($table, $where, '*', null, false);
         if (!$row) return false;
-        $row = self::normalizeRow($row);   // <── NUEVO
+        $row = self::normalizeRow($row);
         $object = new $class();
         foreach ($row as $key => $value) {
             if (property_exists($object, $key)) {
@@ -143,7 +143,7 @@ class DB implements DBInterface {
         return $res['success'];
     }
 
-    public static function upsert(string $table, array $data, array $conflictColumns = []): int|string|bool {
+    public static function upsert(string $table, array $data, array $conflictColumns = []): array {
         return Gateway::upsert($table, $data, $conflictColumns);
     }
 
@@ -155,7 +155,7 @@ class DB implements DBInterface {
 
     public static function all(string|array $table, array $conditions = [], array $sort = []): array {
         $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort,1,5000);
-        return array_map([self::class, 'normalizeRow'], $res['data']);   // <── NUEVO
+        return array_map([self::class, 'normalizeRow'], $res['data']);
     }
 
     public static function list(

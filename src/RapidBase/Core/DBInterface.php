@@ -232,7 +232,7 @@ interface DBInterface {
      * @param array $identifier
      * @return int|string|bool
      */
-    public static function upsert(string $table, array $data, array $identifier): int|string|bool;
+   public static function upsert(string $table, array $data, array $conflictColumns = []): array;
 
     // ========== RESULTADOS ESTRUCTURADOS Y GRID ==========
     
