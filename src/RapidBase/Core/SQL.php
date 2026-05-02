@@ -189,7 +189,9 @@ class SQL
         $fieldsStr = is_array($fields) ? implode(', ', $fields) : (string)$fields;
         
         try {
-            return Q::from($table, $config)->select($fieldsStr);
+            $compiled = Q::from($table, $config)->select($fieldsStr);
+            // Convertir CompiledQuery a formato legacy [sql, params]
+            return [$compiled->getSql(), $compiled->getParams()];
         } catch (\Exception $e) {
             // Fallback a implementación básica si hay error
             return self::buildSelectLegacy($fields, $table, $where, $groupBy, $having, $sort, $page);
@@ -417,22 +419,108 @@ class SQL
         $params = [];
         $index = 0;
         
-        foreach ($where as $col => $val) {
-            if ($sql !== '') $sql .= ' AND ';
-            
-            // Manejar alias de tabla (ej: u.id)
-            if (strpos($col, '.') !== false) {
-                $parts = explode('.', $col, 2);
-                $sql .= '`' . $parts[0] . '`.`' . $parts[1] . '` = :p' . $index;
-            } else {
-                $sql .= '`' . $col . '` = :p' . $index;
+        // Detectar si es notación matricial para OR (array de arrays)
+        $isOrNotation = false;
+        foreach ($where as $key => $value) {
+            if (is_int($key) && is_array($value)) {
+                $isOrNotation = true;
+                break;
             }
-            
-            $params['p' . $index] = $val;
-            $index++;
+        }
+        
+        if ($isOrNotation) {
+            // Manejar notación OR: [['status' => 'active'], ['role' => 'admin']]
+            $groups = [];
+            foreach ($where as $group) {
+                if (!is_array($group) || empty($group)) {
+                    $groups[] = '(1)';
+                    continue;
+                }
+                $groupSql = '';
+                foreach ($group as $col => $val) {
+                    if ($groupSql !== '') $groupSql .= ' AND ';
+                    $groupSql .= self::buildCondition($col, $val, $index, $params);
+                }
+                $groups[] = '(' . $groupSql . ')';
+            }
+            $sql = implode(' OR ', $groups);
+        } else {
+            // Manejo tradicional AND
+            foreach ($where as $col => $val) {
+                if ($sql !== '') $sql .= ' AND ';
+                $sql .= self::buildCondition($col, $val, $index, $params);
+            }
         }
         
         return ['sql' => $sql, 'params' => $params];
+    }
+    
+    private static function buildCondition($col, $val, int &$index, array &$params): string
+    {
+        // Manejar alias de tabla (ej: u.id)
+        $colStr = '';
+        if (strpos($col, '.') !== false) {
+            $parts = explode('.', $col, 2);
+            $colStr = '`' . $parts[0] . '`.`' . $parts[1] . '`';
+        } else {
+            $colStr = '`' . $col . '`';
+        }
+        
+        // Manejar operadores: ['>' => 18], ['<' => 100], ['!=' => 'x'], etc.
+        if (is_array($val)) {
+            $firstKey = key($val);
+            // Si la primera clave es un operador
+            if (in_array($firstKey, ['>', '<', '>=', '<=', '!=', '<>', '=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN'])) {
+                $operator = $firstKey;
+                $value = $val[$firstKey];
+                
+                // Manejar NULL
+                if ($value === null) {
+                    if ($operator === '=') {
+                        return "$colStr IS NULL";
+                    } elseif ($operator === '!=' || $operator === '<>') {
+                        return "$colStr IS NOT NULL";
+                    }
+                }
+                
+                // Manejar IN
+                if ($operator === 'IN' || $operator === 'NOT IN') {
+                    if (!is_array($value)) {
+                        $value = [$value];
+                    }
+                    $placeholders = [];
+                    foreach ($value as $v) {
+                        $placeholders[] = ':p' . $index;
+                        $params['p' . $index] = $v;
+                        $index++;
+                    }
+                    return "$colStr $operator (" . implode(', ', $placeholders) . ")";
+                }
+                
+                $params['p' . $index] = $value;
+                return "$colStr $operator :p" . $index++;
+            }
+            
+            // Manejar lista IN implícita: [1, 2, 3]
+            if (is_numeric($firstKey)) {
+                $placeholders = [];
+                foreach ($val as $v) {
+                    $placeholders[] = ':p' . $index;
+                    $params['p' . $index] = $v;
+                    $index++;
+                }
+                return "$colStr IN (" . implode(', ', $placeholders) . ")";
+            }
+        }
+        
+        // Manejar NULL
+        if ($val === null) {
+            return "$colStr IS NULL";
+        }
+        
+        // Igualdad por defecto
+        $params['p' . $index] = $val;
+        return "$colStr = :p" . $index++;
     }
 
     public static function buildOrderBy(array $sortFields): string
