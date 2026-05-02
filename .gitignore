@@ -59,3 +59,7 @@ coverage/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+
+tests/tmp/cache/
+tests/data/test_benchmark.sqlite
