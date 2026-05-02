@@ -47,6 +47,21 @@ class Executor
                 // FETCH_NUM + projection map conversion
                 $rows = $stmt->fetchAll(\PDO::FETCH_NUM);
                 $map = $cq->getProjectionMap();
+                
+                // Si no hay mapa de proyección, intentar construirlo desde los metadatos de columnas
+                if (empty($map) && !empty($rows)) {
+                    $map = [];
+                    $columnCount = $stmt->columnCount();
+                    for ($i = 0; $i < $columnCount; $i++) {
+                        $meta = $stmt->getColumnMeta($i);
+                        if ($meta !== false && isset($meta['name'])) {
+                            $map[$meta['name']] = $i;
+                        } else {
+                            $map["col_$i"] = $i;
+                        }
+                    }
+                }
+                
                 if (empty($map)) {
                     return $rows;
                 }

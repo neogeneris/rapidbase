@@ -434,10 +434,12 @@ class Q
                     }
                     self::$starProjectionCache[$realTable] = $map;
                 } else {
-                    self::$starProjectionCache[$realTable] = [];
+                    // Fallback: schema not available, will use PDO FETCH_ASSOC directly
+                    // Return empty map to signal Executor to use fetchAll(FETCH_ASSOC)
+                    self::$starProjectionCache[$realTable] = null;
                 }
             }
-            return self::$starProjectionCache[$realTable];
+            return self::$starProjectionCache[$realTable] ?? [];
         }
 
         if (is_array($fields)) {
