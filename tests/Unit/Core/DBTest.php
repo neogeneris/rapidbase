@@ -12,6 +12,7 @@ require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/Adapters/DirectoryCacheAdapter.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
 
 use RapidBase\Core\DB;

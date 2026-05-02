@@ -1,11 +1,29 @@
 ```
-# PHP-specific ignores
-*.php~
-*.php.bak
-*.php.swp
+# Cache directories
+tests/tmp/
+
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
 # Dependencies
-vendor/
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
 
 # Logs and temp files
 *.log
@@ -20,10 +38,8 @@ vendor/
 # Editors
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
 
-# OS generated files
+# System files
 .DS_Store
 Thumbs.db
 ```
