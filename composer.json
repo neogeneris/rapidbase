@@ -16,6 +16,7 @@
         }
     ],
     "require": {
-        "gabordemooij/redbean": "^5.7"
+        "gabordemooij/redbean": "^5.7",
+        "bcosca/fatfree-core": "^3.9"
     }
 }
