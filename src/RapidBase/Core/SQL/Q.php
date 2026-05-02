@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RapidBase\Core\SQL;
 
 use RapidBase\Core\SchemaMap;
+use RapidBase\Core\SQL\CompiledQuery;
 
 /**
  * Q - Fluent SQL query builder (strict B->F pattern).
