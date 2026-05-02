@@ -1,66 +1,42 @@
-```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-*.class
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
 # Dependencies
-node_modules/
-venv/
-.venv/
+vendor/
+
+# Logs
+*.log
+
+# Environment
 .env
 .env.local
 .env.*
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# IDE
+.vscode/
+.idea/
 
-# Flask stuff:
-instance/
-.webassets-cache
+# OS
+.DS_Store
+Thumbs.db
 
-# Scrapy stuff:
-.scrapy
+# Tests
+.phpunit.result.cache
 
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# Coverage
+# Build artifacts
+dist/
+build/
 coverage/
-htmlcov/
-.coverage
+*.phar
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# Cache
+.cache/
+.cargo/
+.target/
 
-# Rope project settings
-.ropeproject
+# Temporary files
+*.tmp
+*.swp
+*~
 
-# Compressed files
+# Compression
 *.zip
 *.gz
 *.tar
@@ -83,4 +59,3 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```
