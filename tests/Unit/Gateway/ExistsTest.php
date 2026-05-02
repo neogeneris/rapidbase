@@ -30,7 +30,7 @@ function assert_exists($name, $assertion, $details = "") {
 }
 
 // 2. SETUP: SQLite en Memoria
-$tempDb = tempnam(sys_get_temp_dir(), 'rapidbase_exists_') . '.sqlite';
+echo $tempDb = tempnam(sys_get_temp_dir(), 'rapidbase_exists_') . '.sqlite';
 Conn::setup("sqlite:$tempDb", "", "", "main");
 $pdo = Conn::get();
 $pdo->exec("PRAGMA busy_timeout = 5000");
@@ -74,9 +74,14 @@ assert_exists(
 
 // --- TEST 4: Verificación de parámetros (Named Params) ---
 $status = Gateway::status();
+
+// Debug temporal - descomenta para ver la estructura
+var_dump($status['params']);
+echo "Keys: " . json_encode(array_keys($status['params'])) . "\n";
+
 assert_exists(
     "Integridad de parámetros en exists()", 
-    isset($status['params']['p0']) && $status['params']['p0'] === 'ferrari'
+    isset($status['params'][0]) && $status['params'][0] === 'ferrari'
 );
 
 // echo "\n\033[32m[SUCCESS]\033[0m Gateway::exists funciona correctamente con la infraestructura actual.\n";

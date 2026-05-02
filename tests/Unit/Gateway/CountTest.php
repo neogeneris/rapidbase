@@ -64,9 +64,10 @@ $ghosts = Gateway::count('leads', ['status' => 'rejected']);
 assert_count("Conteo de registros inexistentes", $ghosts === 0, "Se esperaba 0, se obtuvo $ghosts");
 
 // --- TEST 4: Verificación de Parámetros en Gateway::status ---
-// Esto confirma que Gateway realmente pasó ':p0' al Executor
+// Esto confirma que Gateway realmente pasó los parámetros al Executor
 $status = Gateway::status();
-$hasParam = isset($status['params']['p0']) && $status['params']['p0'] === 'rejected';
+// Now params are indexed arrays, not named parameters
+$hasParam = isset($status['params'][0]) && $status['params'][0] === 'rejected';
 assert_count("Integridad de parámetros en el despacho", $hasParam, "Los parámetros no llegaron correctamente al estado del Gateway");
 
 echo "\n\033[32m[SUCCESS]\033[0m Gateway::count está despachando y retornando valores correctamente.\n";

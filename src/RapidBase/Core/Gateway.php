@@ -6,70 +6,87 @@ use \Exception;
 use \PDO;
 use \PDOStatement;
 use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\SQL\Q;
 
 /**
- * Clase Gateway - El punto de control y despacho del Framework.
- * Une la Fundación (SQL), el Pool (Conn), el Obrero (Executor) y el Almacén (Cache).
- * 
- * Soporta consultas con JOINs automáticos pasando un array de tablas en $table,
- * por ejemplo: ['drivers', 'users'].
- * Para que los JOINs se construyan correctamente, se debe cargar previamente el
- * mapa de relaciones mediante DB::loadRelationsMap() o SQL::setRelationsMap().
+ * Class Gateway - Control and dispatch point of the Framework.
+ *
+ * Now uses the Q fluent builder instead of the old SQL class.
+ * Supports automatic JOINs by passing an array of tables.
  */
-class Gateway {
-
-    /** @var array Rastro de la última operación */
+class Gateway
+{
     private static array $lastStatus = [];
-    
-    // ========== OPTIMIZACIÓN: Cachear existencia de clases ==========
-    // Evita llamar a class_exists() repetidamente en cada llamada
+
     private static ?bool $hasEvents = null;
     private static ?bool $hasCacheService = null;
-    private static ?bool $hasSQL = null;
-    
-	private static function setStatus(string $sql, array $params, int $rows = 0, $id = null, ?string $error = null): void {
-        self::$lastStatus = [
-            'sql'    => $sql,
-            'params' => $params,
-            'rows'   => $rows,
-            'id'     => $id,
-            'error'  => $error
-        ];
-    }
+
+    // ========== CORE: Pure DB Query ==========
+
     /**
-     * CAPA 1 (Núcleo): Consulta Pura a la DB.
-     * Soporta diferentes modos de fetch e instanciación de clases.
+     * Executes a SELECT query with optional JOINs, grouping, sorting and pagination.
      *
-     * @param mixed $fields Columnas a seleccionar (string o array).
-     * @param mixed $table Nombre de la tabla (string) o array de tablas para JOIN.
-     * @param array $where Condiciones.
-     * @param array $sort Ordenamiento [columna => ASC|DESC].
-     * @param mixed $page Número de página (0 = sin límite, n = página n, [n, m] = página n con m registros).
-     * @param bool $withTotal Si es true, incluye el total de registros (sin paginación).
-     * @param int $fetchMode Modo de fetch PDO (default: PDO::FETCH_ASSOC).
-     * @param string|null $class Nombre de la clase para instanciar (solo si $fetchMode = PDO::FETCH_CLASS).
-     * @return array Con claves: data, total, page, limit, source, timestamp, projectionMap.
+     * @param mixed $fields    Columns to select (string or array).
+     * @param mixed $table     Table name (string) or array of tables for automatic JOINs.
+     * @param array $where     Conditions.
+     * @param array $groupBy   GROUP BY columns.
+     * @param array $having    HAVING conditions.
+     * @param array $sort      Ordering (array or string, prefix '-' for DESC).
+     * @param mixed $page      Page number: 0 = no limit, int = page, [page, perPage].
+     * @param bool  $withTotal If true, adds a total count (without pagination).
+     * @param int   $fetchMode PDO fetch mode.
+     * @param string|null $class Class name for FETCH_CLASS.
+     * @return array Keys: data, total, page, limit, source, timestamp, projectionMap.
      */
     public static function select(
-        mixed $fields   = '*', 
-        mixed $table    = '', 
+        mixed $fields   = '*',
+        mixed $table    = '',
         array $where    = [],
         array $groupBy  = [],
-        array $having   = [],      
-        array $sort     = [], 
-        mixed $page     = 1, 
+        array $having   = [],
+        array $sort     = [],
+        mixed $page     = 1,
         bool $withTotal = false,
-        int $fetchMode = \PDO::FETCH_ASSOC,
-        ?string $class = null
+        int $fetchMode  = \PDO::FETCH_ASSOC,
+        ?string $class  = null
     ): array {
-        
-        // Construir SQL de datos
-        [$sql, $params] = SQL::buildSelect($fields, $table, $where, $groupBy, $having, $sort, $page);
+        $tableName = self::tableNameFromMixed($table);
 
+        // Convert pagination to Q format [offset, limit]
+        $pagination = null;
+        $returnedPage = 0;
+        $returnedLimit = 0;
+        if ($page !== 0 && $page !== null) {
+            if (is_array($page)) {
+                $p = max(1, (int)$page[0]);
+                $perPage = (int)($page[1] ?? 10);
+                $pagination = Q::page($p, $perPage);
+                $returnedPage = $p;
+                $returnedLimit = $perPage;
+            } else {
+                $p = max(1, (int)$page);
+                $perPage = 10;
+                $pagination = Q::page($p, $perPage);
+                $returnedPage = $p;
+                $returnedLimit = $perPage;
+            }
+        }
+
+        // Build SELECT query using Q
+        $query = Q::from($table, $where ?? []);
+        if (!empty($groupBy)) {
+            $query->groupBy($groupBy);
+        }
+        if (!empty($having)) {
+            $query->having($having);
+        }
+        [$sql, $params, $projectionMap] = $query->select($fields, $pagination, $sort);
+
+        // Separate total count if requested
         $total = 0;
         if ($withTotal) {
-            // Consulta de conteo (sin LIMIT/OFFSET)
-            [$countSql, $countParams] = SQL::buildSelect('COUNT(*) as total', $table, $where);
+            $countQuery = Q::from($table, $where ?? []);
+            [$countSql, $countParams] = $countQuery->count();
             $countStmt = Executor::query($countSql, $countParams);
             $total = (int) $countStmt->fetchColumn();
         }
@@ -77,74 +94,57 @@ class Gateway {
         $start = microtime(true);
         try {
             $stmt = Executor::query($sql, $params);
-            
-            // Aplicar modo de fetch según corresponda
+
             if ($fetchMode === \PDO::FETCH_CLASS && $class !== null) {
                 $data = $stmt->fetchAll($fetchMode, $class);
             } else {
                 $data = $stmt->fetchAll($fetchMode);
             }
-            
-            // Obtener mapa de proyección solo si es FETCH_NUM
-            $projectionMap = ($fetchMode === \PDO::FETCH_NUM) ? SQL::getLastProjectionMap() : [];
-            
-            $duration = (microtime(true) - $start) * 1000; // milisegundos
-            
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
+
+            $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $sql, $params, null, [], 'select', $tableName, $duration);
 
-            // Extraer información de paginación real
-            $pageInfo = SQL::getLastPaginationInfo();
-            $returnedPage = $pageInfo['page'] ?? ($page === 0 ? 0 : (is_array($page) ? $page[0] : $page));
-            $returnedLimit = $pageInfo['limit'] ?? ($page === 0 ? 0 : (is_array($page) && isset($page[1]) ? $page[1] : 10));
-
             return [
-                'data'           => $data,
-                'total'          => $withTotal ? $total : count($data),
-                'page'           => $returnedPage,
-                'limit'          => $returnedLimit,
-                'source'         => 'database',
-                'timestamp'      => microtime(true),
-                'projectionMap'  => $projectionMap,
-                'fetchMode'      => $fetchMode,
-                'class'          => $class
+                'data'          => $data,
+                'total'         => $withTotal ? $total : count($data),
+                'page'          => $returnedPage,
+                'limit'         => $returnedLimit,
+                'source'        => 'database',
+                'timestamp'     => microtime(true),
+                'projectionMap' => $projectionMap,
+                'fetchMode'     => $fetchMode,
+                'class'         => $class
             ];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logError($e, $sql, $params, 'select', $tableName, $duration);
             throw $e;
         }
     }
 
     /**
-     * CAPA 2 (Caché): Consulta con persistencia en L1/L2.
-     * Ahora soporta agrupamiento dinámico para reportes y listas.
+     * Cached SELECT. L1/L2 cache with automatic invalidation.
      */
     public static function selectCached(
-        mixed $fields   = '*', 
-        mixed $table    = '', 
-        array $where    = [], 
-        array $groupBy  = [], 
+        mixed $fields   = '*',
+        mixed $table    = '',
+        array $where    = [],
+        array $groupBy  = [],
         array $having   = [],
-        array $sort     = [], 
-        mixed $page     = 1, 
+        array $sort     = [],
+        mixed $page     = 1,
         bool $withTotal = false,
         int $ttl        = 3600,
-        int $fetchMode = \PDO::FETCH_ASSOC,
-        ?string $class = null
+        int $fetchMode  = \PDO::FETCH_ASSOC,
+        ?string $class  = null
     ): array {
-        
-        $tableName = is_array($table) ? implode('_', $table) : (string)$table;
-        
-        // CRÍTICO: Incluir $fetchMode y $class en el hash para evitar colisiones de caché
+        $tableName = self::tableNameFromMixed($table);
+
         $queryData = [$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class];
         $jsonEncoded = json_encode($queryData);
-        // Usar XXH128 si está disponible (PHP 8.1+), sino fallback a MD5
-        $queryHash = function_exists('xxh128') ? xxh128($jsonEncoded) : md5($jsonEncoded);
+        $queryHash = function_exists('xxh128') ? xxh128($jsonEncoded) : crc32($jsonEncoded);
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
-        // Intentar recuperar de caché
         if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
             $cached = CacheService::get($cacheKey);
             if ($cached !== null) {
@@ -155,352 +155,264 @@ class Gateway {
             }
         }
 
-        // Si no está en caché, llamamos a select() pasando los nuevos parámetros
         $result = self::select($fields, $table, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class);
-        
-        // Guardar en caché (incluso si está vacío, para evitar consultas repetidas sin resultados)
+
         if ($result && (self::$hasCacheService ?? true)) {
             CacheService::set($cacheKey, $result, $ttl);
         }
-        
+
         return $result;
     }
+
+    // ========== ACTIONS: INSERT, UPDATE, DELETE ==========
+
     /**
-     * ACCIÓN: Ejecuta INSERT, UPDATE o DELETE e invalida la caché de la tabla afectada.
+     * Executes INSERT, UPDATE, DELETE and invalidates cache for the affected table.
      *
      * @param string $type 'insert', 'update', 'delete'
-     * @param mixed ...$args Argumentos variables según el tipo.
-     * @return array Resultado con claves 'success', 'lastId', 'count'.
-     * @throws Exception
+     * @param mixed ...$args Variable arguments depending on type.
+     * @return array with 'success', 'lastId', 'count'.
      */
-    public static function action(string $type, ...$args): array {
-        $method = 'build' . ucfirst(strtolower($type));
-        
-        if (!method_exists(SQL::class, $method)) {
-            throw new Exception("El método de construcción [$method] no existe en la clase SQL.");
-        }
-
-        // Extraer nombre de la tabla (primer argumento)
+    public static function action(string $type, ...$args): array
+    {
         $table = $args[0] ?? 'unknown';
+        $tableName = self::tableNameFromMixed($table);
 
-        [$sql, $params] = SQL::$method(...$args);
+        // Build the query using Q
+        $query = Q::from($table);
+        switch ($type) {
+            case 'insert':
+                [$sql, $params] = $query->insert($args[1] ?? []);
+                break;
+            case 'update':
+                $where = $args[2] ?? [];
+                if (empty($where)) {
+                    throw new \RuntimeException("PELIGRO: Update masivo no permitido. Debes especificar condiciones WHERE.");
+                }
+                $query = Q::from($table, $where);
+                [$sql, $params] = $query->update($args[1] ?? []);
+                break;
+            case 'delete':
+                $where = $args[1] ?? [];
+                if (empty($where)) {
+                    throw new \RuntimeException("PELIGRO: Delete masivo no permitido. Debes especificar condiciones WHERE.");
+                }
+                $query = Q::from($table, $where);
+                [$sql, $params] = $query->delete();
+                break;
+            default:
+                throw new \InvalidArgumentException("Invalid action type: $type");
+        }
 
         $start = microtime(true);
         try {
             $res = Executor::action($sql, $params);
             $duration = (microtime(true) - $start) * 1000;
-            
+
             if ($res['success']) {
-                self::clearCacheForTable($table);
+                self::clearCacheForTable($tableName);
             }
-            
+
             self::logStatus(true, $sql, $params, null, [
-                'id'    => $res['lastId'], 
-                'rows'  => $res['count']
-            ], $type, $table, $duration);
-            
+                'id'   => $res['lastId'],
+                'rows' => $res['count']
+            ], $type, $tableName, $duration);
+
             return $res;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $sql, $params, $type, $table, $duration);
+            self::logError($e, $sql, $params, $type, $tableName, $duration);
             throw $e;
         }
     }
 
     /**
-     * BATCH: Inserciones masivas.
-     *
-     * @param string $table
-     * @param array $data Lista de arrays asociativos.
-     * @return bool
+     * Batch insert.
      */
-    public static function batch(string $table, array $data): bool {
-        [$sql, $paramsList] = SQL::buildInsert($table, $data);
-        
+    public static function batch(string $table, array $data): bool
+    {
+        $tableName = self::tableNameFromMixed($table);
+
+        $query = Q::from($table);
+        [$sql, $params] = $query->insert($data);
+
         $start = microtime(true);
         try {
-            $count = Executor::batch($sql, $paramsList);
+            $res = Executor::action($sql, $params);
             $duration = (microtime(true) - $start) * 1000;
-            
-            if ($count > 0) {
-                self::clearCacheForTable($table);
+
+            if ($res['success']) {
+                self::clearCacheForTable($tableName);
             }
-            
-            self::logStatus(true, $sql . " [BATCH]", $paramsList[0] ?? [], null, ['count' => $count], 'batch', $table, $duration);
+
+            self::logStatus(true, $sql . " [BATCH]", $params, null, ['count' => $res['count']], 'batch', $tableName, $duration);
             return true;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $sql, [], 'batch', $table, $duration);
+            self::logError($e, $sql, $params, 'batch', $tableName, $duration);
             return false;
         }
     }
 
     /**
-     * Invalida toda la caché asociada a una tabla (L1 + L2).
-     * El prefijo usado es "db_select_{table}_".
-     * Nota: Para consultas con JOIN (array de tablas), la invalidación solo afecta
-     * a las claves que comiencen con la concatenación exacta de las tablas.
-     * Si se actualiza una tabla, es posible que necesites limpiar manualmente
-     * las claves de JOIN que la involucren (o extender este método).
-     *
-     * @param string $table
+     * Invalidate all cache associated with a table.
      */
-    protected static function clearCacheForTable(string $table): void {
+    protected static function clearCacheForTable(string $table): void
+    {
         if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
             $prefix = "db_select_{$table}_";
             CacheService::clearByPrefix($prefix);
         }
-        // También limpiar el caché de consultas SQL si existe
-        if (self::$hasSQL ??= class_exists('RapidBase\Core\SQL')) {
-            \RapidBase\Core\SQL::clearQueryCache();
-        }
     }
 
-    /**
-     * Habilita o deshabilita el caché de consultas SQL en la capa SQL.
-     * Útil para reducir la CPU en consultas complejas con múltiples JOINs.
-     * 
-     * @param bool $enabled
-     */
-    public static function setSqlQueryCacheEnabled(bool $enabled): void {
-        if (self::$hasSQL ??= class_exists('RapidBase\Core\SQL')) {
-            \RapidBase\Core\SQL::setQueryCacheEnabled($enabled);
-        }
-    }
+    // ========== CONVENIENCE METHODS ==========
 
-    /**
-     * Obtiene estadísticas combinadas de los cachés (L1, L2 y caché de consultas SQL).
-     * 
-     * @return array Con estadísticas de todos los niveles de caché.
-     */
-    public static function getCacheStats(): array {
-        $stats = [
-            'sql_query_cache' => null,
-            'result_cache' => null
-        ];
-        
-        if (self::$hasSQL ??= class_exists('RapidBase\Core\SQL')) {
-            $stats['sql_query_cache'] = \RapidBase\Core\SQL::getQueryCacheStats();
-        }
-        
-        // Aquí podríamos agregar estadísticas del caché de resultados si están disponibles
-        if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
-            $stats['result_cache'] = [
-                'available' => true,
-                'note' => 'Use CacheService::getStats() si está disponible'
-            ];
-        }
-        
-        return $stats;
-    }
-
-    /**
-     * Verifica si existe un registro que cumpla las condiciones.
-     *
-     * @param string $table
-     * @param array $where
-     * @return bool
-     */
-/**
-     * Sincroniza el estado global antes de la ejecución.
-     */
-    private static function record(string $sql, array $params): void {
-        self::$lastStatus = [
-            'sql'    => $sql,
-            'params' => $params, // Esto arregla el FAIL de integridad
-            'rows'   => 0,
-            'error'  => null
-        ];
-    }
-
-	public static function exists(string $table, array $where): bool {
+    public static function exists(string $table, array $where): bool
+    {
         $start = microtime(true);
-        [$sql, $params] = SQL::buildExists($table, $where);
+        $tableName = self::tableNameFromMixed($table);
+        [$sql, $params] = Q::from($table, $where)->exists();
 
         try {
-            $stmt = Executor::query($sql, $params);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $exists = (bool)($row['check'] ?? false);
-            
-            $duration = (microtime(true) - $start) * 1000;
+            $exists = Executor::query($sql, $params)->fetch(\PDO::FETCH_COLUMN);
 
-            // ESTO ES LO QUE EL TEST NECESITA:
-            self::logStatus(true, $sql, $params, null, ['rows' => $exists ? 1 : 0], 'exists', $table, $duration);
-            
+            $duration = (microtime(true) - $start) * 1000;
+            self::logStatus(true, $sql, $params, null, ['rows' => $exists ? 1 : 0], 'exists', $tableName, $duration);
             return $exists;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            self::logError($e, $sql, $params, 'exists', $table, $duration);
+            self::logError($e, $sql, $params, 'exists', $tableName, $duration);
             return false;
         }
     }
 
-    /**
-     * Obtiene un único registro que cumpla las condiciones.
-     *
-     * @param string|array $table Nombre de la tabla o array de tablas para JOIN.
-     * @param array $where Condiciones WHERE.
-     * @param string|array $fields Campos a seleccionar (default: '*').
-     * @param string|null $class Clase para hidratar o null para FETCH_ASSOC.
-     * @param bool $fail Si es true, lanza excepción si no existe el registro.
-     * @return array|object|null Registro encontrado o null si no existe.
-     * @throws \RuntimeException Si $fail es true y no se encuentra el registro.
-     */
     public static function one(
-        string|array $table, 
-        array $where, 
-        string|array $fields = '*', 
+        string|array $table,
+        array $where,
+        string|array $fields = '*',
         ?string $class = null,
         bool $fail = false
     ): array|object|null {
         $start = microtime(true);
-        
+        $tableName = self::tableNameFromMixed($table);
+
         try {
-            // Usamos select con límite 1 y obtenemos el primer resultado
-            // [1, 1] significa: página 1, con 1 registro por página → LIMIT 1 OFFSET 0
             $result = self::select($fields, $table, $where, [], [], [], [1, 1], false, \PDO::FETCH_ASSOC, $class);
             $row = $result['data'][0] ?? null;
-            
+
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
-            
+
             if ($row === null && $fail) {
                 $whereStr = json_encode($where);
-                throw new \RuntimeException("No se encontró ningún registro en '$tableName' con condiciones: $whereStr");
+                throw new \RuntimeException("No record found in '$tableName' with conditions: $whereStr");
             }
-            
-            self::logStatus(true, "SELECT ONE", $params ?? [], null, ['rows' => $row ? 1 : 0], 'one', $tableName, $duration);
-            
+
+            self::logStatus(true, "SELECT ONE", [], null, ['rows' => $row ? 1 : 0], 'one', $tableName, $duration);
             return $row;
         } catch (\RuntimeException $e) {
             throw $e;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
-            self::logError($e, "SELECT ONE", $params ?? [], 'one', $tableName, $duration);
+            self::logError($e, "SELECT ONE", [], 'one', $tableName, $duration);
             throw $e;
         }
     }
 
-    public static function count(string|array $table, array $where = []): int {
+    public static function count(string|array $table, array $where = []): int
+    {
         $start = microtime(true);
-        [$sql, $params] = SQL::buildCount($table, $where);
-		
+        $tableName = self::tableNameFromMixed($table);
+        [$sql, $params] = Q::from($table, $where)->count();
+
         try {
             $stmt = Executor::query($sql, $params);
             $count = (int)($stmt->fetchColumn() ?: 0);
-            
-            $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
 
-            // ACTUALIZAR EL ESTADO ANTES DEL RETURN:
+            $duration = (microtime(true) - $start) * 1000;
             self::logStatus(true, $sql, $params, null, ['rows' => $count], 'count', $tableName, $duration);
-            
             return $count;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
-            $tableName = is_array($table) ? implode('_', $table) : (string)$table;
             self::logError($e, $sql, $params, 'count', $tableName, $duration);
             return 0;
         }
     }
 
-	/**
-     * Retorna el estado de la última operación.
-     *
-     * @return array
-     */
-    public static function status(): array {
-        return self::$lastStatus;
-    }
-
-    /**
-     * Registra el estado de la operación en el log interno y dispara eventos.
-     *
-     * @param bool $success
-     * @param string $sql
-     * @param array $params
-     * @param string|null $error
-     * @param array $extra
-     * @param string|null $type
-     * @param string|null $table
-     * @param float|null $duration (en milisegundos)
-     */
-	private static function logStatus(
-		bool $success,
-		string $sql,
-		array $params,
-		?string $error = null,
-		array $extra = [],
-		?string $type = null,
-		?string $table = null,
-		?float $duration = null
-	): void {
-		// OPTIMIZACIÓN 1: Evitar array_merge que duplica memoria
-		// Asignación directa es mucho más rápida
-		self::$lastStatus = $extra;
-		self::$lastStatus['success']   = $success;
-		self::$lastStatus['sql']       = $sql;
-		self::$lastStatus['params']    = $params;
-		self::$lastStatus['error']     = $error;
-		self::$lastStatus['timestamp'] = microtime(true);
-		self::$lastStatus['type']      = $type;
-		self::$lastStatus['table']     = $table;
-		self::$lastStatus['duration']  = $duration;
-
-		// OPTIMIZACIÓN 2: Cachear la existencia de la clase Event
-		if (self::$hasEvents ??= class_exists(__NAMESPACE__ . '\Event')) {
-			$eventName = $success ? 'db.success' : 'db.error';
-			Event::fire($eventName, self::$lastStatus);
-			Event::fire('db.log', self::$lastStatus);
-		}
-	}
-    /**
-
-     * Registra un error.
-     *
-     * @param Exception $e
-     * @param string $sql
-     * @param array $params
-     * @param string|null $type
-     * @param string|null $table
-     * @param float|null $duration
-     */
-    private static function logError(Exception $e, string $sql, array $params, ?string $type = null, ?string $table = null, ?float $duration = null): void {
-        self::logStatus(false, $sql, $params, $e->getMessage(), ['code' => $e->getCode()], $type, $table, $duration);
-    }
-
-    /**
-     * Inserta un registro en la tabla.
-     * @param string $table
-     * @param array $data Datos asociativos.
-     * @return int|false El ID del nuevo registro o false si falla.
-     */
-    public static function insert(string $table, array $data) {
+    public static function insert(string $table, array $data)
+    {
         $result = self::action('insert', $table, $data);
         return $result['success'] ? $result['lastId'] : false;
     }
 
-    /**
-     * Actualiza registros en la tabla.
-     * @param string $table
-     * @param array $data Datos a actualizar.
-     * @param array $where Condiciones WHERE.
-     * @return int Número de filas afectadas.
-     */
-    public static function update(string $table, array $data, array $where = []): int {
+    public static function update(string $table, array $data, array $where = []): int
+    {
         $result = self::action('update', $table, $data, $where);
         return $result['count'];
     }
 
-    /**
-     * Elimina registros de la tabla.
-     * @param string $table
-     * @param array $where Condiciones WHERE.
-     * @return int Número de filas afectadas.
-     */
-    public static function delete(string $table, array $where = []): int {
+    public static function delete(string $table, array $where = []): int
+    {
         $result = self::action('delete', $table, $where);
         return $result['count'];
+    }
+
+    public static function status(): array
+    {
+        return self::$lastStatus;
+    }
+
+    // ========== LOGGING & EVENTS ==========
+
+    private static function logStatus(
+        bool $success,
+        string $sql,
+        array $params,
+        ?string $error = null,
+        array $extra = [],
+        ?string $type = null,
+        ?string $table = null,
+        ?float $duration = null
+    ): void {
+        self::$lastStatus = $extra;
+        self::$lastStatus['success']   = $success;
+        self::$lastStatus['sql']       = $sql;
+        self::$lastStatus['params']    = $params;
+        self::$lastStatus['error']     = $error;
+        self::$lastStatus['timestamp'] = microtime(true);
+        self::$lastStatus['type']      = $type;
+        self::$lastStatus['table']     = $table;
+        self::$lastStatus['duration']  = $duration;
+
+        if (self::$hasEvents ??= class_exists(__NAMESPACE__ . '\Event')) {
+            $eventName = $success ? 'db.success' : 'db.error';
+            Event::fire($eventName, self::$lastStatus);
+            Event::fire('db.log', self::$lastStatus);
+        }
+    }
+
+    private static function logError(Exception $e, string $sql, array $params, ?string $type = null, ?string $table = null, ?float $duration = null): void
+    {
+        self::logStatus(false, $sql, $params, $e->getMessage(), ['code' => $e->getCode()], $type, $table, $duration);
+    }
+
+    /**
+     * Converts any table representation into a unique string for logging/cache keys.
+     * Handles nested arrays of tables with relationship definitions.
+     *
+     * @param mixed $table
+     * @return string
+     */
+    private static function tableNameFromMixed(mixed $table): string
+    {
+        if (is_string($table)) {
+            return $table;
+        }
+        $names = [];
+        array_walk_recursive($table, function ($value) use (&$names) {
+            if (is_string($value)) {
+                $names[] = $value;
+            }
+        });
+        return implode('_', $names);
     }
 }
