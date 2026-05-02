@@ -1,7 +1,4 @@
 ```
-# Cache directories
-tests/tmp/
-
 # Compiled and build artifacts
 *.pyc
 __pycache__/
@@ -15,29 +12,37 @@ __pycache__/
 *.out
 
 # Dependencies
-.venv/
-venv/
 node_modules/
-.mypy_cache/
-.pytest_cache/
-dist/
-build/
-target/
-.gradle/
+venv/
+.venv/
+.env
+.env.local
+.env.*
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
-
-# Environment
-.env
-.env.local
-*.env.*
+*.swo
 
 # Editors
 .vscode/
 .idea/
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Build directories
+dist/
+build/
+target/
+.gradle/
+
+# Python specific
+.mypy_cache/
+.pytest_cache/
 
 # System files
 .DS_Store

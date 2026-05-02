@@ -260,6 +260,16 @@ class JoinResolver
         }
         $aliases = $aliasesOrdered;
 
+        // Rebuild tablesInfo in the correct order
+        $tablesInfo = [];
+        foreach ($orderedRealNames as $real) {
+            $tablesInfo[] = [
+                'real' => $real,
+                'alias' => $aliases[$real],
+                'isSubquery' => false
+            ];
+        }
+
         $tree = $this->buildJoinTree($orderedRealNames);
         $rootReal = $tree['root'];
         $rootAlias = $aliases[$rootReal];
