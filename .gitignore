@@ -1,16 +1,30 @@
 ```
+# Test artifacts
+tests/_output/
+tests/_support/_generated/
+.sass-cache/
+*.phpt~
+
 # Dependencies
 vendor/
+composer.lock
 
-# Logs and temp files
+# Logs
 *.log
-*.tmp
+tests/_output/*
 
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# Tests
-tests/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
 ```
