@@ -624,13 +624,13 @@ class EngineComparisonBenchmark
         
         // W
         $results['W'] = $this->measure(fn() => 
-            W::from('users', ['id' => 1])->exec('update', ['status' => 'inactive']),
+            W::from('users', ['id' => 1])->update(['status' => 'inactive']),
             'W'
         );
         
         // Wm
         $results['Wm'] = $this->measure(fn() => 
-            Wm::from('users', ['id' => 1])->exec('update', ['status' => 'inactive']),
+            Wm::from('users', ['id' => 1])->update(['status' => 'inactive']),
             'Wm'
         );
         
@@ -654,7 +654,7 @@ class EngineComparisonBenchmark
         
         // Q
         $results['Q'] = $this->measure(fn() => 
-            Q::from('users', ['id' => 1])->exec('update', ['status' => 'inactive']),
+            Q::from('users', ['id' => 1])->update(['status' => 'inactive']),
             'Q'
         );
         
@@ -684,13 +684,13 @@ class EngineComparisonBenchmark
         
         // W
         $results['W'] = $this->measure(fn() => 
-            W::from('users', ['id' => 999])->exec('delete'),
+            W::from('users', ['id' => 999])->delete(),
             'W'
         );
         
         // Wm
         $results['Wm'] = $this->measure(fn() => 
-            Wm::from('users', ['id' => 999])->exec('delete'),
+            Wm::from('users', ['id' => 999])->delete(),
             'Wm'
         );
         
@@ -714,7 +714,7 @@ class EngineComparisonBenchmark
         
         // Q
         $results['Q'] = $this->measure(fn() => 
-            Q::from('users', ['id' => 999])->exec('delete'),
+            Q::from('users', ['id' => 999])->delete(),
             'Q'
         );
         
