@@ -157,39 +157,27 @@ class SQL
             $config[$key] = $value;
         }
         
-        // Agregar ORDER BY
-        if (!empty($sort)) {
-            $orderParts = [];
-            foreach ($sort as $field => $dir) {
-                $orderParts[] = ($dir === 'DESC' ? '-' : '') . $field;
-            }
-            $config['_order'] = implode(', ', $orderParts);
-        }
-        
         // Agregar LIMIT/PAGE
+        $limitConfig = null;
         if ($page !== 0 && $page !== null) {
             if (is_array($page)) {
-                $config['_limit'] = $page; // [offset, limit]
+                $limitConfig = $page; // [offset, limit]
             } else {
-                $config['_limit'] = [(int)$page - 1, 10]; // Página n → offset=(n-1)*10
+                $limitConfig = [(int)$page - 1, 10]; // Página n → offset=(n-1)*10
             }
         }
         
         // Agregar GROUP BY
+        $groupConfig = null;
         if (!empty($groupBy)) {
-            $config['_group'] = is_array($groupBy) ? implode(',', $groupBy) : $groupBy;
+            $groupConfig = is_array($groupBy) ? implode(',', $groupBy) : $groupBy;
         }
         
-        // Agregar HAVING
-        if (!empty($having)) {
-            $config['_having'] = $having;
-        }
-
         // Usar el motor Flat
         $fieldsStr = is_array($fields) ? implode(', ', $fields) : (string)$fields;
         
         try {
-            $compiled = Q::from($table, $config)->select($fieldsStr);
+            $compiled = Q::from($table, $config)->select($fieldsStr, $limitConfig, $sort, $groupConfig, $having);
             // Convertir CompiledQuery a formato legacy [sql, params]
             return [$compiled->getSql(), $compiled->getParams()];
         } catch (\Exception $e) {
