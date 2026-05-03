@@ -25,8 +25,8 @@ ConditionMatrix::setDriver('sqlite');
 
 // Crear tablas
 $pdo = Conn::get();
-$pdo->exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)");
-$pdo->exec("CREATE TABLE posts (id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT)");
+$pdo->exec("DROP TABLE IF EXISTS users; CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)");
+$pdo->exec("DROP TABLE IF EXISTS posts; CREATE TABLE posts (id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT)");
 $pdo->exec("CREATE TABLE profiles (user_id INTEGER PRIMARY KEY, bio TEXT)");
 $pdo->exec("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)");
 $pdo->exec("CREATE TABLE post_tag (post_id INTEGER, tag_id INTEGER, PRIMARY KEY(post_id,tag_id))");

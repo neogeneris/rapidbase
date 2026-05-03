@@ -8,8 +8,9 @@ use RapidBase\Core\SchemaMap;
 
 class Q
 {
-    private const T = 0; // Table
-    private const F = 1; // Filter / Where
+    private const T = 0;      // Table
+    private const F = 1;      // Filter / Where
+    private const ORIGIN = 2; // 'from' o 'into'
 
     private array $state;
     private string $connectionId;
@@ -22,8 +23,9 @@ class Q
     {
         $this->connectionId = $connectionId;
         $this->state = [
-            self::T => '',
-            self::F => [],
+            self::T      => '',
+            self::F      => [],
+            self::ORIGIN => 'from',
         ];
     }
 
@@ -37,14 +39,16 @@ class Q
             $instance->state[self::T] = $table;
             $instance->compiledParams = [];
         }
-        $instance->state[self::F] = $filter;
+        $instance->state[self::F]      = $filter;
+        $instance->state[self::ORIGIN] = 'from';
         return $instance;
     }
 
     public static function into(string $table): self
     {
         $instance = new self();
-        $instance->state[self::T] = $table;
+        $instance->state[self::T]      = $table;
+        $instance->state[self::ORIGIN] = 'into';
         return $instance;
     }
 
@@ -60,7 +64,6 @@ class Q
     ): CompiledQuery {
         $selectFields = $fields ?? '*';
         
-        // Inyectar COUNT(*) OVER() si se solicita y no hay agrupamiento manual complejo
         if ($withTotal && empty($groupBy)) {
             $totalFunc = 'COUNT(*) OVER() AS ' . ConditionMatrix::quote('_total');
             if (is_array($selectFields)) {
@@ -70,12 +73,10 @@ class Q
             }
         }
 
-        // Fast path: single simple table, no grouping/having, no subquery, no CompiledQuery params
         if ($groupBy === null && empty($having) && empty($this->compiledParams) && $this->isSimpleTable()) {
             return $this->compileSimpleSelect($selectFields, $pagination, $sort);
         }
 
-        // Full pipeline
         $base = $this->buildBaseState();
         $fromClause = $base['fromClause'];
         $tablesInfo = $base['tablesInfo'];
@@ -139,9 +140,52 @@ class Q
         return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap, $sourceTables);
     }
 
-    public function insert(array $rows): CompiledQuery
+    public function insert(array|CompiledQuery $rows, ?callable $transformer = null): CompiledQuery
     {
         $this->ensureSingleTable();
+
+        // Normalizar objetos a arrays si es necesario
+        if (is_array($rows) && !isset($rows['columns'], $rows['values']) && !($rows instanceof CompiledQuery)) {
+            $first = reset($rows);
+            if (is_object($first)) {
+                $rows = array_map(function ($obj) { return (array) $obj; }, $rows);
+            }
+        }
+
+        if ($rows instanceof CompiledQuery) {
+            return $this->insertSelect($rows);
+        }
+
+        if (isset($rows['columns'], $rows['values'])) {
+            $columns   = $rows['columns'];
+            $valuesStr = $rows['values'];
+
+            if (empty($columns) || empty($valuesStr)) {
+                return new CompiledQuery('SELECT 1 WHERE 1=0', [], CompiledQuery::SELECT);
+            }
+
+            $quotedCols = array_map([ConditionMatrix::class, 'quote'], $columns);
+            $table = ConditionMatrix::quote($this->resolveSingleTableName());
+            $sql = "INSERT INTO $table (" . implode(', ', $quotedCols) . ") VALUES $valuesStr";
+
+            return new CompiledQuery($sql, [], CompiledQuery::INSERT);
+        }
+
+        if ($transformer !== null) {
+            $mapped = [];
+            foreach ($rows as $row) {
+                $newRow = $transformer($row);
+                if ($newRow !== false) {
+                    $mapped[] = $newRow;
+                }
+            }
+            $rows = $mapped;
+        }
+
+        if (empty($rows)) {
+            return new CompiledQuery('SELECT 1 WHERE 1=0', [], CompiledQuery::SELECT);
+        }
+
         $compiledState = [
             SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
             SqlCompiler::PARAMS => [],
@@ -150,84 +194,34 @@ class Q
         return new CompiledQuery($sql, $params, CompiledQuery::INSERT);
     }
 
-    /**
-     * Inserta datos provenientes de diversas fuentes (CompiledQuery, array de filas,
-     * array de resultado del Executor, o array generado por from()->values()).
-     *
-     * Acepta un callback opcional para transformar cada fila.
-     *
-     * @param mixed         $source      Origen de los datos (CompiledQuery, array asociativo del Executor, o array de filas).
-     * @param callable|null $transformer Callback que recibe cada fila y la devuelve modificada.
-     * @return CompiledQuery
-     */
-    public function values(mixed $source, ?callable $transformer = null): CompiledQuery
+    public function insertFrom(CompiledQuery $source, array $columns = []): CompiledQuery
     {
-        // NUEVO: formato directo de from()->values()
-        if (is_array($source) && isset($source['columns'], $source['values'])) {
-            $columns   = $source['columns'];
-            $valuesStr = $source['values'];
-
-            if (empty($columns) || empty($valuesStr)) {
-                return new CompiledQuery('SELECT 1 WHERE 1=0', [], CompiledQuery::SELECT);
-            }
-
-            $quotedCols = array_map([ConditionMatrix::class, 'quote'], $columns);
-            $table = ConditionMatrix::quote($this->state[self::T]);
-            $sql = "INSERT INTO $table (" . implode(', ', $quotedCols) . ") VALUES $valuesStr";
-
-            return new CompiledQuery($sql, [], CompiledQuery::INSERT);
-        }
-
-        $rows = [];
-
-        if ($source instanceof CompiledQuery) {
-            // Ejecutamos la consulta origen para obtener las filas como arrays asociativos
-            $res = $source->run(\PDO::FETCH_ASSOC);
-            $rows = $res['rows'] ?? $res['data'] ?? [];
-        } elseif (is_array($source)) {
-            // Detectar si es un array de resultado del Executor (con 'rows' o 'data')
-            if (isset($source['rows']) && is_array($source['rows'])) {
-                $rows = $source['rows'];
-            } elseif (isset($source['data']) && is_array($source['data'])) {
-                $rows = $source['data'];
-            } else {
-                // Asumimos que es directamente el array de filas
-                $rows = $source;
-            }
-        }
-
-        // Aplicamos la transformación a cada fila si se provee un callback
-        if ($transformer !== null) {
-            $mappedRows = [];
-            foreach ($rows as $row) {
-                // El callback debe devolver la fila modificada
-                $newRow = $transformer($row);
-                if ($newRow !== false) {
-                    $mappedRows[] = $newRow;
-                }
-            }
-            $rows = $mappedRows;
-        }
-
-        // Si no hay filas, retornamos un query inocuo (no-op)
-        if (empty($rows)) {
-            return new CompiledQuery('SELECT 1 WHERE 1=0', [], CompiledQuery::SELECT);
-        }
-
-        // Delegamos al método insert() que ya soporta inserción masiva
-        return $this->insert($rows);
+        return $this->insertSelect($source, $columns);
     }
 
-    /**
-     * Ejecuta un SELECT * sobre la tabla actual y devuelve un array
-     * con las columnas y los valores formateados para un INSERT masivo.
-     *
-     * Acepta opcionalmente limit y offset para extraer los datos por lotes.
-     *
-     * @param int|null $limit  Número máximo de filas a recuperar (null = todas).
-     * @param int      $offset Desplazamiento inicial (solo si se especifica limit).
-     * @return array ['columns' => [...], 'values' => string]
-     */
+    public function insertSelect(CompiledQuery $source, array $columns = []): CompiledQuery
+    {
+        $table = ConditionMatrix::quote($this->state[self::T]);
+        if (empty($columns)) {
+            $map = $source->getProjectionMap();
+            if (empty($map)) {
+                throw new \InvalidArgumentException(
+                    'Columns must be specified or the source CompiledQuery must have a projection map.'
+                );
+            }
+            $columns = array_map(function ($key) {
+                return strpos($key, '.') !== false
+                    ? substr($key, strrpos($key, '.') + 1)
+                    : $key;
+            }, array_keys($map));
+            $columns = array_unique($columns);
+        }
+
+        $colsSql = implode(', ', array_map([ConditionMatrix::class, 'quote'], $columns));
+        $sql = "INSERT INTO $table ($colsSql) " . $source->getSql();
+        return new CompiledQuery($sql, $source->getParams(), CompiledQuery::INSERT);
+    }
+
     public function values(?int $limit = null, int $offset = 0): array
     {
         if ($limit !== null) {
@@ -259,34 +253,6 @@ class Q
             'columns' => $cols,
             'values'  => $valuesStr,
         ];
-    }
-
-    public function insertFrom(CompiledQuery $source, array $columns = []): CompiledQuery
-    {
-        return $this->insertSelect($source, $columns);
-    }
-
-    public function insertSelect(CompiledQuery $source, array $columns = []): CompiledQuery
-    {
-        $table = ConditionMatrix::quote($this->state[self::T]);
-        if (empty($columns)) {
-            $map = $source->getProjectionMap();
-            if (empty($map)) {
-                throw new \InvalidArgumentException(
-                    'Columns must be specified or the source CompiledQuery must have a projection map.'
-                );
-            }
-            $columns = array_map(function ($key) {
-                return strpos($key, '.') !== false
-                    ? substr($key, strrpos($key, '.') + 1)
-                    : $key;
-            }, array_keys($map));
-            $columns = array_unique($columns);
-        }
-
-        $colsSql = implode(', ', array_map([ConditionMatrix::class, 'quote'], $columns));
-        $sql = "INSERT INTO $table ($colsSql) " . $source->getSql();
-        return new CompiledQuery($sql, $source->getParams(), CompiledQuery::INSERT);
     }
 
     public function upsert(array $data, array $conflictColumns = []): CompiledQuery
@@ -341,14 +307,53 @@ class Q
         return new CompiledQuery($sql, $params, CompiledQuery::UPSERT);
     }
 
-    public function update(array $data): CompiledQuery
+    /**
+     * UPDATE table SET col=?,... WHERE ... [LIMIT n]
+     *
+     * @param array|object $data  Datos a actualizar (array asociativo u objeto)
+     * @param int|null     $limit Máximo de filas a afectar (null = sin límite)
+     */
+    public function update(array|object $data, ?int $limit = null): CompiledQuery
     {
         $this->ensureSingleTable();
+
+        if (is_object($data)) {
+            $data = (array) $data;
+        }
+
         $whereData = $this->compileWhereSimple();
+        $table     = $this->resolveSingleTableName();
+        $quotedTable = ConditionMatrix::quote($table);
+        $driver    = ConditionMatrix::getDriver();
+
+        $setParts = [];
+        $setParams = [];
+        foreach ($data as $col => $val) {
+            $setParts[] = ConditionMatrix::quote($col) . ' = ?';
+            $setParams[] = $val;
+        }
+        $setSql = implode(', ', $setParts);
+        $params = array_merge($setParams, $whereData['params']);
+
+        $whereSql = $whereData['sql'] !== '1' ? ' WHERE ' . $whereData['sql'] : '';
+
+        if ($limit !== null) {
+            if ($driver === 'mysql') {
+                $sql = "UPDATE $quotedTable SET $setSql$whereSql LIMIT " . (int)$limit;
+                return new CompiledQuery($sql, $params, CompiledQuery::UPDATE);
+            } else {
+                $idCol = $this->resolveLimitIdentifier($driver, $table);
+                $quotedId = ConditionMatrix::quote($idCol);
+                $sql = "UPDATE $quotedTable SET $setSql WHERE $quotedId IN (SELECT $quotedId FROM $quotedTable$whereSql LIMIT " . (int)$limit . ")";
+                return new CompiledQuery($sql, $params, CompiledQuery::UPDATE);
+            }
+        }
+
+        // Sin límite: delegar en SqlCompiler
         $compiledState = [
-            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::FROM   => ConditionMatrix::quote($table),
             SqlCompiler::WHERE  => $whereData['sql'],
-            SqlCompiler::PARAMS => $whereData['params'],
+            SqlCompiler::PARAMS => $params,
         ];
         [$sql, $params] = SqlCompiler::compileUpdate($compiledState, $data);
         return new CompiledQuery($sql, $params, CompiledQuery::UPDATE);
@@ -380,14 +385,40 @@ class Q
         return new CompiledQuery($sql, $params, CompiledQuery::UPDATE);
     }
 
-    public function delete(): CompiledQuery
+    /**
+     * DELETE FROM table WHERE ... [LIMIT n]
+     *
+     * @param int|null $limit Máximo de filas a borrar (null = sin límite)
+     */
+    public function delete(?int $limit = null): CompiledQuery
     {
         $this->ensureSingleTable();
+
         $whereData = $this->compileWhereSimple();
+        $table     = $this->resolveSingleTableName();
+        $quotedTable = ConditionMatrix::quote($table);
+        $driver    = ConditionMatrix::getDriver();
+        $params    = $whereData['params'];
+
+        $whereSql = $whereData['sql'] !== '1' ? ' WHERE ' . $whereData['sql'] : '';
+
+        if ($limit !== null) {
+            if ($driver === 'mysql') {
+                $sql = "DELETE FROM $quotedTable$whereSql LIMIT " . (int)$limit;
+                return new CompiledQuery($sql, $params, CompiledQuery::DELETE);
+            } else {
+                $idCol = $this->resolveLimitIdentifier($driver, $table);
+                $quotedId = ConditionMatrix::quote($idCol);
+                $sql = "DELETE FROM $quotedTable WHERE $quotedId IN (SELECT $quotedId FROM $quotedTable$whereSql LIMIT " . (int)$limit . ")";
+                return new CompiledQuery($sql, $params, CompiledQuery::DELETE);
+            }
+        }
+
+        // Sin límite: delegar en SqlCompiler
         $compiledState = [
-            SqlCompiler::FROM   => ConditionMatrix::quote($this->resolveSingleTableName()),
+            SqlCompiler::FROM   => ConditionMatrix::quote($table),
             SqlCompiler::WHERE  => $whereData['sql'],
-            SqlCompiler::PARAMS => $whereData['params'],
+            SqlCompiler::PARAMS => $params,
         ];
         [$sql, $params] = SqlCompiler::compileDelete($compiledState);
         return new CompiledQuery($sql, $params, CompiledQuery::DELETE);
@@ -448,6 +479,27 @@ class Q
 
     // ========== Private helpers ==========
 
+    private function resolveLimitIdentifier(string $driver, string $table): string
+    {
+        return match ($driver) {
+            'pgsql'  => 'ctid',
+            'sqlite' => 'rowid',
+            default  => $this->getTablePrimaryKey($table),
+        };
+    }
+
+    private function getTablePrimaryKey(string $table): string
+    {
+        $map = SchemaMap::getMap($this->connectionId);
+        $columns = $map['tables'][$table] ?? [];
+        foreach ($columns as $colName => $def) {
+            if (!empty($def['primary'])) {
+                return $colName;
+            }
+        }
+        return 'id'; // fallback absoluto
+    }
+
     private function isSimpleTable(): bool
     {
         $table = $this->state[self::T];
@@ -469,7 +521,6 @@ class Q
         $table = ConditionMatrix::quote($this->state[self::T]);
         $params = [];
 
-        // WHERE (only scalar equality)
         $whereSql = '';
         if (!empty($this->state[self::F]) && $this->isSimpleWhere()) {
             $parts = [];
@@ -494,7 +545,6 @@ class Q
         }
 
         $selectFields = $fields ?? '*';
-        // Convert array of fields to string
         if (is_array($selectFields)) {
             $selectFields = implode(', ', $selectFields);
         }
@@ -555,7 +605,6 @@ class Q
                     }
                     self::$starProjectionCache[$realTable] = $map;
                 } else {
-                    // Fallback: schema not available, will use PDO FETCH_ASSOC directly
                     self::$starProjectionCache[$realTable] = null;
                 }
             }
@@ -570,23 +619,17 @@ class Q
             return $map;
         }
 
-        // Parse string fields like "field1, field2 AS alias, COUNT(*) as total"
         if (is_string($fields)) {
             $parts = explode(',', $fields);
             $map = [];
             $index = 0;
             foreach ($parts as $field) {
                 $field = trim($field);
-                // Check for AS alias
                 if (preg_match('/\s+as\s+(\w+)/i', $field, $matches)) {
                     $map[$matches[1]] = $index;
-                } 
-                // Check for table.column
-                elseif (strpos($field, '.') !== false && !preg_match('/^\w+\(/', $field)) {
+                } elseif (strpos($field, '.') !== false && !preg_match('/^\w+\(/', $field)) {
                     $map[$field] = $index;
-                } 
-                // Simple column or function - extract base name
-                else {
+                } else {
                     $cleanField = preg_replace('/^\w+\((.*?)\)$/', '$1', $field);
                     $cleanField = preg_replace('/\s+/', '', $cleanField);
                     $map[$cleanField] = $index;

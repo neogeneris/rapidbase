@@ -18,7 +18,7 @@ ConditionMatrix::setDriver('sqlite');
 
 // Crear tabla e insertar datos
 $pdo = Conn::get('main');
-$pdo->exec("CREATE TABLE test_items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price REAL)");
+$pdo->exec("DROP TABLE IF EXISTS test_items; CREATE TABLE test_items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price REAL)");
 $pdo->exec("INSERT INTO test_items (name, price) VALUES ('Laptop', 999.99)");
 $pdo->exec("INSERT INTO test_items (name, price) VALUES ('Mouse', 24.50)");
 $pdo->exec("INSERT INTO test_items (name, price) VALUES ('Keyboard', 59.95)");

@@ -18,7 +18,7 @@ ConditionMatrix::setDriver('sqlite');
 
 // Crear tabla e insertar datos
 $pdo = Conn::get();
-$pdo->exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER)");
+$pdo->exec("DROP TABLE IF EXISTS users; CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER)");
 $pdo->exec("INSERT INTO users VALUES (1,'Alice',1), (2,'Bob',1), (3,'Charlie',0)");
 
 $schema = [

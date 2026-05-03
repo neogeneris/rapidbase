@@ -38,8 +38,7 @@ SchemaMap::setMap($schema, 'main');
 $passed = 0;
 $failed = 0;
 
-function test(string $description, callable $fn): void {
-    global $passed, $failed;
+$test = function(string $description, callable $fn) use (&$passed, &$failed) {
     try {
         $fn();
         echo "  [OK] $description\n";
@@ -49,7 +48,7 @@ function test(string $description, callable $fn): void {
         echo "         Error: " . $e->getMessage() . "\n";
         $failed++;
     }
-}
+};
 
 echo "================================================\n";
 echo "PRUEBA DE Q::insertSelect()\n";
@@ -67,16 +66,16 @@ echo "Source SQL: " . $source->getSql() . "\n";
 echo "Insert SQL: $sql\n";
 echo "Params: " . json_encode($params) . "\n";
 
-test("Contiene INSERT INTO", function() use ($sql) {
+$test("Contiene INSERT INTO", function() use ($sql) {
     assert(str_contains($sql, 'INSERT INTO'));
 });
-test("Usa tabla destino", function() use ($sql) {
+$test("Usa tabla destino", function() use ($sql) {
     assert(str_contains($sql, '"active_users"'));
 });
-test("Contiene SELECT subquery", function() use ($sql) {
+$test("Contiene SELECT subquery", function() use ($sql) {
     assert(str_contains($sql, 'SELECT'));
 });
-test("Parámetros de la subconsulta", function() use ($params) {
+$test("Parámetros de la subconsulta", function() use ($params) {
     assert(count($params) === 1);
     assert($params[0] === 1);
 });
@@ -90,7 +89,7 @@ $sql = $insert->getSql();
 
 echo "SQL: $sql\n";
 
-test("Contiene las columnas inferidas", function() use ($sql) {
+$test("Contiene las columnas inferidas", function() use ($sql) {
     // Debe contener las tres columnas
     assert(str_contains($sql, '"id"'));
     assert(str_contains($sql, '"name"'));
@@ -108,7 +107,7 @@ $sql = $insert->getSql();
 echo "Source SQL: " . $source->getSql() . "\n";
 echo "Insert SQL: $sql\n";
 
-test("Subconsulta incluida", function() use ($sql, $source) {
+$test("Subconsulta incluida", function() use ($sql, $source) {
     assert(str_contains($sql, $source->getSql()));
 });
 
@@ -121,7 +120,7 @@ $sql = $insert->getSql();
 
 echo "SQL: $sql\n";
 
-test("Funciona igual que insertSelect", function() use ($sql) {
+$test("Funciona igual que insertSelect", function() use ($sql) {
     assert(str_contains($sql, 'INSERT INTO'));
     assert(str_contains($sql, 'SELECT'));
 });

@@ -17,8 +17,7 @@ use RapidBase\Core\Gateway;
 $passed = 0;
 $failed = 0;
 
-function test(string $description, callable $fn): void {
-    global $passed, $failed;
+$test = function(string $description, callable $fn) use (&$passed, &$failed): void {
     try {
         if ($fn()) {
             echo "  [OK] $description\n";
@@ -32,7 +31,7 @@ function test(string $description, callable $fn): void {
         echo "         Error: " . $e->getMessage() . "\n";
         $failed++;
     }
-}
+};
 
 echo "================================================\n";
 echo "PRUEBA DE GATEWAY::UPSERT() Y FALLBACK\n";
@@ -54,13 +53,13 @@ SchemaMap::setMap([
     'tables' => []
 ], 'test_upsert');
 
-test("Inserta nuevo registro (Nativo)", function() use ($pdo) {
+$test("Inserta nuevo registro (Nativo)", function() use ($pdo) {
     $res = Gateway::upsert('items', ['id' => 1, 'code' => 'A01', 'stock' => 10], ['id']);
     $stock = $pdo->query("SELECT stock FROM items WHERE id=1")->fetchColumn();
     return $res['success'] && $stock == 10;
 });
 
-test("Actualiza registro existente (Nativo)", function() use ($pdo) {
+$test("Actualiza registro existente (Nativo)", function() use ($pdo) {
     $res = Gateway::upsert('items', ['id' => 1, 'code' => 'A01', 'stock' => 25], ['id']);
     $stock = $pdo->query("SELECT stock FROM items WHERE id=1")->fetchColumn();
     return $res['success'] && $stock == 25;
@@ -73,20 +72,20 @@ SchemaMap::setMap([
     'tables' => []
 ], 'test_upsert');
 
-test("Actualiza registro existente (Fallback)", function() use ($pdo) {
+$test("Actualiza registro existente (Fallback)", function() use ($pdo) {
     // Ya existe ID 1 con stock 25. Vamos a subirlo a 50.
     $res = Gateway::upsert('items', ['id' => 1, 'code' => 'A01', 'stock' => 50], ['id']);
     $stock = $pdo->query("SELECT stock FROM items WHERE id=1")->fetchColumn();
     return $res['action'] === 'upsert_fallback_update' && $stock == 50;
 });
 
-test("Inserta nuevo registro (Fallback)", function() use ($pdo) {
+$test("Inserta nuevo registro (Fallback)", function() use ($pdo) {
     $res = Gateway::upsert('items', ['id' => 2, 'code' => 'B02', 'stock' => 100], ['id']);
     $stock = $pdo->query("SELECT stock FROM items WHERE id=2")->fetchColumn();
     return $res['action'] === 'upsert_fallback_insert' && $stock == 100;
 });
 
-test("Upsert por columna UNIQUE no PK (Fallback)", function() use ($pdo) {
+$test("Upsert por columna UNIQUE no PK (Fallback)", function() use ($pdo) {
     // Usamos 'code' como columna de conflicto
     $res = Gateway::upsert('items', ['code' => 'B02', 'stock' => 150], ['code']);
     $stock = $pdo->query("SELECT stock FROM items WHERE code='B02'")->fetchColumn();

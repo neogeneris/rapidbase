@@ -58,8 +58,7 @@ SchemaMap::setMap($schema, 'main');
 $passed = 0;
 $failed = 0;
 
-function test(string $description, callable $fn): void {
-    global $passed, $failed;
+$test = function(string $description, callable $fn) use (&$passed, &$failed) {
     try {
         $fn();
         echo "  [OK] $description\n";
@@ -69,7 +68,7 @@ function test(string $description, callable $fn): void {
         echo "         Error: " . $e->getMessage() . "\n";
         $failed++;
     }
-}
+};
 
 echo "================================================\n";
 echo "PRUEBA PROGRESIVA DE Q::select()\n";
@@ -79,13 +78,13 @@ echo "================================================\n\n";
 echo "--- 1. Tabla simple, todos los campos (*) ---\n";
 $compiled = Q::from('users')->select('*');
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Genera SELECT *", function() use ($compiled) {
+$test("Genera SELECT *", function() use ($compiled) {
     assert(str_starts_with($compiled->getSql(), 'SELECT *'));
 });
-test("Contiene FROM", function() use ($compiled) {
+$test("Contiene FROM", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'FROM'));
 });
-test("Parámetros vacíos", function() use ($compiled) {
+$test("Parámetros vacíos", function() use ($compiled) {
     assert(empty($compiled->getParams()));
 });
 
@@ -93,10 +92,10 @@ test("Parámetros vacíos", function() use ($compiled) {
 echo "\n--- 2. Campos explícitos ---\n";
 $compiled = Q::from('users')->select(['name', 'email']);
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Contiene 'name'", function() use ($compiled) {
+$test("Contiene 'name'", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'name'));
 });
-test("Contiene 'email'", function() use ($compiled) {
+$test("Contiene 'email'", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'email'));
 });
 
@@ -104,22 +103,22 @@ test("Contiene 'email'", function() use ($compiled) {
 echo "\n--- 3. WHERE con condiciones ---\n";
 $compiled = Q::from('users', ['name' => 'Alice'])->select('*');
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Contiene WHERE", function() use ($compiled) {
+$test("Contiene WHERE", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'WHERE'));
 });
-test("Un parámetro", function() use ($compiled) {
+$test("Un parámetro", function() use ($compiled) {
     assert(count($compiled->getParams()) === 1);
 });
-test("Parámetro es 'Alice'", function() use ($compiled) {
+$test("Parámetro es 'Alice'", function() use ($compiled) {
     assert($compiled->getParams()[0] === 'Alice');
 });
 
 // Dos condiciones
 $compiled = Q::from('users', ['name' => 'Bob', 'email' => 'bob@example.com'])->select('*');
-test("WHERE con AND", function() use ($compiled) {
+$test("WHERE con AND", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'AND'));
 });
-test("Dos parámetros", function() use ($compiled) {
+$test("Dos parámetros", function() use ($compiled) {
     assert(count($compiled->getParams()) === 2);
 });
 
@@ -127,16 +126,16 @@ test("Dos parámetros", function() use ($compiled) {
 echo "\n--- 4. ORDER BY ---\n";
 $compiled = Q::from('users')->select('*', null, 'name');
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Contiene ORDER BY", function() use ($compiled) {
+$test("Contiene ORDER BY", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'ORDER BY'));
 });
-test("Dirección ASC por defecto", function() use ($compiled) {
+$test("Dirección ASC por defecto", function() use ($compiled) {
     $sql = $compiled->getSql();
     assert(str_contains($sql, 'ASC') || !str_contains($sql, 'DESC')); // ASC puede omitirse, pero si no hay DESC, es ASC
 });
 
 $compiled = Q::from('users')->select('*', null, '-name');
-test("Dirección DESC", function() use ($compiled) {
+$test("Dirección DESC", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'DESC'));
 });
 
@@ -144,10 +143,10 @@ test("Dirección DESC", function() use ($compiled) {
 echo "\n--- 5. LIMIT / OFFSET ---\n";
 $compiled = Q::from('users')->select('*', [0, 10]);
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Contiene LIMIT", function() use ($compiled) {
+$test("Contiene LIMIT", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'LIMIT'));
 });
-test("Contiene OFFSET", function() use ($compiled) {
+$test("Contiene OFFSET", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'OFFSET'));
 });
 
@@ -155,13 +154,13 @@ test("Contiene OFFSET", function() use ($compiled) {
 echo "\n--- 6. JOIN de dos tablas ---\n";
 $compiled = Q::from(['users', 'posts'], ['users.id' => 1])->select('*');
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Contiene LEFT JOIN", function() use ($compiled) {
+$test("Contiene LEFT JOIN", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'LEFT JOIN'));
 });
-test("Contiene ON", function() use ($compiled) {
+$test("Contiene ON", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'ON'));
 });
-test("Contiene ambas tablas", function() use ($compiled) {
+$test("Contiene ambas tablas", function() use ($compiled) {
     $sql = $compiled->getSql();
     assert(str_contains($sql, 'users') && str_contains($sql, 'posts'));
 });
@@ -170,10 +169,10 @@ test("Contiene ambas tablas", function() use ($compiled) {
 echo "\n--- 7. GROUP BY ---\n";
 $compiled = Q::from('users')->select('email, COUNT(*)', null, [], 'email');
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Contiene GROUP BY", function() use ($compiled) {
+$test("Contiene GROUP BY", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'GROUP BY'));
 });
-test("Agrupa por email", function() use ($compiled) {
+$test("Agrupa por email", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), '"email"'));
 });
 
@@ -187,10 +186,10 @@ $compiled = Q::from('users')->select(
     ['total' => ['>' => 1]]
 );
 echo "SQL: " . $compiled->getSql() . "\n";
-test("Contiene HAVING", function() use ($compiled) {
+$test("Contiene HAVING", function() use ($compiled) {
     assert(str_contains($compiled->getSql(), 'HAVING'));
 });
-test("Parámetros de HAVING", function() use ($compiled) {
+$test("Parámetros de HAVING", function() use ($compiled) {
     assert(count($compiled->getParams()) > 0);
 });
 

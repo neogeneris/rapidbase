@@ -69,8 +69,7 @@ $resolver = new JoinResolver('default');
 $passed = 0;
 $failed = 0;
 
-function test($description, $condition) {
-    global $passed, $failed;
+$test = function($description, $condition) use (&$passed, &$failed) {
     if ($condition) {
         echo "[OK] $description\n";
         $passed++;
@@ -84,51 +83,51 @@ function test($description, $condition) {
 
 echo "--- Prueba 1: Tabla simple ---\n";
 $result = $resolver->resolve('users');
-test('Tabla simple genera FROM correcto', 
+$test('Tabla simple genera FROM correcto', 
      trim($result['from']) === 'FROM "users"');
-test('Tabla simple tiene tablesInfo correcto', 
+$test('Tabla simple tiene tablesInfo correcto', 
      count($result['tablesInfo']) === 1 && $result['tablesInfo'][0]['real'] === 'users');
 
 echo "\n--- Prueba 2: Dos tablas relacionadas (users, posts) ---\n";
 $result = $resolver->resolve(['users', 'posts']);
 $expectedFrom = 'FROM "users" LEFT JOIN "posts" ON "users"."id" = "posts"."user_id"';
-test('Dos tablas generan FROM y JOIN correctos', 
+$test('Dos tablas generan FROM y JOIN correctos', 
      trim($result['from']) === $expectedFrom);
-test('Dos tablas tienen 2 entries en tablesInfo', 
+$test('Dos tablas tienen 2 entries en tablesInfo', 
      count($result['tablesInfo']) === 2);
 
 echo "\n--- Prueba 3: Orden inverso (posts, users) ---\n";
 $result = $resolver->resolve(['posts', 'users']);
 // Debería ser capaz de resolver en cualquier orden
-test('Orden inverso también genera JOIN válido', 
+$test('Orden inverso también genera JOIN válido', 
      str_contains($result['from'], 'FROM') && str_contains($result['from'], 'JOIN'));
 
 echo "\n--- Prueba 4: Triple join (users, posts, comments) ---\n";
 $result = $resolver->resolve(['users', 'posts', 'comments']);
-test('Triple join no está vacío', 
+$test('Triple join no está vacío', 
      !empty(trim($result['from'])));
-test('Triple join contiene al menos 2 JOINs', 
+$test('Triple join contiene al menos 2 JOINs', 
      substr_count($result['from'], 'JOIN') >= 2);
-test('Triple join tiene 3 entries en tablesInfo', 
+$test('Triple join tiene 3 entries en tablesInfo', 
      count($result['tablesInfo']) === 3);
 
 echo "\n--- Prueba 5: Cache funciona (segunda llamada) ---\n";
 $start = microtime(true);
 for ($i = 0; $i < 100; $i++) {
     $resolver->resolve(['users', 'posts']);
-}
+};
 $duration = microtime(true) - $start;
-test('Cache hace 100 llamadas rápidas (< 0.1s)', 
+$test('Cache hace 100 llamadas rápidas (< 0.1s)', 
      $duration < 0.1);
 
 echo "\n--- Prueba 6: Tabla con alias ---\n";
 $result = $resolver->resolve('users AS u');
-test('Alias se respeta en FROM', 
+$test('Alias se respeta en FROM', 
      str_contains($result['from'], 'u'));
 
 echo "\n--- Prueba 7: Array con una sola tabla ---\n";
 $result = $resolver->resolve(['posts']);
-test('Array con una tabla genera FROM simple', 
+$test('Array con una tabla genera FROM simple', 
      trim($result['from']) === 'FROM "posts"');
 
 echo "\n--- Prueba 8: Tablas desconectadas (debería usar modo lineal) ---\n";
@@ -146,7 +145,7 @@ $map2 = [
 SchemaMap::setMap($map2, 'test2');
 $resolver2 = new JoinResolver('test2');
 $result = $resolver2->resolve(['table1', 'table2']);
-test('Tablas sin relaciones usan modo lineal', 
+$test('Tablas sin relaciones usan modo lineal', 
      str_contains($result['from'], 'table1') && str_contains($result['from'], 'table2'));
 
 echo "\n=================== RESULTADOS ===================\n";

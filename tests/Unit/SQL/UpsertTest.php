@@ -15,8 +15,7 @@ use RapidBase\Core\SQL\ConditionMatrix;
 $passed = 0;
 $failed = 0;
 
-function test(string $description, callable $fn): void {
-    global $passed, $failed;
+$test = function(string $description, callable $fn) use (&$passed, &$failed) {
     try {
         $fn();
         echo "  [OK] $description\n";
@@ -26,7 +25,7 @@ function test(string $description, callable $fn): void {
         echo "         Error: " . $e->getMessage() . "\n";
         $failed++;
     }
-}
+};
 
 echo "================================================\n";
 echo "PRUEBA DE Q::upsert()\n";
@@ -46,22 +45,22 @@ $params = $compiled->getParams();
 echo "SQL: $sql\n";
 echo "Params: " . json_encode($params) . "\n";
 
-test("Contiene INSERT INTO", function() use ($sql) {
+$test("Contiene INSERT INTO", function() use ($sql) {
     assert(str_contains($sql, 'INSERT INTO'));
 });
-test("Contiene ON CONFLICT", function() use ($sql) {
+$test("Contiene ON CONFLICT", function() use ($sql) {
     assert(str_contains($sql, 'ON CONFLICT'));
 });
-test("Contiene DO UPDATE SET", function() use ($sql) {
+$test("Contiene DO UPDATE SET", function() use ($sql) {
     assert(str_contains($sql, 'DO UPDATE SET'));
 });
-test("Usa excluded.name", function() use ($sql) {
+$test("Usa excluded.name", function() use ($sql) {
     assert(str_contains($sql, 'excluded.'));
 });
-test("No usa ON DUPLICATE KEY", function() use ($sql) {
+$test("No usa ON DUPLICATE KEY", function() use ($sql) {
     assert(!str_contains($sql, 'ON DUPLICATE KEY'));
 });
-test("Número de parámetros", function() use ($params) {
+$test("Número de parámetros", function() use ($params) {
     assert(count($params) === 3);
 });
 
@@ -72,7 +71,7 @@ $sql = $compiled->getSql();
 
 echo "SQL: $sql\n";
 
-test("Es un INSERT simple", function() use ($sql) {
+$test("Es un INSERT simple", function() use ($sql) {
     assert(!str_contains($sql, 'ON CONFLICT'));
 });
 
@@ -86,10 +85,10 @@ $sql = $compiled->getSql();
 
 echo "SQL: $sql\n";
 
-test("Contiene DO NOTHING", function() use ($sql) {
+$test("Contiene DO NOTHING", function() use ($sql) {
     assert(str_contains($sql, 'DO NOTHING'));
 });
-test("No contiene DO UPDATE SET", function() use ($sql) {
+$test("No contiene DO UPDATE SET", function() use ($sql) {
     assert(!str_contains($sql, 'DO UPDATE SET'));
 });
 
@@ -107,16 +106,16 @@ $params = $compiled->getParams();
 echo "SQL: $sql\n";
 echo "Params: " . json_encode($params) . "\n";
 
-test("Contiene INSERT INTO", function() use ($sql) {
+$test("Contiene INSERT INTO", function() use ($sql) {
     assert(str_contains($sql, 'INSERT INTO'));
 });
-test("Contiene ON DUPLICATE KEY UPDATE", function() use ($sql) {
+$test("Contiene ON DUPLICATE KEY UPDATE", function() use ($sql) {
     assert(str_contains($sql, 'ON DUPLICATE KEY UPDATE'));
 });
-test("Usa VALUES()", function() use ($sql) {
+$test("Usa VALUES()", function() use ($sql) {
     assert(str_contains($sql, 'VALUES('));
 });
-test("No usa ON CONFLICT", function() use ($sql) {
+$test("No usa ON CONFLICT", function() use ($sql) {
     assert(!str_contains($sql, 'ON CONFLICT'));
 });
 
@@ -127,7 +126,7 @@ $sql = $compiled->getSql();
 
 echo "SQL: $sql\n";
 
-test("INSERT simple (sin UPDATE)", function() use ($sql) {
+$test("INSERT simple (sin UPDATE)", function() use ($sql) {
     assert(!str_contains($sql, 'ON DUPLICATE KEY'));
 });
 
@@ -141,7 +140,7 @@ $sql = $compiled->getSql();
 
 echo "SQL: $sql\n";
 
-test("Contiene INSERT IGNORE", function() use ($sql) {
+$test("Contiene INSERT IGNORE", function() use ($sql) {
     assert(str_contains($sql, 'INSERT IGNORE'));
 });
 
