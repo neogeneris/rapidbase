@@ -73,7 +73,7 @@ class RapidBaseVsPDOComparison {
     
     private function createTables(): void {
         $this->pdo->exec(<<<SQL
-            CREATE TABLE test_records (
+            CREATE TABLE IF NOT EXISTS test_records (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 email VARCHAR(255),
@@ -249,8 +249,7 @@ class RapidBaseVsPDOComparison {
         
         // Crear segunda tabla para JOIN
         $this->pdo->exec(<<<SQL
-            DROP TABLE IF EXISTS categories_test;
-            CREATE TABLE categories_test (
+            CREATE TABLE IF NOT EXISTS categories_test (
                 id VARCHAR(10) PRIMARY KEY,
                 name VARCHAR(100)
             )

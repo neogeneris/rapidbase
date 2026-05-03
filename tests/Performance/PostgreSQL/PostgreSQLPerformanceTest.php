@@ -75,7 +75,7 @@ class PostgreSQLPerformanceTest {
     private function createTables(): void {
         // Tabla customers
         $this->pdo->exec(<<<SQL
-            CREATE TABLE customers (
+            CREATE TABLE IF NOT EXISTS customers (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 email VARCHAR(255) NOT NULL,
@@ -88,7 +88,7 @@ class PostgreSQLPerformanceTest {
         
         // Tabla categories
         $this->pdo->exec(<<<SQL
-            CREATE TABLE categories (
+            CREATE TABLE IF NOT EXISTS categories (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 description TEXT
@@ -97,7 +97,7 @@ class PostgreSQLPerformanceTest {
         
         // Tabla products
         $this->pdo->exec(<<<SQL
-            CREATE TABLE products (
+            CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 category_id INTEGER REFERENCES categories(id),
@@ -111,7 +111,7 @@ class PostgreSQLPerformanceTest {
         
         // Tabla orders
         $this->pdo->exec(<<<SQL
-            CREATE TABLE orders (
+            CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
                 customer_id INTEGER REFERENCES customers(id),
                 status VARCHAR(50),
@@ -124,7 +124,7 @@ class PostgreSQLPerformanceTest {
         
         // Tabla order_items
         $this->pdo->exec(<<<SQL
-            CREATE TABLE order_items (
+            CREATE TABLE IF NOT EXISTS order_items (
                 id SERIAL PRIMARY KEY,
                 order_id INTEGER REFERENCES orders(id),
                 product_id INTEGER REFERENCES products(id),
