@@ -40,6 +40,7 @@ class RapidBaseVsPDOComparison {
             // Ejecutar comparativas
             $this->compareInsertSingle();
             $this->compareInsertBatch();
+            $this->compareInsertMultipleNative();  // Nueva prueba: INSERT múltiple nativo
             $this->compareSelectSimple();
             $this->compareSelectWhere();
             $this->compareSelectJoin();
@@ -195,7 +196,7 @@ class RapidBaseVsPDOComparison {
             return 100;
         });
         
-        // RapidBase con insert múltiple
+        // RapidBase con insert múltiple (versión actual: 100 inserts individuales)
         $rbResult = $this->measureRapidBase('INSERT batch', function() use ($batchData) {
             $ids = [];
             foreach ($batchData as $row) {
@@ -204,7 +205,40 @@ class RapidBaseVsPDOComparison {
             return count($ids);
         });
         
-        $this->printComparison('INSERT Batch (100)', $pdoResult, $rbResult);
+        $this->printComparison('INSERT Batch (100) Individual', $pdoResult, $rbResult);
+    }
+    
+    private function compareInsertMultipleNative(): void {
+        echo "=== Prueba 3b: INSERT Múltiple (Native - 1 sola llamada) ===\n";
+        
+        $batchData = [];
+        for ($i = 0; $i < 100; $i++) {
+            $batchData[] = [
+                'name' => "User $i",
+                'email' => "user$i@example.com",
+                'value' => rand(1, 1000),
+                'category' => chr(65 + ($i % 5))
+            ];
+        }
+        
+        // PDO con transacción (referencia)
+        $pdoResult = $this->measurePDO('INSERT batch', function() use ($batchData) {
+            $this->pdo->beginTransaction();
+            $stmt = $this->pdo->prepare("INSERT INTO test_records (name, email, value, category) VALUES (?, ?, ?, ?)");
+            foreach ($batchData as $row) {
+                $stmt->execute([$row['name'], $row['email'], $row['value'], $row['category']]);
+            }
+            $this->pdo->commit();
+            return 100;
+        });
+        
+        // RapidBase con insert múltiple nativo (pasando array completo)
+        $rbResult = $this->measureRapidBase('INSERT multiple native', function() use ($batchData) {
+            // Insert múltiple nativo de RapidBase - 1 sola llamada
+            return DB::insert('test_records', $batchData);
+        });
+        
+        $this->printComparison('INSERT Múltiple (Native)', $pdoResult, $rbResult);
     }
     
     private function compareSelectSimple(): void {
