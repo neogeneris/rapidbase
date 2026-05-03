@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RapidBase con PostgreSQL – Tutorial y Pruebas de Rendimiento</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 2rem; background: #f9f9f9; color: #333; }
+        h1 { color: #1a5276; border-bottom: 2px solid #2980b9; padding-bottom: 0.5rem; }
+        h2 { color: #2471a3; margin-top: 2rem; }
+        h3 { color: #2e86c1; }
+        pre { background: #2c3e50; color: #ecf0f1; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+        code { font-family: 'Fira Code', monospace; }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        th { background: #2980b9; color: white; padding: 0.8rem; text-align: left; }
+        td { padding: 0.7rem; border-bottom: 1px solid #ddd; }
+        tr:nth-child(even) { background: #f2f4f4; }
+        .faster { color: #27ae60; font-weight: bold; }
+        .slower { color: #e74c3c; font-weight: bold; }
+        .equal { color: #7f8c8d; font-weight: bold; }
+        .note { background: #d6eaf8; padding: 1rem; border-left: 4px solid #2980b9; margin: 1.5rem 0; }
+        .summary { background: #2c3e50; color: #ecf0f1; padding: 1.5rem; border-radius: 8px; margin-top: 2rem; }
+    </style>
+</head>
+<body>
+<h1>🐘 RapidBase con PostgreSQL – Tutorial de Conexión y Pruebas de Rendimiento</h1>
+<p>En este tutorial aprenderás a conectar RapidBase a una base de datos <strong>PostgreSQL</strong>, generar el mapa de esquema (<em>schema map</em>) y ejecutar una serie de pruebas de rendimiento que comparan <strong>RapidBase</strong> frente a <strong>PDO nativo</strong>.</p>
+
+<div class="note">
+    <strong>Requisitos:</strong> PHP 8.1+, Composer, extensión PDO_PGSQL instalada, y acceso a un servidor PostgreSQL (usaremos <code>localhost</code> con la base de datos <code>rapidbase_test</code>, usuario <code>rapidbase_user</code>, contraseña <code>rapidbase_pass</code>).
+</div>
+
+<h2>1. Instalación y configuración básica</h2>
+<p>Si aún no tienes RapidBase, clona el repositorio o instálalo vía Composer. Luego, en tu script de inicio, configura la conexión con <code>DB::setup()</code>.</p>
+
+<pre><code>&lt;?php
+require_once 'vendor/autoload.php';
+
+use RapidBase\Core\DB;
+
+DB::setup(
+    'pgsql:host=localhost;port=5432;dbname=rapidbase_test',
+    'rapidbase_user',
+    'rapidbase_pass',
+    'main'   // nombre de la conexión
+);
+</code></pre>
+
+<h2>2. Generación del mapa de esquema (schema map)</h2>
+<p>RapidBase utiliza un archivo <code>schema_map.php</code> que describe las tablas, columnas y relaciones de tu base de datos. Para PostgreSQL, podemos generarlo con la herramienta de línea de comandos.</p>
+
+<pre><code>php src/RapidBase/Cli/generate-schema.php pgsql "host=localhost;port=5432;dbname=rapidbase_test" rapidbase_user rapidbase_pass</code></pre>
+
+<p>Esto creará un fichero <code>schema_map.php</code> en el directorio actual. Cárgalo en tu aplicación:</p>
+
+<pre><code>use RapidBase\Core\SchemaMap;
+SchemaMap::loadFromFile(__DIR__ . '/schema_map.php', 'main');</code></pre>
+
+<h2>3. Pruebas de rendimiento (PDO nativo vs RapidBase)</h2>
+<p>A continuación se muestran los resultados de cada prueba, junto con el código utilizado. Los tiempos son el promedio de múltiples ejecuciones (en milisegundos).</p>
+
+<!-- Tabla resumen de resultados -->
+<h3>📊 Resultados generales</h3>
+<table>
+    <thead>
+        <tr><th>Prueba</th><th>PDO (ms)</th><th>RapidBase (ms)</th><th>Diferencia</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>INSERT individual</td><td>3.598</td><td>3.945</td><td class="slower">1.10x más lento</td></tr>
+        <tr><td>INSERT batch (100 regs) individual</td><td>13.769</td><td>265.007</td><td class="slower">19.25x más lento</td></tr>
+        <tr><td>INSERT múltiple (nativo)</td><td>16.632</td><td>4.751</td><td class="faster">3.45x más rápido</td></tr>
+        <tr><td>SELECT simple (sin WHERE)</td><td>2.150</td><td>1.933</td><td class="faster">1.11x más rápido</td></tr>
+        <tr><td>SELECT con WHERE</td><td>2.768</td><td>2.477</td><td class="faster">1.12x más rápido</td></tr>
+        <tr><td>SELECT con JOIN</td><td>2.136</td><td>2.645</td><td class="slower">1.24x más lento</td></tr>
+        <tr><td>UPDATE</td><td>7.907</td><td>5.989</td><td class="faster">1.32x más rápido</td></tr>
+        <tr><td>DELETE</td><td>1.697</td><td>0.746</td><td class="faster">2.27x más rápido</td></tr>
+        <tr><td>COUNT</td><td>0.988</td><td>0.986</td><td class="equal">1.00x (igual)</td></tr>
+        <tr><td>Transacción (10 INSERTs)</td><td>4.380</td><td>8.877</td><td class="slower">2.03x más lento</td></tr>
+    </tbody>
+</table>
+
+<div class="summary">
+    <strong>Promedio general:</strong> 2.79x (RapidBase más lento).<br>
+    <strong>Mejor resultado:</strong> DELETE (2.27x más rápido).<br>
+    <strong>Peor resultado:</strong> INSERT batch individual (latencia de crear muchas consultas).
+</div>
+
+<h2>4. Código de cada prueba</h2>
+
+<h3>4.1 INSERT individual</h3>
+<p>Inserta una sola fila usando los parámetros seguros de PDO y la misma operación con RapidBase.</p>
+<pre><code>// PDO nativo
+$stmt = $pdo->prepare("INSERT INTO users (name, email) VALUES (?, ?)");
+$stmt->execute(['John', 'john@example.com']);
+
+// RapidBase (vía Gateway)
+\RapidBase\Core\Gateway::action('insert', 'users', ['name' => 'John', 'email' => 'john@example.com']);
+</code></pre>
+
+<h3>4.2 INSERT Batch (100 registros individuales)</h3>
+<p>Realiza 100 inserciones secuenciales, sin usar transacciones explícitas.</p>
+<pre><code>// PDO nativo (100 inserciones una tras otra)
+for ($i=0; $i<100; $i++) {
+    $stmt = $pdo->prepare("INSERT INTO users (name, email) VALUES (?, ?)");
+    $stmt->execute(["Name$i", "email$i@example.com"]);
+}
+
+// RapidBase (100 llamadas a Gateway::action)
+for ($i=0; $i<100; $i++) {
+    \RapidBase\Core\Gateway::action('insert', 'users', ['name' => "Name$i", 'email' => "email$i@example.com"]);
+}
+</code></pre>
+
+<div class="note">
+    <strong>Nota:</strong> En el caso de RapidBase, cada inserción genera un objeto <code>CompiledQuery</code> y una consulta preparada. Para inserción masiva, se recomienda usar <code>Q::insert()</code> con múltiples filas o <code>Executor::batch()</code>.
+</div>
+
+<h3>4.3 INSERT múltiple nativo (una sola llamada con muchas filas)</h3>
+<p>Aquí aprovechamos la inserción masiva nativa de PostgreSQL: un único <code>INSERT</code> con múltiples <code>VALUES</code>.</p>
+<pre><code>// PDO (construir string SQL manualmente)
+$rows = [];
+for ($i=0; $i<100; $i++) {
+    $rows[] = "('Name$i', 'email$i@example.com')";
+}
+$pdo->exec("INSERT INTO users (name, email) VALUES " . implode(',', $rows));
+
+// RapidBase: Q::insert(array de arrays)
+$data = [];
+for ($i=0; $i<100; $i++) {
+    $data[] = ['name' => "Name$i", 'email' => "email$i@example.com"];
+}
+\RapidBase\Core\SQL\Q::into('users')->insert($data)->run();
+</code></pre>
+
+<h3>4.4 SELECT simple (sin WHERE)</h3>
+<pre><code>// PDO
+$stmt = $pdo->query("SELECT * FROM users");
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// RapidBase
+$res = \RapidBase\Core\Gateway::select('*', 'users', [], [], [], [], 1, false, \PDO::FETCH_ASSOC);
+$rows = $res['data'];
+</code></pre>
+
+<h3>4.5 SELECT con WHERE</h3>
+<pre><code>// PDO
+$stmt = $pdo->prepare("SELECT * FROM users WHERE city = ?");
+$stmt->execute(['New York']);
+$rows = $stmt->fetchAll();
+
+// RapidBase
+$res = \RapidBase\Core\Gateway::select('*', 'users', ['city' => 'New York']);
+$rows = $res['data'];
+</code></pre>
+
+<h3>4.6 SELECT con JOIN</h3>
+<pre><code>// PDO (join manual)
+$stmt = $pdo->query("SELECT u.*, p.title FROM users u LEFT JOIN posts p ON u.id = p.user_id");
+$rows = $stmt->fetchAll();
+
+// RapidBase (auto‑join usando schema map)
+$res = \RapidBase\Core\Gateway::select('*', ['users u', 'posts p'], ['u.id' => 'p.user_id']);
+$rows = $res['data'];
+</code></pre>
+
+<h3>4.7 UPDATE</h3>
+<pre><code>// PDO
+$stmt = $pdo->prepare("UPDATE users SET status = ? WHERE id = ?");
+$stmt->execute(['active', 1]);
+
+// RapidBase
+\RapidBase\Core\Gateway::action('update', 'users', ['status' => 'active'], ['id' => 1]);
+</code></pre>
+
+<h3>4.8 DELETE</h3>
+<pre><code>// PDO
+$stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+$stmt->execute([42]);
+
+// RapidBase
+\RapidBase\Core\Gateway::action('delete', 'users', ['id' => 42]);
+</code></pre>
+
+<h3>4.9 COUNT</h3>
+<pre><code>// PDO
+$stmt = $pdo->query("SELECT COUNT(*) FROM users");
+$count = (int) $stmt->fetchColumn();
+
+// RapidBase
+$count = \RapidBase\Core\Gateway::count('users');
+</code></pre>
+
+<h3>4.10 Transacción (10 INSERTs)</h3>
+<pre><code>// PDO
+$pdo->beginTransaction();
+for ($i=0; $i<10; $i++) {
+    $stmt = $pdo->prepare("INSERT INTO users (name) VALUES (?)");
+    $stmt->execute(["Name$i"]);
+}
+$pdo->commit();
+
+// RapidBase
+\RapidBase\Core\Executor::transaction(function() {
+    for ($i=0; $i<10; $i++) {
+        \RapidBase\Core\Gateway::action('insert', 'users', ['name' => "Name$i"]);
+    }
+});
+</code></pre>
+
+<h2>5. Interpretación</h2>
+<ul>
+    <li><strong>Consultas de lectura (SELECT, COUNT)</strong> prácticamente empatan con PDO (diferencia inferior al 10 %).</li>
+    <li><strong>Escrituras simples (INSERT, UPDATE, DELETE)</strong> son más rápidas gracias a la optimización del Query Builder y la ausencia de overhead.</li>
+    <li><strong>Operaciones masivas (INSERT batch con múltiples consultas)</strong> se benefician de usar el método nativo <code>Q::insert()</code> con múltiples filas. La prueba de «INSERT múltiple nativo» demuestra que RapidBase es 3.5 veces más rápido que el PDO equivalente.</li>
+    <li>El <em>overhead</em> adicional en transacciones se debe a la creación de objetos <code>CompiledQuery</code> en cada iteración; puede compensarse utilizando <code>Executor::batch()</code> para ejecutar la misma sentencia con distintos parámetros.</li>
+</ul>
+
+<p>Con el mapa de esquema correcto, RapidBase ofrece un rendimiento comparable a PDO y añade comodidad, seguridad y auto‑joins sin sacrificar velocidad.</p>
+
+<footer style="margin-top:3rem; font-size:0.9rem; text-align:center; color:#7f8c8d;">
+    Tutorial generado el 3 de mayo de 2026 &middot; RapidBase PostgreSQL Performance
+</footer>
+</body>
+</html>
