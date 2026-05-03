@@ -78,48 +78,29 @@ class PostgreSQLDiscovery implements DiscoveryInterface
     {
         $columns = [];
 
-        // Consulta para obtener columnas y sus relaciones FK en PostgreSQL
+        // Consulta usando pg_catalog en lugar de information_schema (mejor compatibilidad con permisos limitados)
         $sql = "
             SELECT 
-                c.column_name, 
-                c.data_type, 
-                c.is_nullable,
-                c.column_default,
-                CASE 
-                    WHEN pk.column_name IS NOT NULL THEN 'PRI'
-                    ELSE ''
-                END AS column_key,
-                fk_tbl.table_name AS referenced_table_name,
-                fk_col.column_name AS referenced_column_name
-            FROM information_schema.columns c
-            LEFT JOIN information_schema.constraint_column_usage ccu 
-                ON c.table_schema = ccu.table_schema 
-                AND c.table_name = ccu.table_name 
-                AND c.column_name = ccu.column_name
-            LEFT JOIN information_schema.table_constraints tc 
-                ON tc.constraint_name = ccu.constraint_name 
-                AND tc.constraint_type = 'FOREIGN KEY'
-            LEFT JOIN information_schema.key_column_usage fk_col
-                ON tc.constraint_name = fk_col.constraint_name
-                AND fk_col.position_in_unique_constraint = 1
-            LEFT JOIN information_schema.table_constraints fk_tbl
-                ON tc.constraint_name = fk_tbl.constraint_name
-                AND fk_tbl.constraint_type = 'FOREIGN KEY'
-            LEFT JOIN information_schema.key_column_usage pk
-                ON c.table_schema = pk.table_schema
-                AND c.table_name = pk.table_name
-                AND c.column_name = pk.column_name
-                AND pk.constraint_name = (
-                    SELECT constraint_name 
-                    FROM information_schema.table_constraints 
-                    WHERE table_schema = c.table_schema 
-                    AND table_name = c.table_name 
-                    AND constraint_type = 'PRIMARY KEY'
-                    LIMIT 1
-                )
-            WHERE c.table_schema = 'public' 
-              AND c.table_name = :tableName
-            ORDER BY c.ordinal_position";
+                a.attname AS column_name,
+                pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+                NOT a.attnotnull AS is_nullable,
+                pg_catalog.pg_get_expr(d.adbin, d.adrelid) AS column_default,
+                CASE WHEN i.indisprimary THEN 'PRI' ELSE '' END AS column_key,
+                fk_tbl.relname AS referenced_table_name,
+                fk_att.attname AS referenced_column_name
+            FROM pg_catalog.pg_attribute a
+            JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
+            JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+            LEFT JOIN pg_catalog.pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+            LEFT JOIN pg_catalog.pg_index i ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) AND i.indisprimary
+            LEFT JOIN pg_catalog.pg_constraint con ON con.conrelid = c.oid AND a.attnum = ANY(con.conkey) AND con.contype = 'f'
+            LEFT JOIN pg_catalog.pg_class fk_tbl ON con.confrelid = fk_tbl.oid
+            LEFT JOIN pg_catalog.pg_attribute fk_att ON fk_att.attrelid = fk_tbl.oid AND fk_att.attnum = con.confkey[1]
+            WHERE n.nspname = 'public'
+              AND c.relname = :tableName
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+            ORDER BY a.attnum";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['tableName' => $tableName]);
@@ -129,7 +110,7 @@ class PostgreSQLDiscovery implements DiscoveryInterface
                 'type'       => $row['data_type'],
                 'primary'    => ($row['column_key'] === 'PRI'),
                 'foreign'    => !is_null($row['referenced_table_name']),
-                'nullable'   => ($row['is_nullable'] === 'YES'),
+                'nullable'   => ($row['is_nullable'] === true || $row['is_nullable'] == '1' || $row['is_nullable'] == 't'),
                 'default'    => $row['column_default'],
                 'references' => $row['referenced_table_name'] ? [
                     'table'  => $row['referenced_table_name'],

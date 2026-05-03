@@ -3,7 +3,7 @@
         'name' => 'rapidbase/rapidbase',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '1d8dc5a3fee0493bf6594e9e5afcbfadba24924e',
+        'reference' => 'e003d5004dcd5cac1a5322043675b055adb9e935',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -17,6 +17,17 @@
             'type' => 'library',
             'install_path' => __DIR__ . '/../bcosca/fatfree-core',
             'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'catfan/medoo' => array(
+            'pretty_version' => 'dev-master',
+            'version' => 'dev-master',
+            'reference' => 'd5ac2f9b5d10cf15babae55144a7b047675728db',
+            'type' => 'framework',
+            'install_path' => __DIR__ . '/../catfan/medoo',
+            'aliases' => array(
+                0 => '9999999-dev',
+            ),
             'dev_requirement' => false,
         ),
         'gabordemooij/redbean' => array(
@@ -121,7 +132,7 @@
         'rapidbase/rapidbase' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '1d8dc5a3fee0493bf6594e9e5afcbfadba24924e',
+            'reference' => 'e003d5004dcd5cac1a5322043675b055adb9e935',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

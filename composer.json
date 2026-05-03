@@ -17,6 +17,7 @@
     ],
     "require": {
         "gabordemooij/redbean": "^5.7",
-        "bcosca/fatfree-core": "^3.9"
+        "bcosca/fatfree-core": "^3.9",
+        "catfan/medoo": "dev-master"
     }
 }
