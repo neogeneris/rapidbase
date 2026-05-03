@@ -41,10 +41,13 @@ use RapidBase\Core\SchemaMap;
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
 
-// Configuración de PostgreSQL
-$dsn = 'pgsql:host=localhost;port=5432;dbname=rapidbase_test';
-$dbUser = 'postgres';
-$dbPass = '';
+// Cargar configuración centralizada
+require_once __DIR__ . '/config.php';
+
+// Usar configuración desde PGConfig
+$dsn = PGConfig::getDSN();
+$dbUser = PGConfig::DB_USER;
+$dbPass = PGConfig::DB_PASS;
 
 // ============================================================================
 // SETUP DE BASE DE DATOS

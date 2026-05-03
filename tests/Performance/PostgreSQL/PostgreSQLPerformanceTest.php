@@ -15,6 +15,8 @@ namespace Tests\Performance\PostgreSQL;
 
 // Carga manual de dependencias de RapidBase
 require_once __DIR__ . "/../../../vendor/autoload.php";
+// Cargar configuración centralizada
+require_once __DIR__ . '/config.php';
 
 use RapidBase\Core\DB;
 use RapidBase\Core\Schema;
@@ -31,17 +33,18 @@ class PostgreSQLPerformanceTest {
         echo "=== PostgreSQL Performance Test ===\n\n";
         
         try {
-            // Conectar a PostgreSQL
-            $dsn = 'pgsql:host=localhost;port=5432;dbname=rapidbase_test';
-            $user = 'rapidbase_user';
-            $pass = 'rapidbase_pass';
+            // Usar configuración centralizada
+            PGConfig::printInfo();
             
-            DB::setup($dsn, $user, $pass, 'main');
-            $this->pdo = DB::getConnection();
+            // Conectar a PostgreSQL usando config
+            PGConfig::setupRapidBase();
+            $this->pdo = PGConfig::getPDO();
             echo "✓ Conectado a PostgreSQL\n\n";
             
             // Limpiar tablas si existen
-            $this->cleanup();
+            if (PGConfig::CLEANUP_BEFORE_TESTS) {
+                $this->cleanup();
+            }
             
             // Ejecutar pruebas progresivas
             $this->testSimpleInserts();
@@ -66,15 +69,7 @@ class PostgreSQLPerformanceTest {
     }
     
     private function cleanup(): void {
-        try {
-            $this->pdo->exec("DROP TABLE IF EXISTS order_items CASCADE");
-            $this->pdo->exec("DROP TABLE IF EXISTS orders CASCADE");
-            $this->pdo->exec("DROP TABLE IF EXISTS products CASCADE");
-            $this->pdo->exec("DROP TABLE IF EXISTS categories CASCADE");
-            $this->pdo->exec("DROP TABLE IF EXISTS customers CASCADE");
-        } catch (Exception $e) {
-            // Ignorar errores al limpiar
-        }
+        PGConfig::cleanup($this->pdo);
     }
     
     private function createTables(): void {

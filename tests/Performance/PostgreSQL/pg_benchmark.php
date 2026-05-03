@@ -5,15 +5,16 @@
  */
 
 require_once __DIR__ . '/../../../vendor/autoload.php';
+require_once __DIR__ . '/config.php';
 
 use RapidBase\Core\Conn;
 use RapidBase\Core\DB;
 use RapidBase\Meta\SchemaMapper;
 
-// Configuración de conexión
-$dsn = 'pgsql:host=localhost;dbname=rapidbase_test';
-$user = 'rapidbase_user';
-$pass = 'rapidbase_pass';
+// Usar configuración centralizada
+$dsn = PGConfig::getDSN();
+$user = PGConfig::DB_USER;
+$pass = PGConfig::DB_PASS;
 
 echo "==================================================\n";
 echo "PERFORMANCE BENCHMARK (PostgreSQL)\n";

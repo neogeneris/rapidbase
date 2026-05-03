@@ -9,6 +9,7 @@
 namespace Tests\Performance\PostgreSQL;
 
 require_once __DIR__ . "/../../../vendor/autoload.php";
+require_once __DIR__ . '/config.php';
 
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
@@ -24,17 +25,18 @@ class RapidBaseVsPDOComparison {
         echo "╚══════════════════════════════════════════════════════════════╝\n\n";
         
         try {
-            // Conectar a PostgreSQL
-            $dsn = 'pgsql:host=localhost;port=5432;dbname=rapidbase_test';
-            $user = 'rapidbase_user';
-            $pass = 'rapidbase_pass';
+            // Usar configuración centralizada
+            PGConfig::printInfo();
             
-            DB::setup($dsn, $user, $pass, 'main');
-            $this->pdo = DB::getConnection();
+            // Conectar a PostgreSQL usando config
+            PGConfig::setupRapidBase();
+            $this->pdo = PGConfig::getPDO();
             echo "✓ Conectado a PostgreSQL\n\n";
             
             // Limpiar y preparar tablas
-            $this->cleanup();
+            if (PGConfig::CLEANUP_BEFORE_TESTS) {
+                $this->cleanup();
+            }
             $this->createTables();
             
             // Ejecutar comparativas
@@ -63,6 +65,7 @@ class RapidBaseVsPDOComparison {
     private function cleanup(): void {
         try {
             $this->pdo->exec("DROP TABLE IF EXISTS test_records CASCADE");
+            $this->pdo->exec("DROP TABLE IF EXISTS related_data CASCADE");
         } catch (Exception $e) {
             // Ignorar errores
         }

@@ -8,11 +8,16 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once __DIR__ . '/../../../vendor/autoload.php';
+require_once __DIR__ . '/config.php';
 
 use RapidBase\Core\Conn;
 
-// Configurar conexión usando Conn::setup
-Conn::setup('pgsql:host=localhost;port=5432;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass', 'postgresql');
+// Configurar conexión usando configuración centralizada
+$dsn = PGConfig::getDSN();
+$user = PGConfig::DB_USER;
+$pass = PGConfig::DB_PASS;
+
+Conn::setup($dsn, $user, $pass, 'postgresql');
 $pdo = Conn::get('postgresql');
 
 echo "Conexión a PostgreSQL establecida exitosamente.\n";
