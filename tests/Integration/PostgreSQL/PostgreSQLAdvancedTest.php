@@ -56,7 +56,7 @@ try {
     
     $pdo->exec("CREATE TABLE products (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(200) NOT NULL,
+        name VARCHAR(200) NOT NULL UNIQUE,
         description TEXT,
         price NUMERIC(10,2) NOT NULL,
         stock INTEGER DEFAULT 0,
@@ -289,8 +289,12 @@ try {
     echo "  ✓ Segundo UPSERT (UPDATE): afectó {$result2['count']} fila(s)\n";
     
     $updated = DB::find('products', ['name' => 'Producto Unico']);
-    echo "  ✓ Precio actualizado: {$updated['price']}\n";
-    echo "  ✓ Stock actualizado: {$updated['stock']}\n";
+    if ($updated) {
+        echo "  ✓ Precio actualizado: {$updated['price']}\n";
+        echo "  ✓ Stock actualizado: {$updated['stock']}\n";
+    } else {
+        echo "  ✗ No se pudo recuperar el producto actualizado\n";
+    }
     
 } catch (\Exception $e) {
     echo "  ✗ Error: " . $e->getMessage() . "\n";

@@ -197,6 +197,32 @@ class Gateway
             }
 
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $result, 'upsert', $tableName, $duration);
+            
+            // Para UPSERT, devolver siempre un array consistente con la data afectada
+            if ($result['success'] && $result['count'] > 0) {
+                // Si fue un UPDATE (count=1 pero lastId=null), obtener los datos actualizados
+                if ($result['lastId'] === null && !empty($conflictColumns)) {
+                    // Construir condiciones desde conflictColumns y data
+                    $conditions = [];
+                    foreach ($conflictColumns as $col) {
+                        if (isset($data[$col])) {
+                            $conditions[$col] = $data[$col];
+                        }
+                    }
+                    if (!empty($conditions)) {
+                        $updatedRow = self::find($tableName, $conditions);
+                        if ($updatedRow) {
+                            return [
+                                'success' => true,
+                                'count'   => 1,
+                                'lastId'  => $updatedRow['id'] ?? null,
+                                'data'    => $updatedRow
+                            ];
+                        }
+                    }
+                }
+            }
+            
             return $result;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
