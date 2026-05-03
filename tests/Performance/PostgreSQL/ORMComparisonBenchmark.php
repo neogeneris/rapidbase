@@ -183,11 +183,11 @@ class MedooAdapter {
     public function __construct($pdo) {
         $this->db = new Medoo([
             'database_type' => 'pgsql',
-            'host' => 'localhost',
-            'database_name' => 'rapidbase_test',
-            'username' => 'postgres',
-            'password' => '',
-            'port' => 5432,
+            'host' => PGConfig::DB_HOST,
+            'database_name' => PGConfig::DB_NAME,
+            'username' => PGConfig::DB_USER,
+            'password' => PGConfig::DB_PASS,
+            'port' => PGConfig::DB_PORT,
             'pdo' => $pdo
         ]);
     }
@@ -262,11 +262,11 @@ class PixieAdapter {
         // Pixie crea su propia conexión interna para PostgreSQL
         $this->connection = new Connection('pgsql', [
             'driver' => 'pgsql',
-            'host' => 'localhost',
-            'database' => 'rapidbase_test',
-            'username' => 'postgres',
-            'password' => '',
-            'port' => 5432
+            'host' => PGConfig::DB_HOST,
+            'database' => PGConfig::DB_NAME,
+            'username' => PGConfig::DB_USER,
+            'password' => PGConfig::DB_PASS,
+            'port' => PGConfig::DB_PORT
         ]);
         // Usamos la misma conexión PDO, no necesitamos transferir datos
     }
@@ -357,7 +357,8 @@ class F3Adapter {
     public function __construct($pdo) {
         // F3 necesita una cadena DSN para PostgreSQL
         $this->pdo = $pdo;
-        $this->db = new \DB\SQL('pgsql:host=localhost;port=5432;dbname=rapidbase_test', 'postgres', '');
+        $dsn = 'pgsql:host=' . PGConfig::DB_HOST . ';port=' . PGConfig::DB_PORT . ';dbname=' . PGConfig::DB_NAME;
+        $this->db = new \DB\SQL($dsn, PGConfig::DB_USER, PGConfig::DB_PASS);
         // En PostgreSQL usamos la misma conexión, no necesitamos transferir datos
     }
 
@@ -596,7 +597,7 @@ class QNoCacheAdapter {
         $this->pdo = $pdo;
         
         // Configurar Conn SIN schema_map (sin caché de relaciones)
-        \RapidBase\Core\Conn::setup('pgsql:host=localhost;port=5432;dbname=rapidbase_test', '', '', $this->connectionId);
+        \RapidBase\Core\Conn::setup(PGConfig::getDSN(), PGConfig::DB_USER, PGConfig::DB_PASS, $this->connectionId);
         // Reemplazar la conexión creada con la que ya tenemos
         $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
         $poolProperty = $reflection->getProperty('pool');
@@ -673,7 +674,7 @@ class QCacheAdapter {
         $this->pdo = $pdo;
         
         // Configurar Conn CON schema_map (con caché de relaciones)
-        \RapidBase\Core\Conn::setup('pgsql:host=localhost;port=5432;dbname=rapidbase_test', '', '', $this->connectionId);
+        \RapidBase\Core\Conn::setup(PGConfig::getDSN(), PGConfig::DB_USER, PGConfig::DB_PASS, $this->connectionId);
         // Reemplazar la conexión creada con la que ya tenemos
         $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
         $poolProperty = $reflection->getProperty('pool');
@@ -754,7 +755,7 @@ class QAdapter {
         $this->pdo = $pdo;
         
         // Configurar Conn con el PDO existente para que Q pueda usarlo
-        \RapidBase\Core\Conn::setup('pgsql:host=localhost;port=5432;dbname=rapidbase_test', '', '', $this->connectionId);
+        \RapidBase\Core\Conn::setup(PGConfig::getDSN(), PGConfig::DB_USER, PGConfig::DB_PASS, $this->connectionId);
         // Reemplazar la conexión creada con la que ya tenemos
         $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
         $poolProperty = $reflection->getProperty('pool');
@@ -1008,8 +1009,7 @@ echo "Comparing: PDO, Medoo, Pixie, F3 (DB), Q (no cache), Q (cache), Redbean\n"
 echo str_repeat('=', 80) . "\n\n";
 
 // Crear PDO base
-$basePdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$basePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$basePdo = PGConfig::getPDO();
 
 // Crear tablas y seedear datos
 echo "Setting up database...\n";
@@ -1023,8 +1023,7 @@ $results = [];
 // PDO (Nativo)
 // ----------------------------------------------------------------------------
 echo "Running PDO benchmarks...\n";
-$pdoPdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$pdoPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdoPdo = PGConfig::getPDO();
 createTestTables($pdoPdo);
 seedTestData($pdoPdo, 100, 500, 20, 1000, 50);
 $pdo = new PDOAdapter($pdoPdo);
@@ -1043,8 +1042,7 @@ $results[] = ['orm' => 'PDO', 'test' => 'Update', ...runBenchmark('PDO Update', 
 // MEDOO
 // ----------------------------------------------------------------------------
 echo "Running Medoo benchmarks...\n";
-$medooPdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$medooPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$medooPdo = PGConfig::getPDO();
 createTestTables($medooPdo);
 seedTestData($medooPdo, 100, 500, 20, 1000, 50);
 $medoo = new MedooAdapter($medooPdo);
@@ -1062,8 +1060,7 @@ $results[] = ['orm' => 'Medoo', 'test' => 'Update', ...runBenchmark('Medoo Updat
 // PIXIE
 // ----------------------------------------------------------------------------
 echo "Running Pixie benchmarks...\n";
-$pixiePdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$pixiePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pixiePdo = PGConfig::getPDO();
 createTestTables($pixiePdo);
 seedTestData($pixiePdo, 100, 500, 20, 1000, 50);
 $pixie = new PixieAdapter($pixiePdo);
@@ -1081,8 +1078,7 @@ $results[] = ['orm' => 'Pixie', 'test' => 'Update', ...runBenchmark('Pixie Updat
 // F3 (Fat-Free Framework DB)
 // ----------------------------------------------------------------------------
 echo "Running F3 benchmarks...\n";
-$f3Pdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$f3Pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$f3Pdo = PGConfig::getPDO();
 createTestTables($f3Pdo);
 seedTestData($f3Pdo, 100, 500, 20, 1000, 50);
 $f3 = new F3Adapter($f3Pdo);
@@ -1100,8 +1096,7 @@ $results[] = ['orm' => 'F3', 'test' => 'Update', ...runBenchmark('F3 Update', fn
 // Q NO CACHE (RapidBase sin schema_map)
 // ----------------------------------------------------------------------------
 echo "Running Q (No Cache) benchmarks...\n";
-$qNoCachePdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$qNoCachePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$qNoCachePdo = PGConfig::getPDO();
 createTestTables($qNoCachePdo);
 seedTestData($qNoCachePdo, 100, 500, 20, 1000, 50);
 $qNoCache = new QNoCacheAdapter($qNoCachePdo);
@@ -1119,8 +1114,7 @@ $results[] = ['orm' => 'Q-NoCache', 'test' => 'Update', ...runBenchmark('Q-NoCac
 // Q WITH CACHE (RapidBase con schema_map)
 // ----------------------------------------------------------------------------
 echo "Running Q (With Cache) benchmarks...\n";
-$qCachePdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$qCachePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$qCachePdo = PGConfig::getPDO();
 createTestTables($qCachePdo);
 seedTestData($qCachePdo, 100, 500, 20, 1000, 50);
 $qCache = new QCacheAdapter($qCachePdo);
@@ -1138,8 +1132,7 @@ $results[] = ['orm' => 'Q-Cache', 'test' => 'Update', ...runBenchmark('Q-Cache U
 // Q (RapidBase) - alias para backward compatibility
 // ----------------------------------------------------------------------------
 echo "Running Q benchmarks...\n";
-$qPdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$qPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$qPdo = PGConfig::getPDO();
 createTestTables($qPdo);
 seedTestData($qPdo, 100, 500, 20, 1000, 50);
 $q = new QAdapter($qPdo);
@@ -1157,8 +1150,7 @@ $results[] = ['orm' => 'Q', 'test' => 'Update', ...runBenchmark('Q Update', fn()
 // REDBEAN
 // ----------------------------------------------------------------------------
 echo "Running Redbean benchmarks...\n";
-$redbeanPdo = new PDO('pgsql:host=localhost;port=5432;dbname=rapidbase_test');
-$redbeanPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$redbeanPdo = PGConfig::getPDO();
 createTestTables($redbeanPdo);
 seedTestData($redbeanPdo, 100, 500, 20, 1000, 50);
 $redbean = new RedbeanAdapter($redbeanPdo);
