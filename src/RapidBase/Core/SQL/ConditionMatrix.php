@@ -181,8 +181,7 @@ class ConditionMatrix
         array $context,
         array $tablesSchema
     ): string {
-        $structure = self::extractStructure($conditions);
-        $base = crc32(json_encode($structure));
+        $base = crc32(serialize($conditions));
 
         $ctx = !empty($context) ? '|ctx:' . implode(',', array_keys($context)) : '';
         $sch = !empty($tablesSchema) ? '|sch:' . crc32(serialize($tablesSchema)) : '';

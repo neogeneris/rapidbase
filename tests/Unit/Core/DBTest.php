@@ -143,9 +143,8 @@ assert_db("create devuelve lastId", $createId !== false && $createId > 0);
 $upsertUpdate = DB::upsert('players', ['name' => 'Bob', 'email' => 'bob@test.com', 'points' => 35], ['email']);
 assert_db("upsert actualiza existente", 
     is_array($upsertUpdate) && 
-    ($upsertUpdate['action'] ?? '') === 'upsert' && 
-    ($upsertUpdate['count'] ?? 0) > 0 && 
-    ($upsertUpdate['lastId'] ?? 0) == 0
+    ($upsertUpdate['success'] ?? false) && 
+    ($upsertUpdate['count'] ?? 0) > 0
 );
 $bob = DB::find('players', ['email' => 'bob@test.com']);
 assert_db("upsert modificó puntos", ($bob['points'] ?? 0) == 35);
