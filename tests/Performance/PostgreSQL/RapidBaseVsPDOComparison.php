@@ -6,8 +6,6 @@
  * para determinar el overhead (multiplicador X) de RapidBase
  */
 
-namespace Tests\Performance\PostgreSQL;
-
 require_once __DIR__ . "/../../../vendor/autoload.php";
 require_once __DIR__ . '/config.php';
 

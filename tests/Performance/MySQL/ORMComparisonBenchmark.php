@@ -1,5 +1,4 @@
-namespace Tests\Performance\MySQL;
-
+<?php
 // Suprimir deprecated warnings para PHP 8.2+
 error_reporting(E_ALL & ~E_DEPRECATED);
 
@@ -40,8 +39,10 @@ use RapidBase\Core\Conn;
 // ============================================================================
 
 function createTestTables($pdo) {
-    // Limpiar tablas existentes
+    // Limpiar tablas existentes en orden correcto para evitar problemas de foreign keys
+    $pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
     $pdo->exec("DROP TABLE IF EXISTS post_tags, post_categories, comments, tags, posts, categories, users");
+    $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
     
     // Tabla users
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (

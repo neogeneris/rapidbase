@@ -6,8 +6,6 @@
  * Todos los scripts en esta carpeta usarán esta configuración automáticamente.
  */
 
-namespace Tests\Performance\MySQL;
-
 class MySQLConfig {
     
     // ==================== CONFIGURACIÓN DE CONEXIÓN ====================

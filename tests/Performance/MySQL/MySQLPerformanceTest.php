@@ -11,8 +11,6 @@
  * 6. Operaciones masivas (bulk operations)
  */
 
-namespace Tests\Performance\MySQL;
-
 // Carga manual de dependencias de RapidBase y configuración
 require_once __DIR__ . "/../../../vendor/autoload.php";
 require_once __DIR__ . "/config.php";
@@ -21,7 +19,6 @@ use RapidBase\Core\DB;
 use RapidBase\Core\Schema;
 use RapidBase\Core\Conn;
 use RapidBase\Core\Cache\CacheService;
-use PDO;
 
 class MySQLPerformanceTest {
     
