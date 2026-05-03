@@ -1,46 +1,110 @@
-```
+# Dependencies
+vendor/
+
 # Compiled and build artifacts
-*.pyc
-__pycache__/
 *.o
 *.obj
-*.class
-*.exe
-*.dll
 *.so
-*.a
-*.out
-
-# Dependencies
-node_modules/
-venv/
-.venv/
-.env
-.env.local
-.env.*
-
-# Logs and temp files
+*.dll
+*.exe
+*.class
+*.pyc
+__pycache__/
+*.jar
+*.war
+*.ear
+dist/
+build/
+target/
 *.log
 *.tmp
 *.swp
+*.swo
+
+# Environment specific
+.env
+.env.local
+.env.*
+.env.local.*
 
 # Editors
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Coverage
+# OS generated
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+ehthumbs.db
+Icon?
+VolumeIcons.icns
+*.DS_Store
+._*
+
+# Coverage reports
 coverage/
 htmlcov/
 .coverage
-
-# Distribution / packaging
-dist/
-build/
-*.tar.gz
-*.whl
-*.egg-info/
+*.coverage
 
 # Testing
 .phpunit.result.cache
 .phpunit/
-```
+.scrutinizer.yml
+.codeclimate.yml
+
+# Composer/Packagist
+composer.phar
+composer.lock
+vendor/composer/installed.json
+
+# Framework specifics
+storage/
+bootstrap/cache/
+*.cache
+*.log
+logs/
+tmp/
+cache/
+
+# Archive files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+
+# Images (if accidentally added)
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.gif
+*.webm
+*.svg
+*.ico
+*.tiff
+*.tif
+*.webp
+*.avif
+*.apng
