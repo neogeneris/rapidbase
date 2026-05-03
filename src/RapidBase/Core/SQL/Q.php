@@ -55,11 +55,24 @@ class Q
         $pagination = null,
         $sort = [],
         $groupBy = null,
-        array $having = []
+        array $having = [],
+        bool $withTotal = false
     ): CompiledQuery {
+        $selectFields = $fields ?? '*';
+        
+        // Inyectar COUNT(*) OVER() si se solicita y no hay agrupamiento manual complejo
+        if ($withTotal && empty($groupBy)) {
+            $totalFunc = 'COUNT(*) OVER() AS _total';
+            if (is_array($selectFields)) {
+                array_unshift($selectFields, $totalFunc);
+            } else {
+                $selectFields = $totalFunc . ', ' . $selectFields;
+            }
+        }
+
         // Fast path: single simple table, no grouping/having, no subquery, no CompiledQuery params
         if ($groupBy === null && empty($having) && empty($this->compiledParams) && $this->isSimpleTable()) {
-            return $this->compileSimpleSelect($fields, $pagination, $sort);
+            return $this->compileSimpleSelect($selectFields, $pagination, $sort);
         }
 
         // Full pipeline
@@ -102,8 +115,6 @@ class Q
             $havingData['params'],
             $limitParams
         );
-
-        $selectFields = $fields ?? '*';
 
         $compiledState = [
             SqlCompiler::SEL    => $selectFields,

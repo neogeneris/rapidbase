@@ -48,7 +48,7 @@ class Gateway
         }
 
         $query = Q::from($table, $where ?? []);
-        $compiled = $query->select($fields, $pagination, $sort, $groupBy, $having);
+        $compiled = $query->select($fields, $pagination, $sort, $groupBy, $having, $withTotal);
 
         $start = microtime(true);
         try {
@@ -56,18 +56,10 @@ class Gateway
             $duration = (microtime(true) - $start) * 1000;
 
             // Determinar el total si no vino en _total:
-            $total = $res['total'];
-            if ($withTotal) {
-                // Si el total devuelto es exactamente igual a la cantidad de filas y tenemos paginación
-                // (lo que asume que _total NO fue inyectado por Q), ejecutamos un count separado.
-                if ($pagination !== null && $total === $res['count']) {
-                    $resTotal = Q::from($table, $where ?? [])->count()->run();
-                    $total = (int)$resTotal['count'];
-                } elseif ($pagination === null && $total === $res['count']) {
-                    $resTotal = Q::from($table, $where ?? [])->count()->run();
-                    $total = (int)$resTotal['count'];
-                }
-            }
+            $total = (int)($res['total'] ?? $res['count'] ?? 0);
+            
+            // Ya NO necesitamos ejecutar un segundo query si withTotal=true 
+            // porque Executor ya extrajo _total_count de las filas si existía.
 
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $res, 'select', $tableName, $duration);
 
@@ -84,6 +76,7 @@ class Gateway
                 'metadata'      => [
                     'cols'           => $res['cols'] ?? [],
                     'execution_time' => $duration,
+                    'sql'            => $compiled->getSql(),
                 ],
             ];
         } catch (Exception $e) {

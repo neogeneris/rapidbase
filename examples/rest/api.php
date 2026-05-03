@@ -15,22 +15,8 @@
 
 declare(strict_types=1);
 
-// ========== INCLUDES MANUALES (sin autoloader) ==========
-$srcBase = __DIR__ . '/../../src/RapidBase';
-$infraBase = __DIR__ . '/../../src/Infrastructure';
-
-require_once $srcBase . '/Core/Conn.php';
-require_once $srcBase . '/Core/SQL.php';
-require_once $srcBase . '/Core/Executor.php';
-require_once $srcBase . '/Core/SchemaMap.php';
-require_once $srcBase . '/Core/Cache/CacheService.php';
-require_once $srcBase . '/Core/Cache/Adapters/DirectoryCacheAdapter.php';
-require_once $srcBase . '/Core/Event.php';
-require_once $srcBase . '/Core/Gateway.php';
-require_once $srcBase . '/Core/QueryResponse.php';
-require_once $srcBase . '/Core/DBInterface.php';
-require_once $srcBase . '/Core/DB.php';
-require_once $srcBase . '/Infrastructure/UI/Adapters/RESTAdapter.php';
+// ========== CONFIGURACIÓN (con autoloader) ==========
+require_once __DIR__ . '/../crud/users/config.php';
 
 // ========== CONFIGURACIÓN DB ==========
 use RapidBase\Core\DB;

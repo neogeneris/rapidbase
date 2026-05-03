@@ -12,7 +12,7 @@
 // Suprimir deprecated warnings para PHP 8.2+
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-// Cargar autoloaders específicos para cada ORM (aislados)
+// Cargar autoloaders especÃƒÂ­ficos para cada ORM (aislados)
 $medooAutoload = __DIR__ . '/Medoo/vendor/autoload.php';
 $pixieAutoload = __DIR__ . '/Pixie/vendor/autoload.php';
 $f3Autoload = __DIR__ . '/F3/vendor/autoload.php';
@@ -39,7 +39,7 @@ use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SchemaMap;
 use RapidBase\Core\Conn;
 
-// Configuración de SQLite en memoria para pruebas justas
+// ConfiguraciÃƒÂ³n de SQLite en memoria para pruebas justas
 $dsn = 'sqlite::memory:';
 
 // ============================================================================
@@ -245,12 +245,12 @@ class PixieAdapter {
     private $connection;
 
     public function __construct($pdo) {
-        // Pixie crea su propia conexión interna, no usamos el PDO pasado directamente
+        // Pixie crea su propia conexiÃƒÂ³n interna, no usamos el PDO pasado directamente
         $this->connection = new Connection('sqlite', [
             'driver' => 'sqlite',
             'database' => ':memory:'
         ]);
-        // Transferimos las tablas existentes desde la conexión PDO original
+        // Transferimos las tablas existentes desde la conexiÃƒÂ³n PDO original
         $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_COLUMN);
         $newPdo = $this->connection->getPdoInstance();
         foreach ($tables as $table) {
@@ -615,9 +615,9 @@ class QNoCacheAdapter {
     public function __construct($pdo) {
         $this->pdo = $pdo;
         
-        // Configurar Conn SIN schema_map (sin caché de relaciones)
+        // Configurar Conn SIN schema_map (sin cachÃƒÂ© de relaciones)
         \RapidBase\Core\Conn::setup('sqlite::memory:', '', '', $this->connectionId);
-        // Reemplazar la conexión creada con la que ya tenemos
+        // Reemplazar la conexiÃƒÂ³n creada con la que ya tenemos
         $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
         $poolProperty = $reflection->getProperty('pool');
         $poolProperty->setAccessible(true);
@@ -631,22 +631,16 @@ class QNoCacheAdapter {
             $defaultProperty->setValue(null, $this->connectionId);
         }
         
-        // NO cargar schema_map - esto es Q sin caché
+        // NO cargar schema_map - esto es Q sin cachÃƒÂ©
         
         Q::setDriver('sqlite');
     }
 
-    public function selectSimple($table, $columns = '*', $where = []) {
-        $query = Q::from($table, $where);
-        $result = $query->select($columns)->run();
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
-    }
+    public function selectSimple($table, $columns = "*", $where = []) { $query = Q::from($table, $where); $result = $query->select($columns)->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM); }
 
     public function selectJoin2Tables() {
         $query = Q::from(['posts', 'users'], ['posts.user_id' => 'users.id'])
-            ->select(['posts.id', 'posts.title', 'users.name as author']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin3Tables() {
@@ -655,9 +649,7 @@ class QNoCacheAdapter {
             'posts.id' => 'post_categories.post_id',
             'post_categories.category_id' => 'categories.id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin4Tables() {
@@ -667,9 +659,7 @@ class QNoCacheAdapter {
             'post_categories.category_id' => 'categories.id',
             'posts.id' => 'comments.post_id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category', 'comments.content AS comment'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin5Tables() {
@@ -681,9 +671,7 @@ class QNoCacheAdapter {
             'posts.id' => 'post_tags.post_id',
             'post_tags.tag_id' => 'tags.id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment', 'tags.name as tag']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category', 'comments.content AS comment', 'tags.name AS tag'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function insert($table, $data) {
@@ -708,9 +696,9 @@ class QCacheAdapter {
     public function __construct($pdo) {
         $this->pdo = $pdo;
         
-        // Configurar Conn CON schema_map (con caché de relaciones)
+        // Configurar Conn CON schema_map (con cachÃƒÂ© de relaciones)
         \RapidBase\Core\Conn::setup('sqlite::memory:', '', '', $this->connectionId);
-        // Reemplazar la conexión creada con la que ya tenemos
+        // Reemplazar la conexiÃƒÂ³n creada con la que ya tenemos
         $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
         $poolProperty = $reflection->getProperty('pool');
         $poolProperty->setAccessible(true);
@@ -724,7 +712,7 @@ class QCacheAdapter {
             $defaultProperty->setValue(null, $this->connectionId);
         }
         
-        // Cargar schema_map.php generado - esto habilita la caché de relaciones
+        // Cargar schema_map.php generado - esto habilita la cachÃƒÂ© de relaciones
         $schemaMapFile = __DIR__ . '/schema_map.php';
         if (file_exists($schemaMapFile)) {
             SchemaMap::loadFromFile($schemaMapFile, $this->connectionId);
@@ -733,17 +721,11 @@ class QCacheAdapter {
         Q::setDriver('sqlite');
     }
 
-    public function selectSimple($table, $columns = '*', $where = []) {
-        $query = Q::from($table, $where);
-        $result = $query->select($columns)->run();
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
-    }
+    public function selectSimple($table, $columns = "*", $where = []) { $query = Q::from($table, $where); $result = $query->select($columns)->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM); }
 
     public function selectJoin2Tables() {
         $query = Q::from(['posts', 'users'], ['posts.user_id' => 'users.id'])
-            ->select(['posts.id', 'posts.title', 'users.name as author']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin3Tables() {
@@ -752,9 +734,7 @@ class QCacheAdapter {
             'posts.id' => 'post_categories.post_id',
             'post_categories.category_id' => 'categories.id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin4Tables() {
@@ -764,9 +744,7 @@ class QCacheAdapter {
             'post_categories.category_id' => 'categories.id',
             'posts.id' => 'comments.post_id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category', 'comments.content AS comment'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin5Tables() {
@@ -778,9 +756,7 @@ class QCacheAdapter {
             'posts.id' => 'post_tags.post_id',
             'post_tags.tag_id' => 'tags.id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment', 'tags.name as tag']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category', 'comments.content AS comment', 'tags.name AS tag'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function insert($table, $data) {
@@ -807,7 +783,7 @@ class QAdapter {
         
         // Configurar Conn con el PDO existente para que Q pueda usarlo
         \RapidBase\Core\Conn::setup('sqlite::memory:', '', '', $this->connectionId);
-        // Reemplazar la conexión creada con la que ya tenemos
+        // Reemplazar la conexiÃƒÂ³n creada con la que ya tenemos
         $reflection = new \ReflectionClass(\RapidBase\Core\Conn::class);
         $poolProperty = $reflection->getProperty('pool');
         $poolProperty->setAccessible(true);
@@ -815,7 +791,7 @@ class QAdapter {
         $pool[$this->connectionId] = $pdo;
         $poolProperty->setValue(null, $pool);
         
-        // Establecer esta conexión como default si es necesario
+        // Establecer esta conexiÃƒÂ³n como default si es necesario
         $defaultProperty = $reflection->getProperty('default');
         $defaultProperty->setAccessible(true);
         if ($defaultProperty->getValue() === 'main' && !isset($pool['main'])) {
@@ -827,7 +803,7 @@ class QAdapter {
         if (file_exists($schemaMapFile)) {
             SchemaMap::loadFromFile($schemaMapFile, $this->connectionId);
         } else {
-            // Fallback: configurar schema map básico si no existe el archivo
+            // Fallback: configurar schema map bÃƒÂ¡sico si no existe el archivo
             $schemaMap = [
                 'tables' => [
                     'users' => ['id', 'name', 'email', 'created_at'],
@@ -850,19 +826,17 @@ class QAdapter {
     }
 
     public function selectSimple($table, $columns = '*', $where = []) {
-        // Usar Q con schema_map cargado para resolución óptima
+        // Usar Q con schema_map cargado para resoluciÃƒÂ³n ÃƒÂ³ptima
         $query = Q::from($table, $where);
         $result = $query->select($columns)->run();
         // run() ya devuelve un array si hay projection map, o un statement
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin2Tables() {
-        // Q usa el schema_map para resolver JOINs automáticamente pasando array de tablas
+        // Q usa el schema_map para resolver JOINs automÃƒÂ¡ticamente pasando array de tablas
         $query = Q::from(['posts', 'users'], ['posts.user_id' => 'users.id'])
-            ->select(['posts.id', 'posts.title', 'users.name as author']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin3Tables() {
@@ -871,9 +845,7 @@ class QAdapter {
             'posts.id' => 'post_categories.post_id',
             'post_categories.category_id' => 'categories.id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin4Tables() {
@@ -883,9 +855,7 @@ class QAdapter {
             'post_categories.category_id' => 'categories.id',
             'posts.id' => 'comments.post_id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category', 'comments.content AS comment'], 100); $result = $query->run(\PDO::FETCH_NUM); return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function selectJoin5Tables() {
@@ -897,7 +867,7 @@ class QAdapter {
             'posts.id' => 'post_tags.post_id',
             'post_tags.tag_id' => 'tags.id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name' => 'author', 'categories.name' => 'category', 'comments.content' => 'comment', 'tags.name' => 'tag'], 100);
+            ->select(['posts.id', 'posts.title', 'users.name AS author', 'categories.name AS category', 'comments.content AS comment', 'tags.name AS tag'], 100);
         $result = $query->run(\PDO::FETCH_NUM);
         return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
@@ -931,7 +901,7 @@ class RedbeanAdapter {
         $functionsFile = __DIR__ . '/Redbean/vendor/gabordemooij/redbean/RedBeanPHP/Functions.php';
         if (file_exists($functionsFile)) {
             $content = file_get_contents($functionsFile);
-            // Reemplazar la definición problemática
+            // Reemplazar la definiciÃƒÂ³n problemÃƒÂ¡tica
             $content = str_replace(
                 "if (defined('Pdo\\Mysql::ATTR_INIT_COMMAND')) {\n\tdefine('RB_PDO_MYSQL_ATTR_INIT_COMMAND', Pdo\\Mysql::ATTR_INIT_COMMAND);\n} else {\n\tdefine('RB_PDO_MYSQL_ATTR_INIT_COMMAND', \\PDO::MYSQL_ATTR_INIT_COMMAND);\n}",
                 "if (!defined('RB_PDO_MYSQL_ATTR_INIT_COMMAND')) {\n\tdefine('RB_PDO_MYSQL_ATTR_INIT_COMMAND', 1000);\n}",
@@ -942,7 +912,7 @@ class RedbeanAdapter {
         require_once __DIR__ . '/Redbean/vendor/autoload.php';
         // Usar la clase completa en lugar del alias R
         \RedBeanPHP\R::setup($pdo);
-        \RedBeanPHP\R::freeze(true); // Para mejor performance en producción
+        \RedBeanPHP\R::freeze(true); // Para mejor performance en producciÃƒÂ³n
     }
 
     public function selectSimple($table, $columns = '*', $where = []) {

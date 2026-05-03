@@ -125,6 +125,7 @@ class QueryResponse implements \JsonSerializable {
             ],
             "stats" => [
                 "exec_ms"    => (float)($this->metadata['execution_time'] ?? 0),
+                "sql"        => $this->metadata['sql'] ?? null,
                 "cache"      => $cacheInfo['used'] ?? false,
                 "cache_type" => $cacheInfo['type'] ?? null,
                 "memory_kb"  => round(memory_get_peak_usage(true) / 1024, 2),

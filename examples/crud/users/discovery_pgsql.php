@@ -116,8 +116,8 @@ $info = DB::many("
 ");
 
 foreach ($info as $col) {
-    $nullable = $col['is_nullable'] === 'YES' ? 'NULL' : 'NOT NULL';
-    echo "   - {$col['column_name']}: {$col['data_type']} {$nullable}\n";
+    $nullable = $col[2] === 'YES' ? 'NULL' : 'NOT NULL';
+    echo "   - {$col[0]}: {$col[1]} {$nullable}\n";
 }
 
 echo "\n=== ¡Listo para usar! ===\n";

@@ -106,8 +106,20 @@ class Executor
                     $totalIndex = $map['_total'];
                     if (!empty($rows) && isset($rows[0][$totalIndex])) {
                         $total = (int) $rows[0][$totalIndex];
+                        // Limpiar la columna _total de todas las filas para no ensuciar FETCH_NUM
+                        foreach ($rows as &$row) {
+                            unset($row[$totalIndex]);
+                            $row = array_values($row);
+                        }
                     }
                     unset($map['_total']);
+                    // Re-mapear los índices ya que array_values los cambió
+                    $newMap = [];
+                    $idx = 0;
+                    foreach ($map as $k => $v) {
+                        $newMap[$k] = $idx++;
+                    }
+                    $map = $newMap;
                 }
 
                 // Sin hidratación: devolvemos las filas numéricas

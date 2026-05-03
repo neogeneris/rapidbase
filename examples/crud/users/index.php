@@ -135,7 +135,7 @@
                     }
                     return data.data;
                 },
-                total: data => data.total
+                total: data => data.page.records
             },
             pagination: {
                 enabled: true,

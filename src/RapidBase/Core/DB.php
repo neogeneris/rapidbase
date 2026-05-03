@@ -75,7 +75,7 @@ class DB implements DBInterface {
 
     public static function many(string $sql, array $params = []): array {
         $stmt = Executor::query($sql, $params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_NUM);
     }
 
     public static function value(string $sql, array $params = []): mixed {
@@ -84,9 +84,9 @@ class DB implements DBInterface {
     }
 
     public static function find(string $table, array $conditions): array|false {
-        $result = Gateway::select('*', $table, $conditions, [],[],[], [1, 1], false, \PDO::FETCH_ASSOC);
+        $result = Gateway::select('*', $table, $conditions, [],[],[], [1, 1], false, \PDO::FETCH_OBJ);
         $row = $result['data'][0] ?? false;
-        return $row ? self::normalizeRow($row) : false;
+        return $row ? self::normalizeRow((array)$row) : false;
     }
 
     public static function count(string|array $table, array $conditions = []): int {
@@ -146,23 +146,30 @@ class DB implements DBInterface {
 
     public static function fetch(string $sql, array $params = []): array {
         $stmt = self::query($sql, $params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_NUM);
     }
 
     public static function all(string|array $table, array $conditions = [], array $sort = []): array {
-        $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort,1,false,3600,\PDO::FETCH_ASSOC);
-        return array_map([self::class, 'normalizeRow'], $res['data']);
+        $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort,1,false,3600,\PDO::FETCH_OBJ);
+        return array_map(function($row) { return self::normalizeRow((array)$row); }, $res['data']);
     }
 
     public static function list(
         string|array $table, array $where = [], array $sort = [], mixed $page = 0
     ): array {
-        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page, false, 3600, \PDO::FETCH_ASSOC);
+        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page, false, 3600, \PDO::FETCH_OBJ);
         $data = $res['data'] ?? [];
         if (empty($data)) return [];
-        $columns = array_keys($data[0]);
-        if (count($columns) >= 2) return array_column($data, $columns[1], $columns[0]);
-        return array_column($data, $columns[0]);
+        $firstRow = (array)$data[0];
+        $columns = array_keys($firstRow);
+        if (count($columns) >= 2) {
+            $col1 = $columns[0]; $col2 = $columns[1];
+            $list = [];
+            foreach ($data as $row) { $r = (array)$row; $list[$r[$col1]] = $r[$col2]; }
+            return $list;
+        }
+        $col0 = $columns[0];
+        return array_map(function($row) { return ((array)$row)[$col0] ?? null; }, $data);
     }
 
     public static function grid(
@@ -224,6 +231,7 @@ class DB implements DBInterface {
                 'titles' => $columnTitles,
                 'projection_map' => $res['projectionMap'] ?? [],
                 'execution_time' => $res['metadata']['execution_time'] ?? 0,
+                'sql' => $res['metadata']['sql'] ?? null,
                 'sort_status' => $res['metadata']['sort_status'] ?? null,
                 'cache_info' => ['used' => $res['source'] === 'cache', 'type' => $res['source'] === 'cache' ? 'L2' : null]
             ],

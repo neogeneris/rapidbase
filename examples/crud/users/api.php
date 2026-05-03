@@ -6,23 +6,8 @@
  * Incluye las clases manualmente sin autoloader.
  */
 
-// ========== INCLUDES MANUALES (sin autoloader) ==========
-// Orden de dependencias: Conn -> SQL -> Executor -> SchemaMap -> CacheService -> Gateway -> QueryResponse -> DB -> Model -> GridjsAdapter -> User
-
-$srcBase = __DIR__ . '/../../../src/RapidBase';
-
-require_once $srcBase . '/Core/Conn.php';
-require_once $srcBase . '/Core/SQL.php';
-require_once $srcBase . '/Core/Executor.php';
-require_once $srcBase . '/Core/SchemaMap.php';
-require_once $srcBase . '/Core/Cache/CacheService.php';
-require_once $srcBase . '/Core/Event.php';
-require_once $srcBase . '/Core/Gateway.php';
-require_once $srcBase . '/Core/QueryResponse.php';
-require_once $srcBase . '/Core/DBInterface.php';
-require_once $srcBase . '/Core/DB.php';
-require_once $srcBase . '/ORM/ActiveRecord/Model.php';
-require_once $srcBase . '/Infrastructure/UI/Adapters/GridjsAdapter.php';
+// ========== CONFIGURACIÓN (con autoloader) ==========
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/User.php';
 
 // ========== CONFIGURACIÓN DB ==========

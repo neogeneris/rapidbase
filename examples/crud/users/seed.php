@@ -111,7 +111,7 @@ try {
     $roles = DB::many("SELECT role, COUNT(*) as count FROM users GROUP BY role");
     echo "   Roles:\n";
     foreach ($roles as $role) {
-        echo "      - {$role['role']}: {$role['count']}\n";
+        echo "      - {$role[0]}: {$role[1]}\n";
     }
     
     echo "\n🎉 Database seeding completed successfully!\n";
