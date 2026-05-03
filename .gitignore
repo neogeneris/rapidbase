@@ -1,13 +1,13 @@
+```
 # Compiled and build artifacts
 *.pyc
 __pycache__/
 *.o
 *.obj
-*.class
-*.exe
-*.dll
 *.so
-*.a
+*.dll
+*.exe
+*.class
 *.out
 
 # Dependencies
@@ -27,21 +27,15 @@ node_modules/
 .vscode/
 .idea/
 
-# Coverage reports
-.coverage
-coverage/
-htmlcov/
-
-# Distribution artifacts
+# Build directories
 dist/
 build/
 target/
-*.tar.gz
-*.zip
-*.tar
-*.gz
+coverage/
+htmlcov/
+*.coverage
 
-# OS generated files
+# System files
 .DS_Store
 Thumbs.db
 
@@ -49,6 +43,4 @@ Thumbs.db
 .mypy_cache/
 .pytest_cache/
 .gradle/
-.cargo/
-zig-cache/
-julia-*/
+```

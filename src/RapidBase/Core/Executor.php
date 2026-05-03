@@ -184,9 +184,34 @@ class Executor
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
 
+            // PostgreSQL: lastInsertId() puede fallar si no hubo INSERT con SERIAL
+            // Solo llamar a lastInsertId() para statements que puedan haber generado uno
+            $lastId = null;
+            $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+            
+            if ($driver === 'pgsql') {
+                // Para PostgreSQL, verificar si es un INSERT antes de llamar a lastInsertId
+                $sqlUpper = strtoupper(trim($sql));
+                if (strpos($sqlUpper, 'INSERT') === 0 || strpos($sqlUpper, 'INTO') !== false) {
+                    try {
+                        $lastId = $pdo->lastInsertId();
+                    } catch (\PDOException $e) {
+                        // Ignorar error "lastval is not yet defined"
+                        $lastId = null;
+                    }
+                }
+            } else {
+                // Para otros drivers (SQLite, MySQL), usar lastInsertId normalmente
+                try {
+                    $lastId = $pdo->lastInsertId();
+                } catch (\PDOException $e) {
+                    $lastId = null;
+                }
+            }
+
             return [
                 'count'   => $stmt->rowCount(),
-                'lastId'  => $pdo->lastInsertId(),
+                'lastId'  => $lastId,
                 'success' => true
             ];
         } catch (\PDOException $e) {
