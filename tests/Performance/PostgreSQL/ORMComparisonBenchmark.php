@@ -12,42 +12,95 @@
 // Suprimir deprecated warnings para PHP 8.2+
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-// Cargar autoloaders específicos para cada ORM (aislados)
-$perfDir = '/workspace/tests/Performance'; // Directorio base de Performance
-$medooAutoload = '/workspace/vendor/autoload.php';
-$pixieAutoload = $perfDir . '/Pixie/vendor/autoload.php';
-$f3Autoload = $perfDir . '/F3/vendor/autoload.php';
-$qAutoload = '/workspace/vendor/autoload.php';
+// Cargar configuración centralizada PRIMERO
+require_once __DIR__ . '/config.php';
 
-if (file_exists($medooAutoload)) {
-    require_once $medooAutoload;
+// Determinar directorio raíz del proyecto (funciona en cualquier entorno)
+$rootDir = dirname(dirname(dirname(__DIR__))); // tests/Performance/PostgreSQL -> ../../.. = raíz
+$perfDir = __DIR__ . '/..'; // Directorio Performance
+
+// Rutas relativas para autoloaders de cada ORM
+$autoloadPaths = [
+    'medoo' => [
+        'local' => $perfDir . '/Medoo/vendor/autoload.php',
+        'root' => $rootDir . '/vendor/autoload.php',
+        'direct' => $perfDir . '/Medoo/vendor/catfan/medoo/src/Medoo.php'
+    ],
+    'pixie' => [
+        'local' => $perfDir . '/Pixie/vendor/autoload.php',
+        'root' => null, // Pixie no está en root
+        'direct' => null
+    ],
+    'f3' => [
+        'local' => $perfDir . '/F3/vendor/autoload.php',
+        'root' => null,
+        'direct' => $perfDir . '/F3/vendor/bcosca/fatfree-core/base.php'
+    ],
+    'q' => [
+        'local' => $perfDir . '/Q/vendor/autoload.php',
+        'root' => $rootDir . '/vendor/autoload.php',
+        'direct' => null
+    ],
+    'redbean' => [
+        'local' => $perfDir . '/Redbean/vendor/autoload.php',
+        'root' => $rootDir . '/vendor/autoload.php',
+        'direct' => null
+    ]
+];
+
+// Función para cargar autoloader con múltiples intentos
+function loadAutoload($paths) {
+    foreach ($paths as $path) {
+        if ($path && file_exists($path)) {
+            require_once $path;
+            return true;
+        }
+    }
+    return false;
 }
-if (file_exists($pixieAutoload)) {
-    require_once $pixieAutoload;
+
+// Cargar Medoo
+if (!loadAutoload($autoloadPaths['medoo'])) {
+    echo "⚠️  WARNING: Medoo not found. Skipping Medoo benchmarks.\n";
+    echo "   Install with: composer require catfan/medoo\n\n";
 }
-if (file_exists($f3Autoload)) {
-    // Cargar F3 directamente para evitar conflictos con otros autoloaders
-    require_once $perfDir . '/F3/vendor/bcosca/fatfree-core/base.php';
+
+// Cargar Pixie
+if (!loadAutoload($autoloadPaths['pixie'])) {
+    echo "⚠️  WARNING: Pixie not found. Skipping Pixie benchmarks.\n";
+    echo "   Install from: {$perfDir}/Pixie/\n\n";
+}
+
+// Cargar F3 (FatFree Framework)
+if (file_exists($autoloadPaths['f3']['direct'])) {
+    require_once $autoloadPaths['f3']['direct'];
     require_once $perfDir . '/F3/vendor/bcosca/fatfree-core/db/sql.php';
-}
-if (file_exists($qAutoload)) {
-    require_once $qAutoload;
+} else {
+    echo "⚠️  WARNING: F3 (FatFree) not found. Skipping F3 benchmarks.\n\n";
 }
 
-use Medoo\Medoo;
-use Pixie\Connection;
-use RapidBase\Core\SQL\Q;
+// Cargar Q
+if (!loadAutoload($autoloadPaths['q'])) {
+    echo "⚠️  WARNING: Q not found. Skipping Q benchmarks.\n\n";
+}
+
+// Cargar Redbean
+if (!loadAutoload($autoloadPaths['redbean'])) {
+    echo "⚠️  WARNING: Redbean not found. Skipping Redbean benchmarks.\n";
+    echo "   Install from: {$perfDir}/Redbean/\n\n";
+}
+
+// Intentar cargar clases después de los autoloaders
+$classesAvailable = [];
+if (class_exists('Medoo\\Medoo')) $classesAvailable[] = 'Medoo';
+if (class_exists('Pixie\\Connection')) $classesAvailable[] = 'Pixie';
+if (class_exists('\\Base') || class_exists('\\DB\\SQL')) $classesAvailable[] = 'F3';
+if (class_exists('RapidBase\\Core\\SQL\\Q')) $classesAvailable[] = 'Q';
+if (class_exists('\\R\\Facade') || function_exists('\\R::setup')) $classesAvailable[] = 'Redbean';
+
 use RapidBase\Core\SchemaMap;
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
-
-// Cargar configuración centralizada
-require_once __DIR__ . '/config.php';
-
-// Usar configuración desde PGConfig
-$dsn = PGConfig::getDSN();
-$dbUser = PGConfig::DB_USER;
-$dbPass = PGConfig::DB_PASS;
 
 // ============================================================================
 // SETUP DE BASE DE DATOS
