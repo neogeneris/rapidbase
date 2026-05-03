@@ -23,7 +23,7 @@ class Gateway
         array $sort     = [],
         mixed $page     = 1,
         bool $withTotal = false,
-        int $fetchMode  = \PDO::FETCH_ASSOC,
+        int $fetchMode  = \PDO::FETCH_NUM,
         ?string $class  = null
     ): array {
         $tableName = self::tableNameFromMixed($table);
@@ -48,30 +48,32 @@ class Gateway
         }
 
         $query = Q::from($table, $where ?? []);
-        if (!empty($groupBy)) {
-            $query->groupBy($groupBy);
-        }
-        if (!empty($having)) {
-            $query->having($having);
-        }
         $compiled = $query->select($fields, $pagination, $sort, $groupBy, $having);
-
-        $total = 0;
-        if ($withTotal) {
-            $total = Q::from($table, $where ?? [])->count()->run();
-        }
 
         $start = microtime(true);
         try {
-            $data = $compiled->run($fetchMode, $class);
+            $res = $compiled->run($fetchMode, $class);
             $duration = (microtime(true) - $start) * 1000;
 
-            // Registrar el estado ANTES de retornar
-            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [], 'select', $tableName, $duration);
+            // Determinar el total si no vino en _total:
+            $total = $res['total'];
+            if ($withTotal) {
+                // Si el total devuelto es exactamente igual a la cantidad de filas y tenemos paginación
+                // (lo que asume que _total NO fue inyectado por Q), ejecutamos un count separado.
+                if ($pagination !== null && $total === $res['count']) {
+                    $resTotal = Q::from($table, $where ?? [])->count()->run();
+                    $total = (int)$resTotal['count'];
+                } elseif ($pagination === null && $total === $res['count']) {
+                    $resTotal = Q::from($table, $where ?? [])->count()->run();
+                    $total = (int)$resTotal['count'];
+                }
+            }
+
+            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $res, 'select', $tableName, $duration);
 
             return [
-                'data'          => $data,
-                'total'         => $withTotal ? $total : count($data),
+                'data'          => $res['rows'],
+                'total'         => $total,
                 'page'          => $returnedPage,
                 'limit'         => $returnedLimit,
                 'source'        => 'database',
@@ -79,6 +81,10 @@ class Gateway
                 'projectionMap' => $compiled->getProjectionMap(),
                 'fetchMode'     => $fetchMode,
                 'class'         => $class,
+                'metadata'      => [
+                    'cols'           => $res['cols'] ?? [],
+                    'execution_time' => $duration,
+                ],
             ];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
@@ -97,14 +103,14 @@ class Gateway
         mixed $page     = 1,
         bool $withTotal = false,
         int $ttl        = 3600,
-        int $fetchMode  = \PDO::FETCH_ASSOC,
+        int $fetchMode  = \PDO::FETCH_NUM,
         ?string $class  = null
     ): array {
         $tableName = self::tableNameFromMixed($table);
 
         $queryData = [$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class];
         $jsonEncoded = json_encode($queryData);
-        $queryHash = function_exists('xxh128') ? xxh128($jsonEncoded) : md5($jsonEncoded);
+        $queryHash = function_exists('xxh128') ? xxh128($jsonEncoded) : hash('crc32', $jsonEncoded);
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
 
         if (self::$hasCacheService ??= class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
@@ -165,10 +171,7 @@ class Gateway
                 self::clearCacheForTable($tableName);
             }
 
-            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
-                'id'   => $result['lastId'],
-                'rows' => $result['count'],
-            ], $type, $tableName, $duration);
+            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $result, $type, $tableName, $duration);
 
             return $result;
         } catch (Exception $e) {
@@ -178,6 +181,7 @@ class Gateway
         }
     }
 
+    // UPSERT atómico directo, sin fallback (Q ya genera la sintaxis correcta)
     public static function upsert(string $table, array $data, array $conflictColumns = []): array
     {
         $start = microtime(true);
@@ -192,11 +196,7 @@ class Gateway
                 self::clearCacheForTable($tableName);
             }
 
-            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, [
-                'id'   => $result['lastId'],
-                'rows' => $result['count'],
-            ], 'upsert', $tableName, $duration);
-
+            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $result, 'upsert', $tableName, $duration);
             return $result;
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
@@ -210,19 +210,22 @@ class Gateway
         }
     }
 
-    public static function insert(string $table, array $data): array
+    public static function insert(string $table, array $data): int|string
     {
-        return self::action('insert', $table, $data);
+        $res = self::action('insert', $table, $data);
+        return $res['lastId'] ?? 0;
     }
 
-    public static function update(string $table, array $data, array $where = []): array
+    public static function update(string $table, array $data, array $where = []): int
     {
-        return self::action('update', $table, $data, $where);
+        $res = self::action('update', $table, $data, $where);
+        return (int)($res['count'] ?? 0);
     }
 
-    public static function delete(string $table, array $where = []): array
+    public static function delete(string $table, array $where = []): int
     {
-        return self::action('delete', $table, $where);
+        $res = self::action('delete', $table, $where);
+        return (int)($res['count'] ?? 0);
     }
 
     public static function exists(string $table, array $where): bool
@@ -232,10 +235,10 @@ class Gateway
         $compiled = Q::from($table, $where)->exists();
 
         try {
-            $exists = $compiled->run();
+            $res = $compiled->run();
             $duration = (microtime(true) - $start) * 1000;
-            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, ['rows' => $exists ? 1 : 0], 'exists', $tableName, $duration);
-            return $exists;
+            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $res, 'exists', $tableName, $duration);
+            return (bool)$res['rows'][0];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
             self::logError($e, $compiled->getSql(), $compiled->getParams(), 'exists', $tableName, $duration);
@@ -281,10 +284,10 @@ class Gateway
         $compiled = Q::from($table, $where)->count();
 
         try {
-            $count = $compiled->run();
+            $res = $compiled->run();
             $duration = (microtime(true) - $start) * 1000;
-            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, ['rows' => $count], 'count', $tableName, $duration);
-            return $count;
+            self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $res, 'count', $tableName, $duration);
+            return (int)$res['count'];
         } catch (Exception $e) {
             $duration = (microtime(true) - $start) * 1000;
             self::logError($e, $compiled->getSql(), $compiled->getParams(), 'count', $tableName, $duration);

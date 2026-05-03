@@ -23,21 +23,32 @@ class ConditionMatrix
         return self::$driver;
     }
 
+    private static array $quoteCache = [];
+
     public static function quote(string $identifier): string
     {
-        $q = self::$quoteChar;
-        $identifier = trim($identifier);
-
-        if ($identifier === '*' || str_starts_with($identifier, $q)) {
-            return $identifier;
+        if (isset(self::$quoteCache[$identifier])) {
+            return self::$quoteCache[$identifier];
         }
 
-        $parts = explode('.', $identifier);
-        $quotedParts = array_map(function ($part) use ($q) {
-            return $part === '*' ? '*' : $q . trim($part, $q) . $q;
-        }, $parts);
+        $q = self::$quoteChar;
+        $id = trim($identifier);
 
-        return implode('.', $quotedParts);
+        if ($id === '*' || str_starts_with($id, $q)) {
+            return self::$quoteCache[$identifier] = $id;
+        }
+
+        if (strpos($id, '.') === false) {
+            return self::$quoteCache[$identifier] = $q . trim($id, $q) . $q;
+        }
+
+        $parts = explode('.', $id);
+        $quotedParts = [];
+        foreach ($parts as $part) {
+            $quotedParts[] = $part === '*' ? '*' : $q . trim($part, $q) . $q;
+        }
+
+        return self::$quoteCache[$identifier] = implode('.', $quotedParts);
     }
 
     /**

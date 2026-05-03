@@ -25,7 +25,7 @@ class DB implements DBInterface {
             try {
                 \RapidBase\Meta\SchemaMapper::setOutputFile($schemaMapPath);
                 $dbName = Conn::getDatabaseName($name);
-                \RapidBase\Meta\SchemaMapper::generate($pdo, $dbName);
+                \RapidBase\Meta\SchemaMapper::generate($pdo, $dbName, null, $name);
                 SchemaMap::loadFromFile($schemaMapPath, $name);
             } catch (\Exception $e) {
                 error_log("SchemaMap auto-generation failed: " . $e->getMessage());
@@ -38,8 +38,8 @@ class DB implements DBInterface {
     public static function query(string $sql, array $params = []): \PDOStatement|false { return Executor::query($sql, $params); }
     public static function status(): array { return Gateway::status(); }
     public static function getLastError(): ?string { return self::status()['error'] ?? null; }
-    public static function getAffectedRows(): int { return self::status()['rows'] ?? 0; }
-    public static function lastInsertId(): string|int { return self::status()['id'] ?? 0; }
+    public static function getAffectedRows(): int { return self::status()['count'] ?? 0; }
+    public static function lastInsertId(): string|int { return self::status()['lastId'] ?? 0; }
 
     public static function setRelationsMap(array $map): void { SchemaMap::setMap($map, 'main'); }
     public static function loadRelationsMap(string $filePath): void {
@@ -84,7 +84,7 @@ class DB implements DBInterface {
     }
 
     public static function find(string $table, array $conditions): array|false {
-        $result = Gateway::select('*', $table, $conditions, [],[],[], [1, 1], false);
+        $result = Gateway::select('*', $table, $conditions, [],[],[], [1, 1], false, \PDO::FETCH_ASSOC);
         $row = $result['data'][0] ?? false;
         return $row ? self::normalizeRow($row) : false;
     }
@@ -150,14 +150,14 @@ class DB implements DBInterface {
     }
 
     public static function all(string|array $table, array $conditions = [], array $sort = []): array {
-        $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort,1,5000);
+        $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort,1,false,3600,\PDO::FETCH_ASSOC);
         return array_map([self::class, 'normalizeRow'], $res['data']);
     }
 
     public static function list(
         string|array $table, array $where = [], array $sort = [], mixed $page = 0
     ): array {
-        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page);
+        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page, false, 3600, \PDO::FETCH_ASSOC);
         $data = $res['data'] ?? [];
         if (empty($data)) return [];
         $columns = array_keys($data[0]);

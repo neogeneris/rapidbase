@@ -6,12 +6,12 @@
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/QType.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/JoinStrategy.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/DeterministicJoin.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/ConditionParser.php';
+require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/ConditionMatrix.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/SqlCompiler.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Q.php';
 
 // Core Legacy / Wrapper
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
+// require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php'; // Removido por obsoleto
 require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
 require_once __DIR__ . '/../../../src/RapidBase/Core/SchemaMap.php';

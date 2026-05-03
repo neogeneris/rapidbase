@@ -40,8 +40,8 @@ class SQL
     
     public static function setRelationsMap(array $map): void
     {
-        // El nuevo motor usa estrategias de join que pueden configurarse
-        // Por ahora mantenemos esto como no-op para compatibilidad
+        $fullMap = isset($map['relationships']) ? $map : ['relationships' => $map];
+        SchemaMap::setMap($fullMap, 'main');
     }
 
     public static function reset(): void
@@ -66,17 +66,17 @@ class SQL
 
     public static function setQueryCacheEnabled(bool $enabled): void
     {
-        // El cache se maneja en Gateway/CacheService
+        Q::setCacheEnabled($enabled);
     }
 
     public static function clearQueryCache(): void
     {
-        // No-op
+        Q::clearCache();
     }
 
     public static function getQueryCacheStats(): array
     {
-        return ['enabled' => false, 'hits' => 0, 'misses' => 0];
+        return Q::getCacheStats();
     }
 
     public static function setTelemetryEnabled(bool $enabled): void

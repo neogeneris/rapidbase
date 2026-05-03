@@ -80,13 +80,13 @@ $resInsert = Gateway::action('insert', 'pilotos', [
 assert_action("Insertar registro (ID retornado)", $resInsert['lastId'] == 1);
 
 // --- TEST 2: SELECT (usando el array devuelto) ---
-$result = Gateway::select('*', 'pilotos', ['id' => 1]);
+$result = Gateway::select('*', 'pilotos', ['id' => 1], [], [], [], 1, false, \PDO::FETCH_ASSOC);
 $piloto = $result['data'][0] ?? null;
 assert_action("Recuperar datos consistentes", $piloto && $piloto['nombre'] === 'Ayrton Senna');
 
 // --- TEST 3: UPDATE ---
 Gateway::action('update', 'pilotos', ['puntos' => 25], ['id' => 1]);
-$result2 = Gateway::select('puntos', 'pilotos', ['id' => 1]);
+$result2 = Gateway::select('puntos', 'pilotos', ['id' => 1], [], [], [], 1, false, \PDO::FETCH_ASSOC);
 $puntosActualizados = $result2['data'][0]['puntos'] ?? null;
 assert_action("Actualización de puntos", $puntosActualizados == 25);
 

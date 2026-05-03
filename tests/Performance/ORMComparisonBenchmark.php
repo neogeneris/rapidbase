@@ -289,7 +289,8 @@ class PixieAdapter {
             ->table('posts')
             ->join('users', 'posts.user_id', '=', 'users.id')
             ->limit(100)
-            ->select(['posts.id', 'posts.title', 'users.name as author']);
+            ->select(['posts.id', 'posts.title', 'users.name' => 'author'])
+            ->get();
     }
 
     public function selectJoin3Tables() {
@@ -299,7 +300,8 @@ class PixieAdapter {
             ->join('post_categories', 'posts.id', '=', 'post_categories.post_id')
             ->join('categories', 'post_categories.category_id', '=', 'categories.id')
             ->limit(100)
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category']);
+            ->select(['posts.id', 'posts.title', 'users.name' => 'author', 'categories.name' => 'category'])
+            ->get();
     }
 
     public function selectJoin4Tables() {
@@ -310,7 +312,8 @@ class PixieAdapter {
             ->join('categories', 'post_categories.category_id', '=', 'categories.id')
             ->join('comments', 'posts.id', '=', 'comments.post_id')
             ->limit(100)
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment']);
+            ->select(['posts.id', 'posts.title', 'users.name' => 'author', 'categories.name' => 'category', 'comments.content' => 'comment'])
+            ->get();
     }
 
     public function selectJoin5Tables() {
@@ -323,7 +326,8 @@ class PixieAdapter {
             ->join('post_tags', 'posts.id', '=', 'post_tags.post_id')
             ->join('tags', 'post_tags.tag_id', '=', 'tags.id')
             ->limit(100)
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment', 'tags.name as tag']);
+            ->select(['posts.id', 'posts.title', 'users.name' => 'author', 'categories.name' => 'category', 'comments.content' => 'comment', 'tags.name' => 'tag'])
+            ->get();
     }
 
     public function insert($table, $data) {
@@ -514,7 +518,7 @@ class PDOAdapter {
             LIMIT 100
         ");
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_NUM);
     }
 
     public function selectJoin3Tables() {
@@ -527,7 +531,7 @@ class PDOAdapter {
             LIMIT 100
         ");
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_NUM);
     }
 
     public function selectJoin4Tables() {
@@ -541,7 +545,7 @@ class PDOAdapter {
             LIMIT 100
         ");
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_NUM);
     }
 
     public function selectJoin5Tables() {
@@ -557,7 +561,7 @@ class PDOAdapter {
             LIMIT 100
         ");
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_NUM);
     }
 
     public function insert($table, $data) {
@@ -893,9 +897,9 @@ class QAdapter {
             'posts.id' => 'post_tags.post_id',
             'post_tags.tag_id' => 'tags.id'
         ])
-            ->select(['posts.id', 'posts.title', 'users.name as author', 'categories.name as category', 'comments.content as comment', 'tags.name as tag']);
-        $result = $query->run(100);
-        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_ASSOC);
+            ->select(['posts.id', 'posts.title', 'users.name' => 'author', 'categories.name' => 'category', 'comments.content' => 'comment', 'tags.name' => 'tag'], 100);
+        $result = $query->run(\PDO::FETCH_NUM);
+        return is_array($result) ? $result : $result->fetchAll(\PDO::FETCH_NUM);
     }
 
     public function insert($table, $data) {

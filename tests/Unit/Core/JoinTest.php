@@ -134,7 +134,7 @@ $result = Gateway::select(
     ['users.username', 'posts.title'],
     ['users', 'posts'],
     ['users.id' => 1],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 assertJoin("Número de registros", count($data) === 2);
@@ -146,7 +146,7 @@ $result = Gateway::select(
     ['posts.title', 'users.username'],
     ['posts', 'users'],
     ['posts.id' => 1],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 assertJoin("Registro único", count($data) === 1);
@@ -158,7 +158,7 @@ $result = Gateway::select(
     ['users.username', 'profiles.bio'],
     ['users', 'profiles'],
     ['users.id' => 2],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 assertJoin("Un solo registro", count($data) === 1);
@@ -170,7 +170,7 @@ $result = Gateway::select(
     ['posts.title', 'tags.name'],
     ['posts', 'post_tag', 'tags'],
     ['posts.id' => 1],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 $tagNames = array_column($data, 'name');
@@ -184,7 +184,7 @@ $result = Gateway::select(
     ['tags.name', 'posts.title'],
     ['tags', 'post_tag', 'posts'],
     ['tags.name' => 'Racing'],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 $postTitles = array_column($data, 'title');
@@ -198,7 +198,7 @@ $result = Gateway::select(
     ['users.username', 'posts.title', 'tags.name'],
     ['users', 'posts', 'post_tag', 'tags'],
     ['users.username' => 'Alice'],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 assertJoin("Número de combinaciones esperado (3)", count($data) === 3);
@@ -235,7 +235,7 @@ $result = Gateway::select(
     ['categories.id AS cat_id', 'categories.name AS cat_name', 'parent.name AS parent_name'],
     ['categories', 'categories as parent'],
     ['categories.name' => 'Laptops'],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 assertJoin("Auto‑referencia con alias manual", isset($data[0]['parent_name']) && $data[0]['parent_name'] === 'Computadoras');
@@ -245,7 +245,7 @@ $result = Gateway::select(
     ['categories.name', 'parent.name AS parent_name'],
     ['categories', 'categories as parent'],
     ['categories.name' => 'Laptops'],
-    [], [], [], 0, false
+    [], [], [], 0, false, \PDO::FETCH_ASSOC
 );
 $data = $result['data'];
 assertJoin("Auto‑referencia con alias implícito", isset($data[0]['parent_name']) && $data[0]['parent_name'] === 'Computadoras');

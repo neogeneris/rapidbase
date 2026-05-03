@@ -82,18 +82,20 @@ $test("Count param correcto", function() use ($params) {
 });
 
 // Ejecutar y comprobar valor
-$result = $compiled->run();
-echo "Resultado: $result\n";
-$test("Count active=1 retorna 2", function() use ($result) {
-    assert($result === 2);
+$res = $compiled->run();
+$countVal = $res['count'];
+echo "Resultado: " . json_encode($res) . "\n";
+$test("Count active=1 retorna 2", function() use ($countVal) {
+    assert($countVal === 2);
 });
 
 // Count sin resultados
 $compiled = Q::from('users', ['active' => 999])->count();
-$result = $compiled->run();
-echo "Resultado (active=999): $result\n";
-$test("Count sin resultados retorna 0", function() use ($result) {
-    assert($result === 0);
+$res = $compiled->run();
+$countVal = $res['count'];
+echo "Resultado (active=999): " . json_encode($res) . "\n";
+$test("Count sin resultados retorna 0", function() use ($countVal) {
+    assert($countVal === 0);
 });
 
 // ===========================================================================
@@ -121,11 +123,11 @@ $test("One params LIMIT+OFFSET", function() use ($params) {
 $data = $compiled->run();
 echo "Data: " . json_encode($data) . "\n";
 $test("One devuelve 1 fila", function() use ($data) {
-    assert(count($data) === 1);
+    assert(count($data['rows']) === 1);
 });
 $test("One devuelve nombre Alice", function() use ($data) {
     // Con FETCH_NUM+projectionMap, el resultado es array asociativo
-    $row = $data[0];
+    $row = $data['rows'][0];
     // La clave puede ser 'users.name' o 'name'
     $name = $row['users.name'] ?? $row['name'] ?? '';
     assert($name === 'Alice');
@@ -136,7 +138,7 @@ $compiled = Q::from('users', ['id' => 999])->select('*', [0, 1]);
 $data = $compiled->run();
 echo "Data (sin coincidencia): " . json_encode($data) . "\n";
 $test("One sin coincidencia devuelve array vacío", function() use ($data) {
-    assert(empty($data));
+    assert(empty($data['rows']));
 });
 
 // ===========================================================================
@@ -163,17 +165,19 @@ $test("Exists param correcto", function() use ($params) {
 
 // Ejecutar y comprobar
 $result = $compiled->run();
-echo "Resultado (id=1): " . ($result ? 'true' : 'false') . "\n";
-$test("Exists id=1 retorna true", function() use ($result) {
-    assert($result === true);
+$existsVal = $result['rows'][0];
+echo "Resultado (id=1): " . ($existsVal ? 'true' : 'false') . "\n";
+$test("Exists id=1 retorna true", function() use ($existsVal) {
+    assert($existsVal === true);
 });
 
 // No existe
 $compiled = Q::from('users', ['id' => 999])->exists();
 $result = $compiled->run();
-echo "Resultado (id=999): " . ($result ? 'true' : 'false') . "\n";
-$test("Exists id=999 retorna false", function() use ($result) {
-    assert($result === false);
+$existsVal = $result['rows'][0];
+echo "Resultado (id=999): " . ($existsVal ? 'true' : 'false') . "\n";
+$test("Exists id=999 retorna false", function() use ($existsVal) {
+    assert($existsVal === false);
 });
 
 echo "\n================================================\n";

@@ -144,8 +144,16 @@ class SqlCompiler
         return (string) $field;
     }
 
+    private static array $projectionCache = [];
+
     private static function buildProjectionMap($fields, string $fromClause): array
     {
+        $fieldsKey = is_array($fields) ? implode(',', $fields) : (string)$fields;
+        $cacheKey = $fieldsKey . '|' . $fromClause;
+        if (isset(self::$projectionCache[$cacheKey])) {
+            return self::$projectionCache[$cacheKey];
+        }
+
         $map = [];
         $index = 0;
 
@@ -203,8 +211,10 @@ class SqlCompiler
             else {
                 // Extract simple column name or use the whole expression as alias
                 if (strpos($field, '.') !== false && !preg_match('/^\w+\(/', $field)) {
-                    // table.column format - use full qualified name
-                    $map[$field] = $index;
+                    // table.column format - extract base name
+                    $parts = explode('.', $field);
+                    $colName = end($parts);
+                    $map[$colName] = $index;
                 } else {
                     // Simple column or function - extract base name or use as-is
                     $cleanField = preg_replace('/^\w+\((.*?)\)$/', '$1', $field);
@@ -214,8 +224,7 @@ class SqlCompiler
                 $index++;
             }
         }
-
-        return $map;
+        return self::$projectionCache[$cacheKey] = $map;
     }
 
     private static function extractTablesFromFromClause(string $fromClause): array

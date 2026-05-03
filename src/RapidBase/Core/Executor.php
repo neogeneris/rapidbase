@@ -6,28 +6,85 @@ use RapidBase\Core\SQL\CompiledQuery;
 
 class Executor
 {
+    /**
+     * Ejecuta un CompiledQuery (o array plano) y devuelve un array de control unificado:
+     *   [rows => [...], count => int, success => bool, action => string, cols => [...], total => int, lastId => ...]
+     */
     public static function execute(
-        CompiledQuery $cq,
+        mixed $cq,
         int $fetchMode = \PDO::FETCH_NUM,
         ?string $class = null,
         ?string $connectionName = null
-    ): mixed {
-        switch ($cq->getType()) {
+    ): array {
+        // Normalización de entrada (híbrida)
+        if (is_array($cq)) {
+            $type   = $cq['type'];
+            $sql    = $cq['sql'];
+            $params = $cq['params'] ?? [];
+            $map    = $cq['map'] ?? [];
+        } else {
+            $type   = $cq->getType();
+            $sql    = $cq->getSql();
+            $params = $cq->getParams();
+            $map    = $cq->getProjectionMap();
+        }
+
+        $result = [
+            'rows'    => [],
+            'count'   => 0,
+            'success' => false,
+            'action'  => 'unknown',
+            'cols'    => [],
+            'total'   => 0,
+            'lastId'  => null,
+        ];
+
+        switch ($type) {
             case CompiledQuery::SELECT:
-                $stmt = self::query($cq->getSql(), $cq->getParams(), $connectionName);
+                $stmt = self::query($sql, $params, $connectionName);
 
+                // FETCH_CLASS: objetos personalizados
                 if ($fetchMode === \PDO::FETCH_CLASS && $class !== null) {
-                    return $stmt->fetchAll($fetchMode, $class);
+                    $rows = $stmt->fetchAll($fetchMode, $class);
+                    $result['rows']    = $rows;
+                    $result['count']   = count($rows);
+                    $result['cols']    = !empty($rows) ? array_keys((array)$rows[0]) : [];
+                    $result['success'] = true;
+                    $result['action']  = 'select';
+                    $result['total']   = count($rows);
+                    break;
                 }
 
-                if ($fetchMode !== \PDO::FETCH_NUM) {
-                    return $stmt->fetchAll($fetchMode);
+                // FETCH_OBJ: objetos genéricos
+                if ($fetchMode === \PDO::FETCH_OBJ) {
+                    $rows = $stmt->fetchAll($fetchMode);
+                    $result['rows']    = $rows;
+                    $result['count']   = count($rows);
+                    $result['cols']    = !empty($rows) ? array_keys((array)$rows[0]) : [];
+                    $result['success'] = true;
+                    $result['action']  = 'select';
+                    $result['total']   = count($rows);
+                    break;
                 }
 
+                // FETCH_ASSOC: opcional para casos particulares
+                if ($fetchMode === \PDO::FETCH_ASSOC) {
+                    $rows = $stmt->fetchAll($fetchMode);
+                    $result['rows']    = $rows;
+                    $result['count']   = count($rows);
+                    $result['cols']    = !empty($rows) ? array_keys((array)$rows[0]) : [];
+                    $result['success'] = true;
+                    $result['action']  = 'select';
+                    $result['total']   = count($rows);
+                    break;
+                }
+
+                // Por defecto: FETCH_NUM (filas numéricas)
                 $rows = $stmt->fetchAll(\PDO::FETCH_NUM);
-                $map = $cq->getProjectionMap();
-                
+
+                // ── Determinar el mapa de columnas ─────────
                 if (empty($map) && !empty($rows)) {
+                    // Fallback: construir mapa desde getColumnMeta
                     $map = [];
                     $columnCount = $stmt->columnCount();
                     for ($i = 0; $i < $columnCount; $i++) {
@@ -38,53 +95,76 @@ class Executor
                             $map["col_$i"] = $i;
                         }
                     }
-                }
-                
-                if (empty($map)) {
-                    return $rows;
+                    if ($cq instanceof CompiledQuery) {
+                        $cq->setProjectionMap($map);
+                    }
                 }
 
-                return array_map(function ($row) use ($map) {
-                    $assoc = [];
-                    foreach ($map as $alias => $idx) {
-                        $assoc[$alias] = $row[$idx] ?? null;
+                // Extraer _total si existe (inyectado por Q::select con paginación)
+                $total = count($rows);
+                if (!empty($map) && isset($map['_total'])) {
+                    $totalIndex = $map['_total'];
+                    if (!empty($rows) && isset($rows[0][$totalIndex])) {
+                        $total = (int) $rows[0][$totalIndex];
                     }
-                    return $assoc;
-                }, $rows);
+                    unset($map['_total']);
+                }
+
+                // Sin hidratación: devolvemos las filas numéricas
+                $result['rows']    = $rows;
+                $result['count']   = count($rows);
+                $result['cols']    = array_keys($map);   // nombres de columna
+                $result['success'] = true;
+                $result['action']  = 'select';
+                $result['total']   = $total;
+                break;
 
             case CompiledQuery::COUNT:
-                $stmt = self::query($cq->getSql(), $cq->getParams(), $connectionName);
-                return (int) $stmt->fetchColumn();
+                $stmt = self::query($sql, $params, $connectionName);
+                $val = (int) $stmt->fetchColumn();
+                $result['rows']    = [$val];
+                $result['count']   = $val;
+                $result['cols']    = ['total'];
+                $result['success'] = true;
+                $result['action']  = 'count';
+                $result['total']   = $val;
+                break;
 
             case CompiledQuery::EXISTS:
-                $stmt = self::query($cq->getSql(), $cq->getParams(), $connectionName);
-                return (bool) $stmt->fetchColumn();
+                $stmt = self::query($sql, $params, $connectionName);
+                $val = (bool) $stmt->fetchColumn();
+                $result['rows']    = [$val];
+                $result['count']   = $val ? 1 : 0;
+                $result['cols']    = ['exists'];
+                $result['success'] = true;
+                $result['action']  = 'exists';
+                $result['total']   = $val ? 1 : 0;
+                break;
 
             case CompiledQuery::INSERT:
-                $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
-                $result['action'] = 'insert';
-                return $result;
-
             case CompiledQuery::UPDATE:
-                $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
-                $result['action'] = 'update';
-                return $result;
-
             case CompiledQuery::DELETE:
-                $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
-                $result['action'] = 'delete';
-                return $result;
-
             case CompiledQuery::UPSERT:
-                $result = self::action($cq->getSql(), $cq->getParams(), $connectionName);
-                $result['action'] = 'upsert';
-                return $result;
+                $raw = self::action($sql, $params, $connectionName);
+                $result['count']   = $raw['count'];
+                $result['lastId']  = $raw['lastId'] ?? null;
+                $result['success'] = $raw['success'];
+                $result['action']  = match ($type) {
+                    CompiledQuery::INSERT => 'insert',
+                    CompiledQuery::UPDATE => 'update',
+                    CompiledQuery::DELETE => 'delete',
+                    CompiledQuery::UPSERT => 'upsert',
+                };
+                break;
 
             default:
-                throw new \RuntimeException("Unknown compiled query type: {$cq->getType()}");
+                throw new \RuntimeException("Unknown query type: $type");
         }
+
+        return $result;
     }
 
+    // ─── Métodos legacy (sin cambios) ─────────────────────
     public static function query(string $sql, array $params = [], ?string $connectionName = null): \PDOStatement
     {
         $pdo = Conn::get($connectionName);

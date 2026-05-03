@@ -71,6 +71,34 @@ class SchemaMap
     }
 
     /**
+     * Obtiene todas las features detectadas para una conexión.
+     *
+     * @param string|null $connectionId
+     * @return array<string, bool|string|int>
+     */
+    public static function getFeatures(?string $connectionId = null): array
+    {
+        $map = self::getMap($connectionId);
+        return $map['features'] ?? [];
+    }
+
+    /**
+     * Consulta una feature específica. Devuelve el valor o $default si no existe.
+     *
+     * Ejemplo: SchemaMap::getFeature('window_functions') => true
+     *
+     * @param string      $name         Nombre del feature (snake_case)
+     * @param mixed       $default      Valor por defecto si no se encuentra
+     * @param string|null $connectionId
+     * @return mixed
+     */
+    public static function getFeature(string $name, mixed $default = false, ?string $connectionId = null): mixed
+    {
+        $features = self::getFeatures($connectionId);
+        return $features[$name] ?? $default;
+    }
+
+    /**
      * Obtiene la definición de una tabla específica.
      *
      * @param string $tableName Nombre de la tabla.

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RapidBase\Core\SQL;
 
 use RapidBase\Core\SchemaMap;
-use RapidBase\Core\SQL\CompiledQuery;
 
 class Q
 {
@@ -217,7 +216,7 @@ class Q
                     $sql = $insert;
                 }
         }
-        return new CompiledQuery($sql, $params, CompiledQuery::INSERT);
+        return new CompiledQuery($sql, $params, CompiledQuery::UPSERT);
     }
 
     public function update(array $data): CompiledQuery
@@ -381,7 +380,7 @@ class Q
 
         $projectionMap = $this->getSimpleProjection($fields ?? '*');
         $sourceTables = [$this->state[self::T]];
-		return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap, $sourceTables);
+        return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap, $sourceTables);
     }
 
     private function compileSimpleCount(): CompiledQuery

@@ -4,6 +4,7 @@ namespace RapidBase\Meta;
 
 use RapidBase\Meta\Discovery\DiscoveryFactory;
 use RapidBase\Meta\Discovery\DiscoveryInterface;
+use RapidBase\Meta\Discovery\FeatureDetector;
 use RapidBase\Meta\Discovery\MySQLDiscovery;
 use PDO;
 
@@ -22,7 +23,7 @@ class SchemaMapper
         self::$outputFile = $path;
     }
 
-    public static function generate(PDO $pdo, string $databaseName = null, string $schema = null): bool
+    public static function generate(PDO $pdo, string $databaseName = null, string $schema = null, string $connectionName = 'main'): bool
     {
         $discovery = self::$discovery ?? DiscoveryFactory::create($pdo, $schema);
         $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
@@ -60,10 +61,17 @@ class SchemaMapper
                 $tablesMetadata[$table] = $discovery->discoverColumns($table, $databaseName);
             }
 
-            // 3. Construir contenido incluyendo el checksum
+            // 3. Detectar features del motor
+            $detector = new FeatureDetector($pdo);
+            $features = $detector->detect();
+
+            // 4. Construir contenido incluyendo el checksum y features
             $mapStructure = [
+                'connection'    => $connectionName,
+                'driver'        => $driverName,
                 'checksum'      => $signature,
                 'generated_at'  => date('Y-m-d H:i:s'),
+                'features'      => $features,
                 'relationships' => $relationships,
                 'tables'        => $tablesMetadata
             ];

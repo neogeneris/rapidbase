@@ -22,6 +22,7 @@ class CompiledQuery
     private array $projectionMap;
     private int $type;
     private array $sourceTables;
+    private bool $isSimple;
 
     public function __construct(
         string $sql,
@@ -41,7 +42,8 @@ class CompiledQuery
     public function getParams(): array { return $this->params; }
     public function getType(): int { return $this->type; }
     public function getProjectionMap(): array { return $this->projectionMap; }
-    public function getSourceTables(): array { return $this->sourceTables; }
+    public function setProjectionMap(array $map): void{$this->projectionMap = $map;}
+	public function getSourceTables(): array { return $this->sourceTables; }
 
     public function asTable(string $alias): string {
         return '(' . $this->sql . ') AS ' . ConditionMatrix::quote($alias);
@@ -60,9 +62,9 @@ class CompiledQuery
      *
      * @return mixed
      */
-    public function run(?int $fetchMode = null, ?string $class = null, ?string $connectionName = null): mixed
-    {
-        $fetchMode = $fetchMode ?? \PDO::FETCH_NUM;
-        return Executor::execute($this, $fetchMode, $class, $connectionName);
-    }
+    public function run(?int $fetchMode = null, ?string $class = null, ?string $connectionName = null): array
+	{
+		$fetchMode = $fetchMode ?? \PDO::FETCH_NUM;
+		return Executor::execute($this, $fetchMode, $class, $connectionName);
+	}
 }
