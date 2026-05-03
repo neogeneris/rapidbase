@@ -8,7 +8,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
 
 use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
 
@@ -44,8 +44,11 @@ try {
         $path = $method->invoke($adapter, $key);
         $paths[$key] = $path;
         
-        // Verificar estructura del path
-        $relativePath = str_replace($testDir . '/', '', $path);
+        // Normalizar path para testing (usar / siempre en el test)
+        $normalizedPath = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+        $normalizedTestDir = str_replace(DIRECTORY_SEPARATOR, '/', $testDir);
+        
+        $relativePath = str_replace($normalizedTestDir . '/', '', $normalizedPath);
         $parts = explode('/', $relativePath);
         
         $validStructure = count($parts) === 3 
