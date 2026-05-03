@@ -19,8 +19,6 @@
  *   PGConfig::setupRapidBase();
  */
 
-namespace Tests\Performance\PostgreSQL;
-
 class PGConfig {
     
     /**
