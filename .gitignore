@@ -1,110 +1,21 @@
+```
 # Dependencies
 vendor/
 
-# Compiled and build artifacts
-*.o
-*.obj
-*.so
-*.dll
-*.exe
-*.class
-*.pyc
-__pycache__/
-*.jar
-*.war
-*.ear
-dist/
-build/
-target/
+# Logs and temp files
 *.log
-*.tmp
-*.swp
-*.swo
 
-# Environment specific
+# Environment
 .env
 .env.local
 .env.*
-.env.local.*
 
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# OS generated
-.DS_Store
-Thumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-ehthumbs.db
-Icon?
-VolumeIcons.icns
-*.DS_Store
-._*
-
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-*.coverage
-
-# Testing
-.phpunit.result.cache
-.phpunit/
-.scrutinizer.yml
-.codeclimate.yml
-
-# Composer/Packagist
-composer.phar
-composer.lock
-vendor/composer/installed.json
-
-# Framework specifics
-storage/
-bootstrap/cache/
-*.cache
-*.log
-logs/
-tmp/
-cache/
-
-# Archive files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# Images (if accidentally added)
-*.png
-*.jpg
-*.jpeg
-*.bmp
-*.gif
-*.webm
-*.svg
-*.ico
-*.tiff
-*.tif
-*.webp
-*.avif
-*.apng
+# Build artifacts
+dist/
+build/
+target/
+```

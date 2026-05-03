@@ -514,6 +514,12 @@ class JoinResolver
             if (is_array($relationDef) && isset($relationDef['local_key'], $relationDef['foreign_key'])) {
                 $onClause = $this->buildJoinConditionFromDef($currentReal, $currentAlias, $nextReal, $nextAlias, $relationDef);
                 $joinPart .= " " . $onClause;
+            } else {
+                // Fallback: try to guess based on common naming conventions if no relation found
+                $guessedLocalKey = 'id';
+                $guessedForeignKey = $currentReal . '_id';
+                $joinPart .= " ON " . $this->quote($currentAlias) . "." . $this->quote($guessedLocalKey)
+                           . " = " . $this->quote($nextAlias) . "." . $this->quote($guessedForeignKey);
             }
 
             $parts[] = $joinPart;
@@ -594,8 +600,44 @@ class JoinResolver
                 }
             }
             if (!$edgeFound) {
-                $parts[] = "LEFT JOIN " . $this->quote($nextReal)
-                         . ($nextAlias !== $nextReal ? " AS " . $this->quote($nextAlias) : "");
+                // Fallback: try to find any relation between already used tables and this table
+                $onClauseAdded = false;
+                foreach ($usedTables as $usedReal => $_) {
+                    $usedAlias = $aliases[$usedReal];
+                    // Check from usedReal to nextReal
+                    $relationDef = $this->relMap['from'][$usedReal][$nextReal]
+                        ?? $this->relMap['to'][$usedReal][$nextReal]
+                        ?? $this->relMap['from'][$nextReal][$usedReal]
+                        ?? $this->relMap['to'][$nextReal][$usedReal]
+                        ?? null;
+                    
+                    if (is_array($relationDef) && isset($relationDef['local_key'], $relationDef['foreign_key'])) {
+                        $joinPart = "LEFT JOIN " . $this->quote($nextReal);
+                        if ($nextAlias !== $nextReal) {
+                            $joinPart .= " AS " . $this->quote($nextAlias);
+                        }
+                        $onClause = $this->buildJoinConditionFromDef($usedReal, $usedAlias, $nextReal, $nextAlias, $relationDef);
+                        $joinPart .= " " . $onClause;
+                        $parts[] = $joinPart;
+                        $onClauseAdded = true;
+                        break;
+                    }
+                }
+                
+                // If still no ON clause, add a CROSS JOIN warning or skip
+                if (!$onClauseAdded) {
+                    // Last resort: try to guess based on common naming conventions
+                    $joinPart = "LEFT JOIN " . $this->quote($nextReal);
+                    if ($nextAlias !== $nextReal) {
+                        $joinPart .= " AS " . $this->quote($nextAlias);
+                    }
+                    // Try to build a condition based on id and table_id pattern
+                    $guessedLocalKey = 'id';
+                    $guessedForeignKey = $parentReal . '_id';
+                    $joinPart .= " ON " . $this->quote($currentAlias) . "." . $this->quote($guessedLocalKey)
+                               . " = " . $this->quote($nextAlias) . "." . $this->quote($guessedForeignKey);
+                    $parts[] = $joinPart;
+                }
                 $usedTables[$nextReal] = true;
             }
         }
