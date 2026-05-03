@@ -28,6 +28,22 @@ class CacheService
     {
         self::$enabled = false;
     }
+	
+	/**
+     * Genera una clave hash segura y rápida para los datos proporcionados.
+     * 
+     * Prioriza xxh128 (si está disponible en PHP 8.1+), y si no, usa crc32 como fallback.
+     *
+     * @param string $data Datos a hashear (normalmente un JSON).
+     * @return string Clave hash en formato hexadecimal.
+     */
+    public static function hash(string $data): string
+    {
+        if (function_exists('xxh128')) {
+            return xxh128($data);
+        }
+        return hash('crc32', $data);
+    }
 
     /**
      * Obtiene un valor de la caché.
