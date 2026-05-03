@@ -62,7 +62,7 @@ class Q
         
         // Inyectar COUNT(*) OVER() si se solicita y no hay agrupamiento manual complejo
         if ($withTotal && empty($groupBy)) {
-            $totalFunc = 'COUNT(*) OVER() AS _total';
+            $totalFunc = 'COUNT(*) OVER() AS ' . ConditionMatrix::quote('_total');
             if (is_array($selectFields)) {
                 array_unshift($selectFields, $totalFunc);
             } else {

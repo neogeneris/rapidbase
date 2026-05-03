@@ -185,13 +185,13 @@ class SqlCompiler
         foreach ($parts as $field) {
             $field = trim($field);
             
-            // Check for alias with AS keyword
-            if (preg_match('/\s+as\s+(\w+)/i', $field, $matches)) {
+            // Check for alias with AS keyword (supports quoted aliases)
+            if (preg_match('/\s+as\s+["`]?(\w+)["`]?/i', $field, $matches)) {
                 $map[$matches[1]] = $index;
                 $index++;
             } 
-            // Check for table.* expansion
-            elseif (preg_match('/(\w+)\.\*/', $field, $matches)) {
+            // Check for table.* expansion (supports quoted table names)
+            elseif (preg_match('/["`]?(\w+)["`]?\.\*/', $field, $matches)) {
                 $tableAlias = $matches[1];
                 $schema = SchemaMap::getMap();
                 foreach ($tablesInfo as $info) {
@@ -239,7 +239,8 @@ class SqlCompiler
             $part = preg_replace('/\s+ON\s+.*$/i', '', $part);
             $part = trim($part);
             
-            if (preg_match('/^(\w+)(?:\s+(?:AS\s+)?(\w+))?/', $part, $matches)) {
+            // Soporta identificadores con comillas dobles (Postgres), backticks (MySQL) o simples
+            if (preg_match('/^(?:["`]?([\w.-]+)["`]?)(?:\s+(?:AS\s+)?(?:["`]?([\w.-]+)["`]?))?/i', $part, $matches)) {
                 $realTable = $matches[1];
                 $alias = $matches[2] ?? $realTable;
                 $tablesInfo[] = ['real' => $realTable, 'alias' => $alias];
