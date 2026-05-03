@@ -150,6 +150,49 @@ class Q
         return new CompiledQuery($sql, $params, CompiledQuery::INSERT);
     }
 
+    /**
+     * Accepts a CompiledQuery, an Executor result array, or a direct array of rows,
+     * optionally transforms each row via a callback, and returns a CompiledQuery ready for bulk insertion.
+     */
+    public function values(mixed $source, ?callable $transformer = null): CompiledQuery
+    {
+        $rows = [];
+
+        if ($source instanceof CompiledQuery) {
+            // Ejecutamos la consulta origen para obtener las filas como arrays asociativos
+            $res = $source->run(\PDO::FETCH_ASSOC);
+            $rows = $res['rows'] ?? $res['data'] ?? [];
+        } elseif (is_array($source)) {
+            // Detectar si es un array de resultado del Executor (con 'rows' o 'data')
+            if (isset($source['rows']) && is_array($source['rows'])) {
+                $rows = $source['rows'];
+            } elseif (isset($source['data']) && is_array($source['data'])) {
+                $rows = $source['data'];
+            } else {
+                // Asumimos que es directamente el array de filas
+                $rows = $source;
+            }
+        }
+
+        // Aplicamos la transformación a cada fila si se provee un callback
+        if ($transformer !== null) {
+            $mappedRows = [];
+            foreach ($rows as $row) {
+                // El callback debe devolver la fila modificada
+                $mappedRows[] = $transformer($row);
+            }
+            $rows = $mappedRows;
+        }
+
+        // Si no hay filas, retornamos un query inocuo (no-op)
+        if (empty($rows)) {
+            return new CompiledQuery('SELECT 1 WHERE 1=0', [], CompiledQuery::SELECT);
+        }
+
+        // Delegamos al método insert() que ya soporta inserción masiva
+        return $this->insert($rows);
+    }
+
     public function insertFrom(CompiledQuery $source, array $columns = []): CompiledQuery
     {
         return $this->insertSelect($source, $columns);
