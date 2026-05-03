@@ -13,8 +13,9 @@
 
 namespace Tests\Performance\MySQL;
 
-// Carga manual de dependencias de RapidBase
+// Carga manual de dependencias de RapidBase y configuración
 require_once __DIR__ . "/../../../vendor/autoload.php";
+require_once __DIR__ . "/config.php";
 
 use RapidBase\Core\DB;
 use RapidBase\Core\Schema;
@@ -31,14 +32,10 @@ class MySQLPerformanceTest {
         echo "=== MySQL Performance Test ===\n\n";
         
         try {
-            // Conectar a MySQL
-            $dsn = 'mysql:host=localhost;port=3306;dbname=rapidbase_test';
-            $user = 'rapidbase_user';
-            $pass = 'rapidbase_pass';
-            
-            DB::setup($dsn, $user, $pass, 'main');
-            $this->pdo = DB::getConnection();
-            echo "✓ Conectado a MySQL\n\n";
+            // Conectar a MySQL usando configuración centralizada
+            MySQLConfig::setupRapidBase();
+            $this->pdo = MySQLConfig::getPDO();
+            echo "✓ Conectado a MySQL (Host: " . MySQLConfig::DB_HOST . ":" . MySQLConfig::DB_PORT . ")\n\n";
             
             // Limpiar tablas si existen
             $this->cleanup();
@@ -66,21 +63,13 @@ class MySQLPerformanceTest {
     }
     
     private function cleanup(): void {
-        try {
-            $this->pdo->exec("DROP TABLE IF EXISTS order_items");
-            $this->pdo->exec("DROP TABLE IF EXISTS orders");
-            $this->pdo->exec("DROP TABLE IF EXISTS products");
-            $this->pdo->exec("DROP TABLE IF EXISTS categories");
-            $this->pdo->exec("DROP TABLE IF EXISTS customers");
-        } catch (Exception $e) {
-            // Ignorar errores al limpiar
-        }
+        MySQLConfig::cleanup();
     }
     
     private function createTables(): void {
         // Tabla customers
         $this->pdo->exec(<<<SQL
-            CREATE TABLE customers (
+            CREATE TABLE IF NOT EXISTS customers (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 email VARCHAR(255) NOT NULL,
@@ -93,7 +82,7 @@ class MySQLPerformanceTest {
         
         // Tabla categories
         $this->pdo->exec(<<<SQL
-            CREATE TABLE categories (
+            CREATE TABLE IF NOT EXISTS categories (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 description TEXT
@@ -102,7 +91,7 @@ class MySQLPerformanceTest {
         
         // Tabla products
         $this->pdo->exec(<<<SQL
-            CREATE TABLE products (
+            CREATE TABLE IF NOT EXISTS products (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 category_id INTEGER,
@@ -117,7 +106,7 @@ class MySQLPerformanceTest {
         
         // Tabla orders
         $this->pdo->exec(<<<SQL
-            CREATE TABLE orders (
+            CREATE TABLE IF NOT EXISTS orders (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 customer_id INTEGER,
                 status VARCHAR(50),
@@ -131,7 +120,7 @@ class MySQLPerformanceTest {
         
         // Tabla order_items
         $this->pdo->exec(<<<SQL
-            CREATE TABLE order_items (
+            CREATE TABLE IF NOT EXISTS order_items (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 order_id INTEGER,
                 product_id INTEGER,

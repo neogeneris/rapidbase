@@ -1,16 +1,10 @@
-<?php
-/**
- * Benchmark Comparativo de ORMs/Query Builders
- * Compara: Medoo, Pixie, F3 (DB), Redbean, Q
- * 
- * Pruebas:
- * - Select simple
- * - Select con JOIN (2-5 tablas)
- * - CRUD operations
- */
+namespace Tests\Performance\MySQL;
 
 // Suprimir deprecated warnings para PHP 8.2+
 error_reporting(E_ALL & ~E_DEPRECATED);
+
+// Cargar configuración centralizada
+require_once __DIR__ . '/config.php';
 
 // Cargar autoloaders específicos para cada ORM (aislados)
 $perfDir = '/workspace/tests/Performance'; // Directorio base de Performance
@@ -41,11 +35,6 @@ use RapidBase\Core\SchemaMap;
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
 
-// Configuración de MySQL/MariaDB
-$dsn = 'mysql:host=localhost;port=3306;dbname=rapidbase_test';
-$dbUser = 'rapidbase_user';
-$dbPass = 'rapidbase_pass';
-
 // ============================================================================
 // SETUP DE BASE DE DATOS
 // ============================================================================
@@ -55,7 +44,7 @@ function createTestTables($pdo) {
     $pdo->exec("DROP TABLE IF EXISTS post_tags, post_categories, comments, tags, posts, categories, users");
     
     // Tabla users
-    $pdo->exec("CREATE TABLE users (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL,
@@ -63,7 +52,7 @@ function createTestTables($pdo) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Tabla posts
-    $pdo->exec("CREATE TABLE posts (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS posts (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
         title VARCHAR(255) NOT NULL,
@@ -73,14 +62,14 @@ function createTestTables($pdo) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Tabla categories
-    $pdo->exec("CREATE TABLE categories (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Tabla post_categories (many-to-many)
-    $pdo->exec("CREATE TABLE post_categories (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS post_categories (
         id INT AUTO_INCREMENT PRIMARY KEY,
         post_id INT NOT NULL,
         category_id INT NOT NULL,
@@ -89,7 +78,7 @@ function createTestTables($pdo) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Tabla comments
-    $pdo->exec("CREATE TABLE comments (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS comments (
         id INT AUTO_INCREMENT PRIMARY KEY,
         post_id INT NOT NULL,
         user_id INT NOT NULL,
@@ -100,13 +89,13 @@ function createTestTables($pdo) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Tabla tags
-    $pdo->exec("CREATE TABLE tags (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tags (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // Tabla post_tags
-    $pdo->exec("CREATE TABLE post_tags (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS post_tags (
         id INT AUTO_INCREMENT PRIMARY KEY,
         post_id INT NOT NULL,
         tag_id INT NOT NULL,
@@ -1005,7 +994,7 @@ echo "Comparing: PDO, Medoo, Pixie, F3 (DB), Q (no cache), Q (cache)\n";
 echo str_repeat('=', 80) . "\n\n";
 
 // Crear PDO base
-$basePdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$basePdo = MySQLConfig::getPDO();
 $basePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Crear tablas y seedear datos
@@ -1020,7 +1009,7 @@ $results = [];
 // PDO (Nativo)
 // ----------------------------------------------------------------------------
 echo "Running PDO benchmarks...\n";
-$pdoPdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$pdoPdo = MySQLConfig::getPDO();
 $pdoPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($pdoPdo);
 seedTestData($pdoPdo, 100, 500, 20, 1000, 50);
@@ -1040,7 +1029,7 @@ $results[] = ['orm' => 'PDO', 'test' => 'Update', ...runBenchmark('PDO Update', 
 // MEDOO
 // ----------------------------------------------------------------------------
 echo "Running Medoo benchmarks...\n";
-$medooPdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$medooPdo = MySQLConfig::getPDO();
 $medooPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($medooPdo);
 seedTestData($medooPdo, 100, 500, 20, 1000, 50);
@@ -1059,7 +1048,7 @@ $results[] = ['orm' => 'Medoo', 'test' => 'Update', ...runBenchmark('Medoo Updat
 // PIXIE
 // ----------------------------------------------------------------------------
 echo "Running Pixie benchmarks...\n";
-$pixiePdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$pixiePdo = MySQLConfig::getPDO();
 $pixiePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($pixiePdo);
 seedTestData($pixiePdo, 100, 500, 20, 1000, 50);
@@ -1078,7 +1067,7 @@ $results[] = ['orm' => 'Pixie', 'test' => 'Update', ...runBenchmark('Pixie Updat
 // F3 (Fat-Free Framework DB)
 // ----------------------------------------------------------------------------
 echo "Running F3 benchmarks...\n";
-$f3Pdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$f3Pdo = MySQLConfig::getPDO();
 $f3Pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($f3Pdo);
 seedTestData($f3Pdo, 100, 500, 20, 1000, 50);
@@ -1097,7 +1086,7 @@ $results[] = ['orm' => 'F3', 'test' => 'Update', ...runBenchmark('F3 Update', fn
 // Q NO CACHE (RapidBase sin schema_map)
 // ----------------------------------------------------------------------------
 echo "Running Q (No Cache) benchmarks...\n";
-$qNoCachePdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$qNoCachePdo = MySQLConfig::getPDO();
 $qNoCachePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($qNoCachePdo);
 seedTestData($qNoCachePdo, 100, 500, 20, 1000, 50);
@@ -1116,7 +1105,7 @@ $results[] = ['orm' => 'Q-NoCache', 'test' => 'Update', ...runBenchmark('Q-NoCac
 // Q WITH CACHE (RapidBase con schema_map)
 // ----------------------------------------------------------------------------
 echo "Running Q (With Cache) benchmarks...\n";
-$qCachePdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$qCachePdo = MySQLConfig::getPDO();
 $qCachePdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($qCachePdo);
 seedTestData($qCachePdo, 100, 500, 20, 1000, 50);
@@ -1135,7 +1124,7 @@ $results[] = ['orm' => 'Q-Cache', 'test' => 'Update', ...runBenchmark('Q-Cache U
 // Q (RapidBase) - alias para backward compatibility
 // ----------------------------------------------------------------------------
 echo "Running Q benchmarks...\n";
-$qPdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$qPdo = MySQLConfig::getPDO();
 $qPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($qPdo);
 seedTestData($qPdo, 100, 500, 20, 1000, 50);
@@ -1154,7 +1143,7 @@ $results[] = ['orm' => 'Q', 'test' => 'Update', ...runBenchmark('Q Update', fn()
 // REDBEAN
 // ----------------------------------------------------------------------------
 echo "Running Redbean benchmarks...\n";
-$redbeanPdo = new PDO('mysql:host=localhost;port=3306;dbname=rapidbase_test', 'rapidbase_user', 'rapidbase_pass');
+$redbeanPdo = MySQLConfig::getPDO();
 $redbeanPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 createTestTables($redbeanPdo);
 seedTestData($redbeanPdo, 100, 500, 20, 1000, 50);
