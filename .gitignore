@@ -1,32 +1,46 @@
-```php
-vendor/
-composer.lock
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Dependencies
+node_modules/
+venv/
+.venv/
 .env
 .env.local
+.env.*
+
+# Logs and temp files
 *.log
 *.tmp
 *.swp
-.DS_Store
-Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Coverage
 coverage/
 htmlcov/
 .coverage
-.phpunit.result.cache
-.idea/
-.vscode/
-*.phar
-*.so
-*.dll
-*.exe
-*.out
-*.class
-*.pyc
-__pycache__/
-node_modules/
+
+# Distribution / packaging
 dist/
 build/
-target/
-.gradle/
-.mypy_cache/
-.pytest_cache/
+*.tar.gz
+*.whl
+*.egg-info/
+
+# Testing
+.phpunit.result.cache
+.phpunit/
 ```
