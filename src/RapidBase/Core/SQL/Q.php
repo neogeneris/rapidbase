@@ -151,11 +151,33 @@ class Q
     }
 
     /**
-     * Accepts a CompiledQuery, an Executor result array, or a direct array of rows,
-     * optionally transforms each row via a callback, and returns a CompiledQuery ready for bulk insertion.
+     * Inserta datos provenientes de diversas fuentes (CompiledQuery, array de filas,
+     * array de resultado del Executor, o array generado por from()->values()).
+     *
+     * Acepta un callback opcional para transformar cada fila.
+     *
+     * @param mixed         $source      Origen de los datos (CompiledQuery, array asociativo del Executor, o array de filas).
+     * @param callable|null $transformer Callback que recibe cada fila y la devuelve modificada.
+     * @return CompiledQuery
      */
     public function values(mixed $source, ?callable $transformer = null): CompiledQuery
     {
+        // NUEVO: formato directo de from()->values()
+        if (is_array($source) && isset($source['columns'], $source['values'])) {
+            $columns   = $source['columns'];
+            $valuesStr = $source['values'];
+
+            if (empty($columns) || empty($valuesStr)) {
+                return new CompiledQuery('SELECT 1 WHERE 1=0', [], CompiledQuery::SELECT);
+            }
+
+            $quotedCols = array_map([ConditionMatrix::class, 'quote'], $columns);
+            $table = ConditionMatrix::quote($this->state[self::T]);
+            $sql = "INSERT INTO $table (" . implode(', ', $quotedCols) . ") VALUES $valuesStr";
+
+            return new CompiledQuery($sql, [], CompiledQuery::INSERT);
+        }
+
         $rows = [];
 
         if ($source instanceof CompiledQuery) {
@@ -179,7 +201,10 @@ class Q
             $mappedRows = [];
             foreach ($rows as $row) {
                 // El callback debe devolver la fila modificada
-                $mappedRows[] = $transformer($row);
+                $newRow = $transformer($row);
+                if ($newRow !== false) {
+                    $mappedRows[] = $newRow;
+                }
             }
             $rows = $mappedRows;
         }
@@ -191,6 +216,49 @@ class Q
 
         // Delegamos al método insert() que ya soporta inserción masiva
         return $this->insert($rows);
+    }
+
+    /**
+     * Ejecuta un SELECT * sobre la tabla actual y devuelve un array
+     * con las columnas y los valores formateados para un INSERT masivo.
+     *
+     * Acepta opcionalmente limit y offset para extraer los datos por lotes.
+     *
+     * @param int|null $limit  Número máximo de filas a recuperar (null = todas).
+     * @param int      $offset Desplazamiento inicial (solo si se especifica limit).
+     * @return array ['columns' => [...], 'values' => string]
+     */
+    public function values(?int $limit = null, int $offset = 0): array
+    {
+        if ($limit !== null) {
+            $compiled = $this->select('*', [$offset, $limit]);
+        } else {
+            $compiled = $this->select('*');
+        }
+
+        $result = $compiled->run(\PDO::FETCH_NUM);
+
+        $cols = $result['cols'] ?? [];
+        $rows = $result['rows'] ?? [];
+
+        $valuesStr = '';
+        if (!empty($rows)) {
+            $quotedRows = [];
+            foreach ($rows as $row) {
+                $quoted = array_map(function ($val) {
+                    if (is_null($val)) return 'NULL';
+                    if (is_int($val) || is_float($val)) return (string)$val;
+                    return "'" . addslashes((string)$val) . "'";
+                }, $row);
+                $quotedRows[] = '(' . implode(',', $quoted) . ')';
+            }
+            $valuesStr = implode(',', $quotedRows);
+        }
+
+        return [
+            'columns' => $cols,
+            'values'  => $valuesStr,
+        ];
     }
 
     public function insertFrom(CompiledQuery $source, array $columns = []): CompiledQuery
@@ -488,7 +556,6 @@ class Q
                     self::$starProjectionCache[$realTable] = $map;
                 } else {
                     // Fallback: schema not available, will use PDO FETCH_ASSOC directly
-                    // Return empty map to signal Executor to use fetchAll(FETCH_ASSOC)
                     self::$starProjectionCache[$realTable] = null;
                 }
             }
