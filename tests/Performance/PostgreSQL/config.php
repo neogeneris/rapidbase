@@ -142,8 +142,9 @@ class PGConfig {
         $pdo = $pdo ?? self::getPDO();
         
         $tables = [
+            'order_items', 'orders', 'products', 'categories', 'customers',
             'post_tags', 'post_categories', 'comments', 'tags', 
-            'posts', 'categories', 'users', 'products', 'orders'
+            'posts', 'categories', 'users'
         ];
         
         foreach ($tables as $table) {

@@ -58,7 +58,7 @@ function createTestTables($pdo) {
     $pdo->exec("DROP TABLE IF EXISTS post_tags, post_categories, comments, tags, posts, categories, users CASCADE");
     
     // Tabla users
-    $pdo->exec("CREATE TABLE users (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL,
@@ -66,7 +66,7 @@ function createTestTables($pdo) {
     )");
 
     // Tabla posts
-    $pdo->exec("CREATE TABLE posts (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS posts (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
         title VARCHAR(255) NOT NULL,
@@ -76,14 +76,14 @@ function createTestTables($pdo) {
     )");
 
     // Tabla categories
-    $pdo->exec("CREATE TABLE categories (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT
     )");
 
     // Tabla post_categories (many-to-many)
-    $pdo->exec("CREATE TABLE post_categories (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS post_categories (
         id SERIAL PRIMARY KEY,
         post_id INTEGER NOT NULL,
         category_id INTEGER NOT NULL,
@@ -92,7 +92,7 @@ function createTestTables($pdo) {
     )");
 
     // Tabla comments
-    $pdo->exec("CREATE TABLE comments (
+    $pdo->exec("CREATE TABLE IF NOT EXISTS comments (
         id SERIAL PRIMARY KEY,
         post_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
