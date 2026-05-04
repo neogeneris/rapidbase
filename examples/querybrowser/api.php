@@ -49,6 +49,18 @@ function getSchemaMapArray(PDO $pdo, string $connectionId): array {
     $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     $discovery = DiscoveryFactory::create($pdo);
     
+    // Obtener el nombre de la base de datos actual si es necesario
+    $databaseName = null;
+    if ($driverName === 'mysql') {
+        $stmt = $pdo->query("SELECT DATABASE() as current_db");
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $databaseName = $row['current_db'] ?? '';
+    } elseif ($driverName === 'pgsql') {
+        $stmt = $pdo->query("SELECT current_database() as current_db");
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $databaseName = $row['current_db'] ?? '';
+    }
+    
     if ($driverName === 'pgsql') {
         $stmt = $pdo->query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
         $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -61,10 +73,10 @@ function getSchemaMapArray(PDO $pdo, string $connectionId): array {
     
     $tablesMetadata = [];
     foreach ($allTables as $table) {
-        $tablesMetadata[$table] = $discovery->discoverColumns($table, null);
+        $tablesMetadata[$table] = $discovery->discoverColumns($table, $databaseName);
     }
     
-    $relationships = $discovery->discoverRelationships(null);
+    $relationships = $discovery->discoverRelationships($databaseName);
     $detector = new FeatureDetector($pdo);
     $features = $detector->detect();
     
