@@ -10,6 +10,10 @@ $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcDir
 $phpFiles = [];
 
 foreach ($iterator as $file) {
+    // Excluir archivos schema_map.php
+    if (basename($file) === 'schema_map.php') {
+        continue;
+    }
     if ($file->isFile() && $file->getExtension() === 'php') {
         $phpFiles[] = $file->getPathname();
     }

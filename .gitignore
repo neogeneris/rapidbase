@@ -2,15 +2,25 @@
 # Compiled and build artifacts
 *.pyc
 __pycache__/
+*.o
+*.obj
+dist/
+build/
+target/
 
 # Dependencies
-venv/
 .venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+.gradle/
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
+*.swo
 
 # Environment
 .env
@@ -21,24 +31,14 @@ venv/
 .vscode/
 .idea/
 
-# OS generated files
+# System files
 .DS_Store
 Thumbs.db
 
-# Coverage reports
+# Coverage
 coverage/
 htmlcov/
 .coverage
-
-# MyPy cache
-.mypy_cache/
-# Pytest cache
-.pytest_cache/
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
 
 # Compressed files
 *.zip
