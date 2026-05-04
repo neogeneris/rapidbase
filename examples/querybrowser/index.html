@@ -15,6 +15,8 @@
         }
         .sidebar {
             width: 320px;
+            min-width: 200px;
+            max-width: 600px;
             background: #2c3e50;
             color: #ecf0f1;
             display: flex;
@@ -22,6 +24,27 @@
             overflow: hidden;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             z-index: 10;
+            position: relative;
+            user-select: none;
+        }
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .sidebar-resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 5px;
+            cursor: col-resize;
+            background-color: transparent;
+            transition: background-color 0.2s;
+            z-index: 20;
+        }
+        .sidebar-resizer:hover, .sidebar-resizer.resizing {
+            background-color: #1abc9c;
         }
         .sidebar-header {
             padding: 15px;
@@ -258,13 +281,16 @@
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <button class="btn-add" id="btn-add-connection">➕ Nueva conexión</button>
     </div>
-    <div class="connections-list" id="connections-list">
-        Cargando conexiones...
+    <div class="sidebar-content">
+        <div class="connections-list" id="connections-list">
+            Cargando conexiones...
+        </div>
+        <div class="database-list" id="database-list">
+            <!-- Se mostrarán las bases de datos una vez seleccionada una conexión -->
+        </div>
+        <div class="treeview" id="treeview"></div>
     </div>
-    <div class="database-list" id="database-list">
-        <!-- Se mostrarán las bases de datos una vez seleccionada una conexión -->
-    </div>
-    <div class="treeview" id="treeview"></div>
+    <div class="sidebar-resizer" id="sidebar-resizer"></div>
 </div>
 <div class="main">
     <div class="tabs-header" id="tabs-header"></div>
@@ -776,6 +802,37 @@
     // Inicializar
     loadConnections();
     loadDatabases();
+
+    // ---------- Redimensionar Sidebar ----------
+    const sidebar = document.getElementById('sidebar');
+    const resizer = document.getElementById('sidebar-resizer');
+    
+    if (sidebar && resizer) {
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            resizer.classList.add('resizing');
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const newWidth = e.clientX;
+            if (newWidth > 200 && newWidth < 600) {
+                sidebar.style.width = `${newWidth}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizer.classList.remove('resizing');
+                document.body.style.cursor = 'default';
+            }
+        });
+    }
 </script>
 </body>
 </html>
