@@ -268,7 +268,9 @@ try {
             $sql = $_POST['sql'] ?? '';
             if (!$connectionId || !$sql) throw new Exception('connectionId and sql required');
             $connInfo = $_SESSION['connections'][$connectionId];
-            $pdo = new PDO($connInfo['dsn']);
+            $user = $connInfo['connInfo']['username'] ?? null;
+            $pass = $connInfo['connInfo']['password'] ?? null;
+            $pdo = new PDO($connInfo['dsn'], $user, $pass);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $stmt = $pdo->prepare($sql);
             $stmt->execute();
