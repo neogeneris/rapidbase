@@ -153,4 +153,11 @@ class MySQLDiscovery implements DiscoveryInterface
 
 		return null;
 	}
+
+	public function getTables(): array
+	{
+		$sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME";
+		$stmt = $this->pdo->query($sql);
+		return $stmt->fetchAll(PDO::FETCH_COLUMN);
+	}
 }

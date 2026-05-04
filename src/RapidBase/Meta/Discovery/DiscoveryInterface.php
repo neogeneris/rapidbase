@@ -63,4 +63,11 @@ interface DiscoveryInterface
      * @return string|null Nombre de la columna de la clave primaria, o null si no se encuentra.
      */
     public function discoverPrimaryKey(string $tableName, string $databaseName): ?string;
+
+    /**
+     * Devuelve un array con los nombres de todas las tablas de la base de datos.
+     *
+     * @return array Un array de nombres de tablas.
+     */
+    public function getTables(): array;
 }
