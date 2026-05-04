@@ -339,10 +339,18 @@ try {
                     throw new \Exception('Conexión no encontrada o expirada');
                 }
                 
-                // Obtener info de la conexión y activarla en DB
+                // Obtener info de la conexión y registrarla en el pool de Conn
                 $connInfo = $_SESSION['connections'][$connectionId];
                 if (isset($connInfo['dsn'])) {
-                    \RapidBase\Core\DB::connect($connInfo['dsn'], $connInfo['user'] ?? '', $connInfo['pass'] ?? '', $connInfo['id'] ?? $connectionId);
+                    // Registrar la conexión en el pool con un nombre único
+                    \RapidBase\Core\Conn::setup(
+                        $connInfo['dsn'], 
+                        $connInfo['user'] ?? '', 
+                        $connInfo['pass'] ?? '', 
+                        $connectionId
+                    );
+                    // Activar esta conexión como la predeterminada
+                    \RapidBase\Core\Conn::select($connectionId);
                 }
                 
                 // Calcular page desde offset y limit
