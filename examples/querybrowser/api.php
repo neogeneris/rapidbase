@@ -212,7 +212,8 @@ try {
                 $_SESSION['connections'][$connectionKey] = [
                     'dsn' => $dsn,
                     'map' => $map,
-                    'connInfo' => $connRow
+                    'connInfo' => $connRow,
+                    'databaseName' => $connRow['database'] ?? null
                 ];
             }
             $map = $_SESSION['connections'][$connectionKey]['map'];
@@ -241,10 +242,19 @@ try {
             if (!$connectionId || !$tablesJson) throw new Exception('connectionId and tables required');
             $tables = json_decode($tablesJson, true);
             if (count($tables) < 2) throw new Exception('At least two tables required');
-            $map = $_SESSION['connections'][$connectionId]['map'];
+            $connInfo = $_SESSION['connections'][$connectionId];
+            $map = $connInfo['map'];
             SchemaMap::setMap($map, $connectionId);
             SchemaMap::setDefaultConnection($connectionId);
             ConditionMatrix::setDriver($map['driver']);
+            
+            // Si es MySQL y tenemos un nombre de base de datos específico, asegurarnos de usarla
+            $driverName = $map['driver'] ?? '';
+            if ($driverName === 'mysql' && !empty($connInfo['databaseName'])) {
+                // La base de datos ya está en el DSN, pero por si acaso
+                // las relaciones se generaron correctamente con esa DB
+            }
+            
             $main = $tables[0];
             $from = ConditionMatrix::quote($main);
             $rels = $map['relationships']['from'] ?? [];
@@ -281,6 +291,16 @@ try {
             $pass = $connInfo['connInfo']['password'] ?? null;
             $pdo = new PDO($connInfo['dsn'], $user, $pass);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // Si es MySQL o PostgreSQL y tenemos un nombre de base de datos específico, seleccionarla
+            $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+            if ($driverName === 'mysql' && !empty($connInfo['databaseName'])) {
+                $pdo->exec("USE `{$connInfo['databaseName']}`");
+            } elseif ($driverName === 'pgsql' && !empty($connInfo['databaseName'])) {
+                // En PostgreSQL la DB ya está en el DSN, pero por si acaso
+                // no es necesario hacer nada adicional aquí
+            }
+            
             $stmt = $pdo->prepare($sql);
             $stmt->execute();
             if (stripos(trim($sql), 'select') === 0) {
