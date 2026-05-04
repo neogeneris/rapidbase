@@ -9,6 +9,7 @@ use RapidBase\Core\SQL\ConditionMatrix;
 use RapidBase\Core\SQL\Q;
 use RapidBase\Meta\Discovery\DiscoveryFactory;
 use RapidBase\Meta\Discovery\FeatureDetector;
+use \PDO;
 
 header('Content-Type: application/json');
 
