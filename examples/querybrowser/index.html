@@ -81,6 +81,18 @@
         .database-list, .treeview {
             padding: 10px;
         }
+        .treeview ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .treeview > ul {
+            padding-left: 0;
+        }
+        .caret {
+            cursor: pointer;
+            user-select: none;
+            margin-right: 5px;
+        }
         .database-item, .table-node {
             padding: 5px 10px;
             cursor: pointer;
@@ -194,21 +206,39 @@
             background: white;
             margin: 5% auto;
             padding: 20px;
-            width: 500px;
+            width: 750px;
+            max-width: 95%;
             border-radius: 8px;
+        }
+        .modal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .modal-column {
+            display: flex;
+            flex-direction: column;
         }
         .modal-content input, .modal-content select {
             width: 100%;
             padding: 8px;
-            margin: 8px 0;
+            margin: 4px 0 12px 0;
             border: 1px solid #ccc;
             border-radius: 4px;
+        }
+        .modal-content label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9rem;
         }
         .modal-buttons {
             display: flex;
             justify-content: flex-end;
             gap: 10px;
-            margin-top: 15px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
         }
         .error-message {
             color: #e74c3c;
@@ -245,30 +275,48 @@
 <div id="modal-connection" class="modal">
     <div class="modal-content">
         <h3>Nueva conexión</h3>
-        <label>Nombre descriptivo</label>
-        <input type="text" id="conn-name" placeholder="Mi Base de Datos">
-        <label>Driver</label>
-        <select id="conn-driver">
-            <option value="sqlite">SQLite</option>
-            <option value="mysql">MySQL</option>
-            <option value="pgsql">PostgreSQL</option>
-        </select>
-        <div id="sqlite-fields">
-            <label>Ruta del archivo .sqlite</label>
-            <input type="text" id="conn-database" placeholder="C:/ruta/a/mi.db">
+        <div class="modal-grid">
+            <!-- Columna 1: Tipo de BD, IP/Host, Puerto -->
+            <div class="modal-column">
+                <label for="conn-driver">Tipo de base de datos</label>
+                <select id="conn-driver">
+                    <option value="sqlite">SQLite</option>
+                    <option value="mysql">MySQL</option>
+                    <option value="pgsql">PostgreSQL</option>
+                </select>
+
+                <div id="sqlite-file-field">
+                    <label for="conn-database">Ruta del archivo .sqlite</label>
+                    <input type="text" id="conn-database" placeholder="/ruta/a/mi.db">
+                </div>
+
+                <div id="server-fields-col1">
+                    <label for="conn-host">Host / IP</label>
+                    <input type="text" id="conn-host" placeholder="localhost">
+                    
+                    <label for="conn-port">Puerto</label>
+                    <input type="text" id="conn-port" placeholder="3306">
+                </div>
+            </div>
+
+            <!-- Columna 2: Nombre conexión, BD, Usuario, Password -->
+            <div class="modal-column">
+                <label for="conn-name">Nombre de la conexión</label>
+                <input type="text" id="conn-name" placeholder="Mi Base de Datos">
+
+                <div id="server-fields-col2">
+                    <label for="conn-dbname">Base de datos</label>
+                    <input type="text" id="conn-dbname" placeholder="nombre_bd">
+                    
+                    <label for="conn-user">Usuario</label>
+                    <input type="text" id="conn-user" placeholder="root">
+                    
+                    <label for="conn-pass">Contraseña</label>
+                    <input type="password" id="conn-pass" placeholder="••••••">
+                </div>
+            </div>
         </div>
-        <div id="server-fields" style="display:none;">
-            <label>Host</label>
-            <input type="text" id="conn-host" placeholder="localhost">
-            <label>Puerto</label>
-            <input type="text" id="conn-port" placeholder="3306">
-            <label>Base de datos</label>
-            <input type="text" id="conn-dbname" placeholder="nombre_bd">
-            <label>Usuario</label>
-            <input type="text" id="conn-user">
-            <label>Contraseña</label>
-            <input type="password" id="conn-pass">
-        </div>
+
         <div class="modal-buttons">
             <button id="modal-test">Probar</button>
             <button id="modal-accept" disabled>Aceptar</button>
@@ -427,7 +475,7 @@
                 treeDiv.innerHTML = '<div style="padding:10px;">No hay tablas.</div>';
                 return;
             }
-            let html = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul>';
+            let html = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul class="nested">';
             tables.forEach(table => {
                 html += `<li class="table-node" draggable="true" data-table="${escapeHtml(table)}">📄 ${escapeHtml(table)}</li>`;
             });
@@ -441,20 +489,23 @@
                 });
                 el.addEventListener('click', () => openTab(el.dataset.table));
             });
+            // Toggle collapse/expand
             const caret = document.querySelector('.caret');
             if (caret) {
-                const parent = caret.parentElement;
-                const childUl = parent.querySelector('ul');
-                caret.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (childUl.style.display === 'none') {
-                        childUl.style.display = '';
-                        caret.innerText = '▼';
-                    } else {
-                        childUl.style.display = 'none';
-                        caret.innerText = '▶';
-                    }
-                });
+                const parentLi = caret.parentElement;
+                const childUl = parentLi.querySelector('ul.nested');
+                if (childUl) {
+                    caret.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (childUl.style.display === 'none') {
+                            childUl.style.display = '';
+                            caret.innerText = '▼';
+                        } else {
+                            childUl.style.display = 'none';
+                            caret.innerText = '▶';
+                        }
+                    });
+                }
             }
         } catch (err) {
             document.getElementById('treeview').innerHTML = `<div style="padding:10px; color:#e74c3c;">Error: ${err.message}</div>`;
@@ -605,17 +656,29 @@
     const btnTest = document.getElementById('modal-test');
     const btnAccept = document.getElementById('modal-accept');
     const driverSelect = document.getElementById('conn-driver');
-    const sqliteFields = document.getElementById('sqlite-fields');
-    const serverFields = document.getElementById('server-fields');
+    const sqliteFileField = document.getElementById('sqlite-file-field');
+    const serverFieldsCol1 = document.getElementById('server-fields-col1');
+    const serverFieldsCol2 = document.getElementById('server-fields-col2');
 
     function toggleFields() {
         const driver = driverSelect.value;
         if (driver === 'sqlite') {
-            sqliteFields.style.display = 'block';
-            serverFields.style.display = 'none';
+            sqliteFileField.style.display = 'block';
+            serverFieldsCol1.style.display = 'none';
+            serverFieldsCol2.style.display = 'none';
         } else {
-            sqliteFields.style.display = 'none';
-            serverFields.style.display = 'block';
+            sqliteFileField.style.display = 'none';
+            serverFieldsCol1.style.display = 'block';
+            serverFieldsCol2.style.display = 'block';
+            // Actualizar puerto según el tipo de BD
+            const portInput = document.getElementById('conn-port');
+            if (driver === 'mysql') {
+                portInput.value = '3306';
+                portInput.placeholder = '3306';
+            } else if (driver === 'pgsql') {
+                portInput.value = '5432';
+                portInput.placeholder = '5432';
+            }
         }
     }
     driverSelect.addEventListener('change', toggleFields);

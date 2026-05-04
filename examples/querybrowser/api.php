@@ -17,6 +17,11 @@ $action = $_REQUEST['action'] ?? '';
 // Inicializar la base de datos interna de conexiones si no existe
 function initConnectionsDB() {
     $dbFile = CONNECTIONS_DB;
+    // Asegurar que el directorio existe
+    $dir = dirname($dbFile);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
     if (!file_exists($dbFile)) {
         $pdo = new PDO("sqlite:$dbFile");
         $pdo->exec("
@@ -122,8 +127,12 @@ try {
 
         case 'add_connection':
             $data = json_decode(file_get_contents('php://input'), true);
-            if (empty($data['name']) || empty($data['driver']) || empty($data['database'])) {
-                throw new Exception('Faltan datos obligatorios (name, driver, database)');
+            if (empty($data['name']) || empty($data['driver'])) {
+                throw new Exception('Faltan datos obligatorios (name, driver)');
+            }
+            // Para SQLite se requiere database, para servidores también
+            if (empty($data['database'])) {
+                throw new Exception('El campo database es obligatorio');
             }
             if (!testConnection($data)) {
                 throw new Exception('No se pudo conectar a la base de datos. Verifica los datos.');
