@@ -333,20 +333,25 @@ try {
                 break;
             }
             
-            // Limitar el máximo de registros por seguridad
-            $limit = min($limit, 1000);
-            
             try {
                 // Verificar que la conexión existe
                 if (!isset($_SESSION['connections'][$connectionId])) {
                     throw new \Exception('Conexión no encontrada o expirada');
                 }
                 
+                // Obtener info de la conexión y activarla en DB
+                $connInfo = $_SESSION['connections'][$connectionId];
+                if (isset($connInfo['dsn'])) {
+                    \RapidBase\Core\DB::connect($connInfo['dsn'], $connInfo['user'] ?? '', $connInfo['pass'] ?? '', $connInfo['id'] ?? $connectionId);
+                }
+                
+                // Calcular page desde offset y limit
+                $page = $limit > 0 ? (int)floor($offset / $limit) + 1 : 1;
+                
                 // Crear instancia del adapter y obtener datos
                 $adapter = new \RapidBase\Infrastructure\UI\Adapters\GridAdapter($table, $connectionId);
                 $response = $adapter->getData([
-                    'offset' => $offset,
-                    'limit' => $limit,
+                    'page' => $page,
                     'sort' => $sort,
                     'filter' => $filter
                 ]);
