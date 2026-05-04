@@ -200,6 +200,132 @@
             overflow: auto;
             border: 1px solid #e9ecef;
         }
+        
+        /* Estilos para el Grid Component */
+        .grid-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: white;
+        }
+        .grid-head {
+            display: flex;
+            font-weight: bold;
+            border-bottom: 2px solid #ccc;
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .grid-header {
+            flex: 1;
+            padding: 10px 12px;
+            text-align: left;
+            cursor: pointer;
+            user-select: none;
+            border-right: 1px solid #dee2e6;
+            transition: background 0.2s;
+        }
+        .grid-header:hover {
+            background: #e9ecef;
+        }
+        .grid-header[data-sort="asc"]::after {
+            content: " ▲";
+            font-size: 0.8em;
+        }
+        .grid-header[data-sort="desc"]::after {
+            content: " ▼";
+            font-size: 0.8em;
+        }
+        .grid-body {
+            flex: 1;
+            overflow: auto;
+        }
+        .grid-row {
+            display: flex;
+            align-items: center;
+            padding: 0;
+            border-bottom: 1px solid #eee;
+            transition: background 0.15s;
+        }
+        .grid-row:hover {
+            background: #f5f7fb;
+        }
+        .grid-item {
+            flex: 1;
+            padding: 10px 12px;
+            text-align: left;
+            border-right: 1px solid #eee;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .grid-controls {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            align-items: center;
+        }
+        .grid-search {
+            padding: 6px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            min-width: 200px;
+        }
+        .grid-paginator {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+        .grid-paginator button {
+            padding: 6px 12px;
+            border: 1px solid #ced4da;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .grid-paginator button:hover:not(:disabled) {
+            background: #e9ecef;
+        }
+        .grid-paginator button.active {
+            background: #1abc9c;
+            color: white;
+            border-color: #1abc9c;
+        }
+        .grid-paginator button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .grid-loading, .grid-error, .grid-empty {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+        }
+        .grid-loading {
+            display: none;
+            color: #1abc9c;
+        }
+        .grid-error {
+            display: none;
+            color: #e74c3c;
+            background: #fdf2f2;
+            border-radius: 4px;
+            margin: 10px;
+        }
+        .grid-empty {
+            color: #999;
+            font-style: italic;
+        }
+        .hidden {
+            display: none !important;
+        }
+        
         table {
             width: 100%;
             border-collapse: collapse;
@@ -352,6 +478,12 @@
     </div>
 </div>
 
+<!-- Grid Component Scripts -->
+<script src="grid/GridBuilder.js"></script>
+<script src="grid/APIDataGrid.js"></script>
+<script src="grid/Paginator.js"></script>
+<script src="grid/querybrowser-grid-component.js"></script>
+
 <script>
     // ---------- Estado ----------
     let currentConnectionId = null;
@@ -359,6 +491,9 @@
     let tabs = new Map();
     let nextTabId = 0;
     let connections = [];
+    
+    // Almacén de grids activos por tab
+    const activeGrids = new Map();
 
     // ---------- Helpers ----------
     function escapeHtml(str) {
@@ -587,9 +722,26 @@
             <div class="toolbar">
                 <button class="run-btn" data-tab-id="${tabId}">▶ Ejecutar</button>
             </div>
-            <div class="results-grid" id="grid_${tabId}">Esperando consulta...</div>
+            <div class="grid-container" id="grid_${tabId}">
+                <div class="grid-controls"></div>
+                <div class="grid-head"><div class="grid-header">Cargando...</div></div>
+                <div class="grid-body"></div>
+                <div class="grid-paginator"></div>
+                <div class="grid-loading">Cargando datos...</div>
+                <div class="grid-error"></div>
+            </div>
         `;
         document.getElementById('tab-content').appendChild(pane);
+        
+        // Inicializar grid usando QueryBrowserGrid
+        const gridContainer = `#grid_${tabId}`;
+        const grid = QueryBrowserGrid.createTableGrid(gridContainer, currentConnectionId, tableName, {
+            mode: 'pagination',
+            pageSize: 20
+        });
+        
+        // Guardar referencia al grid activo
+        activeGrids.set(tabId, grid);
         // Drop zone
         const dropZone = pane.querySelector('.drop-zone');
         dropZone.addEventListener('dragover', e => e.preventDefault());
@@ -621,44 +773,12 @@
     }
 
     async function executeQuery(tabId) {
+        // Nota: El grid ya carga automáticamente al abrir una tabla.
+        // Esta función se mantiene para consultas SQL personalizadas si se necesita en el futuro.
         const pane = document.getElementById(`pane_${tabId}`);
         if (!pane) return;
-        const sql = pane.querySelector('.sql-editor').value;
-        const tabInfo = tabs.get(tabId);
-        if (!tabInfo) return;
-        const gridDiv = pane.querySelector('.results-grid');
-        gridDiv.innerHTML = '<div>Ejecutando...</div>';
-        try {
-            const formData = new FormData();
-            formData.append('connectionId', tabInfo.connectionId);
-            formData.append('sql', sql);
-            const data = await fetchJson('api.php?action=execute_query', { method: 'POST', body: formData });
-            if (data.error) {
-                gridDiv.innerHTML = `<div class="error-message">❌ ${escapeHtml(data.error)}</div>`;
-                return;
-            }
-            if (!data.rows || data.rows.length === 0) {
-                gridDiv.innerHTML = '<div>✔ Consulta ejecutada. Sin resultados.</div>';
-                return;
-            }
-            let html = '</td><thead><tr>';
-            data.columns.forEach(col => html += `<th>${escapeHtml(col)}</th>`);
-            html += '</thead><tbody>';
-            data.rows.forEach(row => {
-                html += '<tr>';
-                data.columns.forEach(col => {
-                    let val = row[col];
-                    if (val === null) val = 'NULL';
-                    else if (typeof val === 'object') val = JSON.stringify(val);
-                    html += `<td>${escapeHtml(String(val))}</td>`;
-                });
-                html += '</tr>';
-            });
-            html += '</tbody></table>';
-            gridDiv.innerHTML = html;
-        } catch (err) {
-            gridDiv.innerHTML = `<div class="error-message">Error: ${escapeHtml(err.message)}</div>`;
-        }
+        
+        console.log('Para usar el grid, abre una tabla desde el explorador del aside.');
     }
 
     function activateTab(tabId) {
@@ -671,6 +791,13 @@
     }
 
     function closeTab(tabId) {
+        // Destruir grid activo si existe
+        const grid = activeGrids.get(tabId);
+        if (grid) {
+            QueryBrowserGrid.destroy(grid);
+            activeGrids.delete(tabId);
+        }
+        
         const tab = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
         if (tab) tab.remove();
         const pane = document.getElementById(`pane_${tabId}`);
