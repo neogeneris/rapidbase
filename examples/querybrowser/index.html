@@ -470,24 +470,30 @@
         try {
             const data = await fetchJson(`api.php?action=list_tables&connectionId=${currentConnectionId}`);
             const tables = data.tables || [];
+            const quotedTables = data.quotedTables || tables; // Nombres con quotes correctos
             const treeDiv = document.getElementById('treeview');
             if (tables.length === 0) {
                 treeDiv.innerHTML = '<div style="padding:10px;">No hay tablas.</div>';
                 return;
             }
             let html = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul class="nested">';
-            tables.forEach(table => {
-                html += `<li class="table-node" draggable="true" data-table="${escapeHtml(table)}">📄 ${escapeHtml(table)}</li>`;
+            tables.forEach((table, idx) => {
+                const quotedName = quotedTables[idx] || table;
+                html += `<li class="table-node" draggable="true" data-table="${escapeHtml(table)}" data-quoted-table="${escapeHtml(quotedName)}">📄 ${escapeHtml(table)}</li>`;
             });
             html += '</ul></li></ul>';
             treeDiv.innerHTML = html;
             // Drag & drop
             document.querySelectorAll('.table-node').forEach(el => {
                 el.addEventListener('dragstart', e => {
-                    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'table', name: el.dataset.table }));
+                    e.dataTransfer.setData('text/plain', JSON.stringify({ 
+                        type: 'table', 
+                        name: el.dataset.table,
+                        quotedName: el.dataset.quotedTable
+                    }));
                     e.dataTransfer.effectAllowed = 'copy';
                 });
-                el.addEventListener('click', () => openTab(el.dataset.table));
+                el.addEventListener('click', () => openTab(el.dataset.table, el.dataset.quotedTable));
             });
             // Toggle collapse/expand
             const caret = document.querySelector('.caret');
@@ -513,7 +519,10 @@
     }
 
     // ---------- Pestañas y queries ----------
-    function openTab(tableName) {
+    function openTab(tableName, quotedTableName = null) {
+        // Si no se proporciona el nombre con quotes, usar el nombre plano
+        const safeTableName = quotedTableName || tableName;
+        
         for (let [tid, t] of tabs.entries()) {
             if (t.tableName === tableName && t.connectionId === currentConnectionId) {
                 activateTab(tid);
@@ -521,7 +530,8 @@
             }
         }
         const tabId = `tab_${nextTabId++}`;
-        const defaultSql = `SELECT * FROM "${tableName}" LIMIT 100`;
+        // Usar el nombre con quotes correctos para la consulta SQL
+        const defaultSql = `SELECT * FROM ${safeTableName} LIMIT 100`;
         tabs.set(tabId, {
             tableName: tableName,
             connectionId: currentConnectionId,
