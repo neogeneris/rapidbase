@@ -62,94 +62,67 @@ class GridAdapter
             }
         }
 
-        // Construir la consulta usando Q
-        $q = Q::table($this->table);
-
         // Aplicar filtro si existe
+        $where = [];
         if ($filter !== null) {
             $filterData = is_string($filter) ? json_decode($filter, true) : $filter;
             if (is_array($filterData) && !empty($filterData)) {
-                $this->applyFilter($q, $filterData);
+                $where = $this->buildWhereArray($filterData);
             }
         }
 
         // Aplicar ordenamiento
+        $orderBy = [];
         if ($sort !== null) {
-            $this->applySort($q, $sort);
+            $orderBy = $this->buildOrderByArray($sort);
         }
 
-        // Ejecutar consulta con DB::grid
+        // Ejecutar consulta con DB::grid directamente usando el nombre de la tabla
         // DB::grid usa FETCH_NUM por defecto cuando no se especifica clase
         // El tercer parámetro es page (no offset), calculamos la página
         $page = $limit > 0 ? (int)floor($offset / $limit) + 1 : 1;
-        $orderBy = $sort ? [$sort] : [];
         
-        $result = DB::grid($q, [], $page, $orderBy);
+        $result = DB::grid($this->table, $where, $page, $orderBy);
 
         // Usar el método toGridFormat() de QueryResponse para obtener el formato correcto
         return $result->toGridFormat();
     }
 
     /**
-     * Aplica condiciones de filtrado a la consulta Q
+     * Construye un array de condiciones compatible con DB::grid a partir del filtro JSON
      * 
-     * @param Q $q Objeto de consulta
      * @param array $filter Condiciones de filtrado
+     * @return array Array de condiciones formateado
      */
-    private function applyFilter(Q &$q, array $filter): void
+    private function buildWhereArray(array $filter): array
     {
-        // El formato del filter debe ser compatible con la matriz de condiciones de Q
-        // Ejemplo: ['name' => ['like', '%john%'], 'age' => ['>', 18]]
+        $conditions = [];
         foreach ($filter as $field => $condition) {
             if (is_array($condition)) {
                 // Condición compleja: ['operator', 'value']
                 $operator = $condition[0];
                 $value = $condition[1] ?? null;
                 
-                switch ($operator) {
-                    case '=':
-                    case '==':
-                        $q->where($field, '=', $value);
-                        break;
-                    case '!=':
-                    case '<>':
-                        $q->where($field, '!=', $value);
-                        break;
-                    case '>':
-                        $q->where($field, '>', $value);
-                        break;
-                    case '>=':
-                        $q->where($field, '>=', $value);
-                        break;
-                    case '<':
-                        $q->where($field, '<', $value);
-                        break;
-                    case '<=':
-                        $q->where($field, '<=', $value);
-                        break;
-                    case 'like':
-                        $q->where($field, 'LIKE', $value);
-                        break;
-                    case 'in':
-                        $q->where($field, 'IN', $value);
-                        break;
-                    default:
-                        $q->where($field, $operator, $value);
-                }
+                // Normalizar operadores
+                if ($operator === '==') $operator = '=';
+                if ($operator === '<>') $operator = '!=';
+                
+                $conditions[$field] = [$operator, $value];
             } else {
                 // Condición simple: valor exacto
-                $q->where($field, '=', $condition);
+                $conditions[$field] = ['=', $condition];
             }
         }
+        return $conditions;
     }
 
     /**
-     * Aplica ordenamiento a la consulta Q
+     * Construye un array de ordenamiento compatible con DB::grid
      * 
-     * @param Q $q Objeto de consulta
      * @param string $sort Campo de ordenamiento (puede incluir prefijo - para descendente)
+     * @return array Array de ordenamiento formateado
      */
-    private function applySort(Q &$q, string $sort): void
+    private function buildOrderByArray(string $sort): array
     {
         // Formato: &sort=-field (descendente) o &sort=field (ascendente)
         $order = 'ASC';
@@ -158,7 +131,7 @@ class GridAdapter
             $sort = substr($sort, 1);
         }
 
-        $q->orderBy($sort, $order);
+        return [[$sort, $order]];
     }
 
     /**
