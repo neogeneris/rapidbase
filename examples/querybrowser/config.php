@@ -8,7 +8,7 @@ ini_set('display_errors', 1);
 
 define('ROOT_PATH', __DIR__);
 define('DATA_PATH', ROOT_PATH . '/data');
-define('CONNECTIONS_DB', ROOT_PATH . '/connections.sqlite'); // BD interna
+define('CONNECTIONS_DB', ROOT_PATH . '/data/connections.sqlite'); // BD interna en data/
 
 require_once ROOT_PATH . '/RapidBase.php';
 
