@@ -271,6 +271,13 @@ try {
             $sql = $_POST['sql'] ?? '';
             if (!$connectionId || !$sql) throw new Exception('connectionId and sql required');
             $connInfo = $_SESSION['connections'][$connectionId];
+            
+            // Configurar SchemaMap y ConditionMatrix para esta conexión
+            $map = $connInfo['map'];
+            SchemaMap::setMap($map, $connectionId);
+            SchemaMap::setDefaultConnection($connectionId);
+            ConditionMatrix::setDriver($map['driver']);
+            
             $user = $connInfo['connInfo']['username'] ?? null;
             $pass = $connInfo['connInfo']['password'] ?? null;
             $pdo = new PDO($connInfo['dsn'], $user, $pass);
