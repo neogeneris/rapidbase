@@ -6,6 +6,20 @@ namespace RapidBase\Core\SQL;
 
 use RapidBase\Core\SchemaMap;
 
+/**
+ * JoinResolver - Automatically resolves FROM and JOINs from an array of tables
+ * using the relationship map and schema.
+ *
+ * Supports:
+ * - Simple string: 'users'
+ * - Subquery: '(SELECT ...) AS alias'
+ * - Array of strings: ['users', 'posts'] → auto-join via graph
+ * - Pivot format: ['users', ['posts', 'comments']]
+ * - Nested linear format with inline definitions
+ * - Subqueries in array (linear mode)
+ * - Weakness ordering, BFS tree, automatic ON conditions
+ * - Internal FROM clause and join tree caches for performance
+ */
 class JoinResolver
 {
     private array $relMap;
@@ -33,6 +47,12 @@ class JoinResolver
         $this->quoteChar = '"';
     }
 
+    /**
+     * Resolves FROM/JOIN clauses and returns tables info.
+     *
+     * @param string|array $tables
+     * @return array ['from' => string, 'tablesInfo' => array]
+     */
     public function resolve(mixed $tables): array
     {
         $key = $this->getCacheKey($tables);
@@ -76,10 +96,14 @@ class JoinResolver
         return null;
     }
 
+    /**
+     * Main builder (same as original buildFromWithMap).
+     */
     private function buildFromWithMap(mixed $table): array
     {
         $tablesInfo = [];
 
+        // Simple string
         if (is_string($table)) {
             $parsed = $this->parseTable($table);
             $tablesInfo[] = $parsed;
@@ -104,12 +128,14 @@ class JoinResolver
             return ["FROM " . $this->quote($table[0]), $tablesInfo];
         }
 
+        // If any element is a subquery, force linear mode
         foreach ($table as $item) {
             if (is_string($item) && self::isSubquery($item)) {
                 return $this->buildFromLinear($table);
             }
         }
 
+        // Pivot format?
         if (count($table) >= 2 &&
             isset($table[0]) && is_string($table[0]) &&
             isset($table[1]) && is_array($table[1]) &&
@@ -138,6 +164,7 @@ class JoinResolver
             return $this->buildFromLinear($flat);
         }
 
+        // Array of simple table names
         $realNames = [];
         $aliases = [];
         foreach ($table as $t) {
@@ -157,6 +184,8 @@ class JoinResolver
 
         return $this->buildFromLinear($table);
     }
+
+    // ================== Subquery helpers ==================
 
     private static function isSubquery(string $text): bool
     {
@@ -186,6 +215,8 @@ class JoinResolver
         return ['subquery' => $text, 'alias' => $alias];
     }
 
+    // ================== Table parsing (extended) ==================
+
     private function parseTable(string|array $table): array
     {
         if (is_string($table)) {
@@ -205,6 +236,7 @@ class JoinResolver
                 'isSubquery' => false
             ];
         }
+        // Array definition (inline)
         $keys = array_keys($table);
         $real = $keys[0];
         $val = $table[$real];
@@ -216,6 +248,8 @@ class JoinResolver
         }
         return ['real' => $real, 'alias' => $alias, 'isSubquery' => false];
     }
+
+    // ================== Graph‑based JOINs ==================
 
     private function buildFromGraph(array $realNames, array $aliases, array &$tablesInfo): array
     {
@@ -287,51 +321,59 @@ class JoinResolver
             return self::$joinTreeCache[$cacheKey];
         }
 
-        // Construir grafo no dirigido con las relaciones
         $graph = [];
         foreach ($tableNames as $t) {
             $graph[$t] = [];
         }
 
-        $relMapFrom = $this->relMap['from'] ?? [];
-        $relMapTo   = $this->relMap['to']   ?? [];
+        // Helper para buscar relación entre dos tablas en cualquier dirección
+        $findRelation = function (string $a, string $b): ?array {
+            $from = $this->relMap['from'] ?? [];
+            $to   = $this->relMap['to']   ?? [];
 
-        // Función interna para añadir una arista en ambos sentidos
-        $addEdge = function (string $a, string $b, array $relData) use (&$graph) {
-            $graph[$a][$b] = $relData;
-            $graph[$b][$a] = $relData; // para BFS necesitamos que sea simétrico
+            // a -> b en from
+            if (isset($from[$a][$b])) {
+                return $from[$a][$b];
+            }
+            // b -> a en from (inversa)
+            if (isset($from[$b][$a])) {
+                $rel = $from[$b][$a];
+                return [
+                    'type'        => 'belongsTo',
+                    'local_key'   => $rel['foreign_key'],
+                    'foreign_key' => $rel['local_key'],
+                ];
+            }
+            // a -> b en to
+            if (isset($to[$a][$b])) {
+                return $to[$a][$b];
+            }
+            // b -> a en to (inversa)
+            if (isset($to[$b][$a])) {
+                $rel = $to[$b][$a];
+                return [
+                    'type'        => ($rel['type'] === 'belongsTo') ? 'hasMany' : 'belongsTo',
+                    'local_key'   => $rel['foreign_key'],
+                    'foreign_key' => $rel['local_key'],
+                ];
+            }
+            return null;
         };
 
-        // Añadir relaciones 'from'
-        foreach ($relMapFrom as $from => $rels) {
-            foreach ($rels as $to => $relData) {
-                if (in_array($from, $tableNames, true) && in_array($to, $tableNames, true)) {
-                    $addEdge($from, $to, $relData);
+        // Rellenar el grafo para cada par de tablas
+        for ($i = 0, $len = count($tableNames); $i < $len; $i++) {
+            for ($j = $i + 1; $j < $len; $j++) {
+                $a = $tableNames[$i];
+                $b = $tableNames[$j];
+                $rel = $findRelation($a, $b);
+                if ($rel !== null) {
+                    $graph[$a][$b] = $rel;
+                    $graph[$b][$a] = $rel; // simétrico para BFS
                 }
             }
         }
 
-        // Añadir relaciones 'to' teniendo cuidado de no sobrescribir las existentes
-        foreach ($relMapTo as $definingTable => $rels) {
-            foreach ($rels as $referencedTable => $relData) {
-                if (in_array($definingTable, $tableNames, true) && in_array($referencedTable, $tableNames, true)) {
-                    // Solo añadir si no existe una arista en esa dirección (las de 'from' tienen prioridad)
-                    if (!isset($graph[$definingTable][$referencedTable])) {
-                        $relData['_direction'] = 'to';
-                        $relData['_defining_table'] = $definingTable;
-                        $relData['_referenced_table'] = $referencedTable;
-                        $addEdge($definingTable, $referencedTable, $relData);
-                    } elseif (!isset($graph[$referencedTable][$definingTable])) {
-                        $relData['_direction'] = 'to';
-                        $relData['_defining_table'] = $definingTable;
-                        $relData['_referenced_table'] = $referencedTable;
-                        $addEdge($definingTable, $referencedTable, $relData);
-                    }
-                }
-            }
-        }
-
-        // Verificar conectividad (BFS)
+        // BFS connectivity check
         $root = $tableNames[0];
         $visited = [$root => true];
         $queue = [$root];
@@ -349,7 +391,7 @@ class JoinResolver
             throw new \RuntimeException("Cannot connect all tables: " . implode(',', $tableNames));
         }
 
-        // Construir árbol de expansión (BFS)
+        // Build tree
         $parent = [];
         $queue = [$root];
         $visited = [$root => true];
@@ -371,7 +413,7 @@ class JoinResolver
 
         $tree = ['root' => $root, 'edges' => $edges];
 
-        // Guardar en caché
+        // Store in cache
         if (self::$joinTreeCacheSize >= self::$joinTreeCacheMaxSize) {
             array_shift(self::$joinTreeCache);
             self::$joinTreeCacheSize--;
@@ -408,9 +450,12 @@ class JoinResolver
             return "ON " . $this->quote($childAlias) . "." . $this->quote($localKey)
                  . " = " . $this->quote($parentAlias) . "." . $this->quote($foreignKey);
         }
+
         return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey)
              . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
     }
+
+    // ================== Linear & pivot (unchanged) ==================
 
     private function buildFromLinear(array $tables): array
     {
@@ -471,12 +516,6 @@ class JoinResolver
             if (is_array($relationDef) && isset($relationDef['local_key'], $relationDef['foreign_key'])) {
                 $onClause = $this->buildJoinConditionFromDef($currentReal, $currentAlias, $nextReal, $nextAlias, $relationDef);
                 $joinPart .= " " . $onClause;
-            } else {
-                // Fallback: try to guess based on common naming conventions if no relation found
-                $guessedLocalKey = 'id';
-                $guessedForeignKey = $currentReal . '_id';
-                $joinPart .= " ON " . $this->quote($currentAlias) . "." . $this->quote($guessedLocalKey)
-                           . " = " . $this->quote($nextAlias) . "." . $this->quote($guessedForeignKey);
             }
 
             $parts[] = $joinPart;
@@ -557,50 +596,16 @@ class JoinResolver
                 }
             }
             if (!$edgeFound) {
-                // Fallback: try to find any relation between already used tables and this table
-                $onClauseAdded = false;
-                foreach ($usedTables as $usedReal => $_) {
-                    $usedAlias = $aliases[$usedReal];
-                    // Check from usedReal to nextReal
-                    $relationDef = $this->relMap['from'][$usedReal][$nextReal]
-                        ?? $this->relMap['to'][$usedReal][$nextReal]
-                        ?? $this->relMap['from'][$nextReal][$usedReal]
-                        ?? $this->relMap['to'][$nextReal][$usedReal]
-                        ?? null;
-                    
-                    if (is_array($relationDef) && isset($relationDef['local_key'], $relationDef['foreign_key'])) {
-                        $joinPart = "LEFT JOIN " . $this->quote($nextReal);
-                        if ($nextAlias !== $nextReal) {
-                            $joinPart .= " AS " . $this->quote($nextAlias);
-                        }
-                        $onClause = $this->buildJoinConditionFromDef($usedReal, $usedAlias, $nextReal, $nextAlias, $relationDef);
-                        $joinPart .= " " . $onClause;
-                        $parts[] = $joinPart;
-                        $onClauseAdded = true;
-                        break;
-                    }
-                }
-                
-                // If still no ON clause, add a CROSS JOIN warning or skip
-                if (!$onClauseAdded) {
-                    // Last resort: try to guess based on common naming conventions
-                    $joinPart = "LEFT JOIN " . $this->quote($nextReal);
-                    if ($nextAlias !== $nextReal) {
-                        $joinPart .= " AS " . $this->quote($nextAlias);
-                    }
-                    // Try to build a condition based on id and table_id pattern
-                    $guessedLocalKey = 'id';
-                    $guessedForeignKey = $parentReal . '_id';
-                    $joinPart .= " ON " . $this->quote($currentAlias) . "." . $this->quote($guessedLocalKey)
-                               . " = " . $this->quote($nextAlias) . "." . $this->quote($guessedForeignKey);
-                    $parts[] = $joinPart;
-                }
+                $parts[] = "LEFT JOIN " . $this->quote($nextReal)
+                         . ($nextAlias !== $nextReal ? " AS " . $this->quote($nextAlias) : "");
                 $usedTables[$nextReal] = true;
             }
         }
 
         return [implode(' ', $parts), $tablesInfo];
     }
+
+    // ================== Utilities ==================
 
     private function quote(string $identifier): string
     {

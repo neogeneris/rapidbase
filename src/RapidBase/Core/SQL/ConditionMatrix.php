@@ -102,7 +102,25 @@ class ConditionMatrix
         $schemaTables = self::normalizeTablesSchema($tablesSchema);
 
         foreach ($conditions as $column => $value) {
-            $rawColumn = trim($column);
+            // Manejo de grupos lógicos explícitos (ej. ['OR' => [...]]) o sub-condiciones numéricas
+            if ($column === 'OR' && is_array($value)) {
+                $sub = self::parse(array_values($value), $context, $defaultAlias, $tablesSchema);
+                if (!empty($sub['sql']) && $sub['sql'] !== '1') {
+                    $sqlParts[] = '(' . $sub['sql'] . ')';
+                    array_push($params, ...$sub['params']);
+                }
+                continue;
+            }
+            if (is_int($column) && is_array($value)) {
+                $sub = self::parse($value, $context, $defaultAlias, $tablesSchema);
+                if (!empty($sub['sql']) && $sub['sql'] !== '1') {
+                    $sqlParts[] = '(' . $sub['sql'] . ')';
+                    array_push($params, ...$sub['params']);
+                }
+                continue;
+            }
+
+            $rawColumn = trim((string)$column);
 
             if (!str_contains($rawColumn, '.') && !preg_match('/[^\w]/', $rawColumn)) {
                 $rawColumn = self::qualifyColumnName($rawColumn, $context, $defaultAlias, $schemaTables);
