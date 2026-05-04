@@ -230,7 +230,10 @@ try {
             }
             $map = $_SESSION['connections'][$connectionId]['map'];
             $tables = array_keys($map['tables']);
-            echo json_encode(['tables' => $tables, 'views' => []]);
+            // Configurar ConditionMatrix para generar nombres de tablas con quotes correctos
+            ConditionMatrix::setDriver($map['driver']);
+            $quotedTables = array_map(fn($t) => ConditionMatrix::quote($t), $tables);
+            echo json_encode(['tables' => $tables, 'quotedTables' => $quotedTables, 'views' => []]);
             break;
 
         case 'auto_query':
