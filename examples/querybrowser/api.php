@@ -315,7 +315,7 @@ try {
 
         case 'grid_data':
             // Endpoint para el GridAdapter
-            require_once __DIR__ . '/Infrastructure/UI/Adapters/GridAdapter.php';
+            require_once __DIR__ . '/../../src/RapidBase/Infrastructure/UI/Adapters/GridAdapter.php';
             
             // Obtener parámetros correctamente
             $connectionId = $_REQUEST['connectionId'] ?? $_REQUEST['connection_id'] ?? '';
@@ -336,17 +336,22 @@ try {
             $limit = min($limit, 1000);
             
             try {
-                $response = \RapidBase\Infrastructure\UI\Adapters\GridAdapter::getTableData(
-                    $connectionId,
-                    $table,
-                    $offset,
-                    $limit,
-                    $sort,
-                    $filter
-                );
+                // Verificar que la conexión existe
+                if (!isset($_SESSION['connections'][$connectionId])) {
+                    throw new \Exception('Conexión no encontrada o expirada');
+                }
                 
-                // Devolver en formato Grid moderno
-                echo $response->toJsonGrid();
+                // Crear instancia del adapter y obtener datos
+                $adapter = new \RapidBase\Infrastructure\UI\Adapters\GridAdapter($table, null, $connectionId);
+                $response = $adapter->getData([
+                    'offset' => $offset,
+                    'limit' => $limit,
+                    'sort' => $sort,
+                    'filter' => $filter
+                ]);
+                
+                // Devolver en formato compatible con el grid frontend
+                echo json_encode($response);
             } catch (\Exception $e) {
                 http_response_code(500);
                 echo json_encode([

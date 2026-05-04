@@ -2,14 +2,16 @@
 
 namespace RapidBase\Infrastructure\UI\Adapters;
 
-use RapidBase\Core\SQL\DB;
+use RapidBase\Core\DB;
 use RapidBase\Core\SQL\Q;
+use RapidBase\Core\SchemaMap;
+use RapidBase\Core\SQL\ConditionMatrix;
 
 /**
  * GridAdapter
  * 
  * Adapta las consultas de la base de datos para ser consumidas por el componente APIDataGrid.
- * Utiliza DB::grid y ResponseQuery para generar respuestas estandarizadas con metadata.
+ * Utiliza DB::grid y QueryResponse para generar respuestas estandarizadas con metadata.
  * 
  * Soporta:
  * - Paginación (offset, limit)
@@ -25,19 +27,13 @@ class GridAdapter
     private string $table;
 
     /**
-     * @var string|null Base de datos específica (opcional)
-     */
-    private ?string $database = null;
-
-    /**
-     * @var string|null ID de conexión (opcional)
+     * @var string|null ID de conexión
      */
     private ?string $connectionId = null;
 
-    public function __construct(string $table, ?string $database = null, ?string $connectionId = null)
+    public function __construct(string $table, ?string $connectionId = null)
     {
         $this->table = $table;
-        $this->database = $database;
         $this->connectionId = $connectionId;
     }
 
@@ -53,6 +49,18 @@ class GridAdapter
         $limit = isset($params['limit']) ? (int)$params['limit'] : 20;
         $sort = $params['sort'] ?? null;
         $filter = $params['filter'] ?? null;
+
+        // Configurar SchemaMap para esta conexión
+        if ($this->connectionId && isset($_SESSION['connections'][$this->connectionId])) {
+            $connInfo = $_SESSION['connections'][$this->connectionId];
+            $map = $connInfo['map'] ?? null;
+            
+            if ($map) {
+                SchemaMap::setMap($map, $this->connectionId);
+                SchemaMap::setDefaultConnection($this->connectionId);
+                ConditionMatrix::setDriver($map['driver'] ?? 'mysql');
+            }
+        }
 
         // Construir la consulta usando Q
         $q = Q::table($this->table);
@@ -71,21 +79,17 @@ class GridAdapter
         }
 
         // Ejecutar consulta con DB::grid
-        $result = DB::grid($q, [
-            'offset' => $offset,
-            'limit' => $limit,
-            'database' => $this->database,
-            'connectionId' => $this->connectionId
-        ]);
+        // DB::grid usa FETCH_NUM por defecto cuando no se especifica clase
+        $result = DB::grid($q, [], $offset, $sort ? [$sort] : []);
 
-        // Formatear respuesta
+        // Formatear respuesta para el grid frontend
         return [
-            'data' => $result->getData(),
-            'metadata' => $this->buildMetadata($result->getColumns()),
-            'total' => $result->getTotal(),
+            'data' => $result->data, // Array numérico puro (FETCH_NUM)
+            'metadata' => $this->buildMetadata($result->metadata),
+            'total' => $result->total,
             'offset' => $offset,
             'limit' => $limit,
-            'hasMore' => ($offset + $limit) < $result->getTotal()
+            'hasMore' => ($offset + $limit) < $result->total
         ];
     }
 
@@ -166,16 +170,19 @@ class GridAdapter
      * @param array $columns Lista de columnas obtenidas de la consulta
      * @return array Metadata formateada
      */
-    private function buildMetadata(array $columns): array
+    private function buildMetadata(array $metadata): array
     {
-        $metadata = [];
+        $columns = $metadata['columns'] ?? [];
+        $titles = $metadata['titles'] ?? [];
+        
+        $result = [];
         foreach ($columns as $index => $column) {
-            $metadata[] = [
+            $result[] = [
                 'key' => $column,
-                'title' => ucfirst(str_replace('_', ' ', $column)),
-                'index' => $index + 1 // Para soporte de plantilla {1}, {2}, etc.
+                'title' => $titles[$index] ?? ucfirst(str_replace('_', ' ', $column)),
+                'index' => $index // Índice para interpolación {0}, {1}, etc.
             ];
         }
-        return $metadata;
+        return $result;
     }
 }
