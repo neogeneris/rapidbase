@@ -342,7 +342,7 @@ try {
                 }
                 
                 // Crear instancia del adapter y obtener datos
-                $adapter = new \RapidBase\Infrastructure\UI\Adapters\GridAdapter($table, null, $connectionId);
+                $adapter = new \RapidBase\Infrastructure\UI\Adapters\GridAdapter($table, $connectionId);
                 $response = $adapter->getData([
                     'offset' => $offset,
                     'limit' => $limit,
