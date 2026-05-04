@@ -1,42 +1,63 @@
-```
-# Database files
-*.sqlite
+```php
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.so
+*.dll
+*.exe
+*.out
+
+# Dependencies
+vendor/
+node_modules/
+composer.lock
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
 
 # Environment
 .env
 .env.local
 .env.*
 
-# Logs
-*.log
+# Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
-# Dependencies
-node_modules/
-vendor/
+# OS generated files
+.DS_Store
+Thumbs.db
 
-# Build artifacts
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Distribution / packaging
 dist/
 build/
-target/
+*.tar.gz
+*.whl
+*.egg
+*.egg-info/
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/refs/heads/
+# PHP specific
+*.phar
+.php_cs.cache
+
+# Cache directories
+.cache/
+.cargo/
+.target/
+
+# Testing
+.phpunit.result.cache
 ```

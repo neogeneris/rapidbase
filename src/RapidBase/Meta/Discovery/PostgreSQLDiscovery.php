@@ -151,4 +151,11 @@ class PostgreSQLDiscovery implements DiscoveryInterface
 
         return null;
     }
+
+    public function getTables(): array
+    {
+        $sql = "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename";
+        $stmt = $this->pdo->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
 }
