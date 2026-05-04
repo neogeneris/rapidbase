@@ -1,44 +1,7 @@
-```
-# Dependencies
-node_modules/
+# Examples directory artifacts
+examples/querybrowser/Infrastructure/UI/Adapters/GridAdapter.php
+examples/querybrowser/api.php
+examples/querybrowser/grid/APIDataGrid.js
 
-# Build artifacts
-dist/
-build/
-target/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.py.class
-.Python
-env/
-venv/
-.venv/
-.ENV
-.env
-.env.*
-.env.local
-.python-version
-
-# Logs
+# Preserve any existing rules
 *.log
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-```

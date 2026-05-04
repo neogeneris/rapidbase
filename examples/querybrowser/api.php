@@ -316,7 +316,44 @@ try {
         case 'grid_data':
             // Endpoint para el GridAdapter
             require_once __DIR__ . '/Infrastructure/UI/Adapters/GridAdapter.php';
-            \RapidBase\Infrastructure\UI\Adapters\GridAdapter::apiEndpoint();
+            
+            // Obtener parámetros correctamente
+            $connectionId = $_REQUEST['connectionId'] ?? $_REQUEST['connection_id'] ?? '';
+            $table = $_REQUEST['table'] ?? '';
+            $offset = (int)($_REQUEST['offset'] ?? 0);
+            $limit = (int)($_REQUEST['limit'] ?? 10);
+            $sort = $_REQUEST['sort'] ?? null;
+            $filter = $_REQUEST['filter'] ?? null;
+            
+            // Validar parámetros requeridos
+            if (empty($connectionId) || empty($table)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Parámetros requeridos: connectionId y table']);
+                break;
+            }
+            
+            // Limitar el máximo de registros por seguridad
+            $limit = min($limit, 1000);
+            
+            try {
+                $response = \RapidBase\Infrastructure\UI\Adapters\GridAdapter::getTableData(
+                    $connectionId,
+                    $table,
+                    $offset,
+                    $limit,
+                    $sort,
+                    $filter
+                );
+                
+                // Devolver en formato Grid moderno
+                echo $response->toJsonGrid();
+            } catch (\Exception $e) {
+                http_response_code(500);
+                echo json_encode([
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
             break;
 
         default:
