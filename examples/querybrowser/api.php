@@ -313,6 +313,12 @@ try {
             }
             break;
 
+        case 'grid_data':
+            // Endpoint para el GridAdapter
+            require_once __DIR__ . '/Infrastructure/UI/Adapters/GridAdapter.php';
+            \RapidBase\Infrastructure\UI\Adapters\GridAdapter::apiEndpoint();
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => "Invalid action: $action"]);
