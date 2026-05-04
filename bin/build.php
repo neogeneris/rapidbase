@@ -1,6 +1,6 @@
 <?php
 
-$srcDir = __DIR__ . '/src/RapidBase';
+$srcDir = __DIR__ . '/../src/RapidBase';
 $outputFile = __DIR__ . '/RapidBase.php';
 
 echo "Buscando archivos en $srcDir...\n";
