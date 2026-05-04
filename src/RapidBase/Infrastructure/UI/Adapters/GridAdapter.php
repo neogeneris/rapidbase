@@ -80,17 +80,14 @@ class GridAdapter
 
         // Ejecutar consulta con DB::grid
         // DB::grid usa FETCH_NUM por defecto cuando no se especifica clase
-        $result = DB::grid($q, [], $offset, $sort ? [$sort] : []);
+        // El tercer parámetro es page (no offset), calculamos la página
+        $page = $limit > 0 ? (int)floor($offset / $limit) + 1 : 1;
+        $orderBy = $sort ? [$sort] : [];
+        
+        $result = DB::grid($q, [], $page, $orderBy);
 
-        // Formatear respuesta para el grid frontend
-        return [
-            'data' => $result->data, // Array numérico puro (FETCH_NUM)
-            'metadata' => $this->buildMetadata($result->metadata),
-            'total' => $result->total,
-            'offset' => $offset,
-            'limit' => $limit,
-            'hasMore' => ($offset + $limit) < $result->total
-        ];
+        // Usar el método toGridFormat() de QueryResponse para obtener el formato correcto
+        return $result->toGridFormat();
     }
 
     /**

@@ -132,18 +132,29 @@ class APIDataGrid extends GridBuilder {
             const result = await response.json();
 
             if (this.mode === 'pagination') {
-                this.render(result.data || [], result.metadata || null);
+                // El formato de GridAdapter.toGridFormat() es:
+                // { head: { columns, titles }, data, page, stats }
+                const gridData = result.data || [];
+                const metadata = result.head ? {
+                    columns: result.head.columns || [],
+                    titles: result.head.titles || []
+                } : null;
                 
-                if (this.paginator && result.total !== undefined) {
-                    const totalPages = Math.ceil(result.total / this.pageSize);
-                    this.paginator.update(this.currentPage, totalPages);
+                this.render(gridData, metadata);
+                
+                if (this.paginator && result.page) {
+                    this.paginator.update(result.page.current, result.page.total);
                 }
             } else if (this.mode === 'infinite') {
-                if (result.data && result.data.length > 0) {
-                    this.appendRows(result.data, result.metadata || null);
-                    this.hasMore = result.hasMore !== undefined 
-                        ? result.hasMore 
-                        : result.data.length === this.pageSize;
+                const gridData = result.data || [];
+                const metadata = result.head ? {
+                    columns: result.head.columns || [],
+                    titles: result.head.titles || []
+                } : null;
+                
+                if (gridData.length > 0) {
+                    this.appendRows(gridData, metadata);
+                    this.hasMore = result.page ? result.page.current < result.page.total : false;
                 } else {
                     this.hasMore = false;
                 }
