@@ -77,6 +77,17 @@ class APIDataGrid extends GridBuilder {
      */
     buildParams() {
         const params = new URLSearchParams();
+        
+        // Extraer parámetros existentes de la URL base si los hay
+        const urlParts = this.apiUrl.split('?');
+        if (urlParts.length > 1) {
+            const existingParams = new URLSearchParams(urlParts[1]);
+            for (const [key, value] of existingParams.entries()) {
+                params.set(key, value);
+            }
+        }
+        
+        // Agregar parámetros del grid
         params.set('offset', this.offset);
         params.set('limit', this.pageSize);
 
@@ -108,7 +119,9 @@ class APIDataGrid extends GridBuilder {
 
         try {
             const params = this.buildParams();
-            const url = `${this.apiUrl}?${params.toString()}`;
+            // Usar solo la parte base de la URL (sin parámetros)
+            const urlBase = this.apiUrl.split('?')[0];
+            const url = `${urlBase}?${params.toString()}`;
             
             const response = await fetch(url);
             

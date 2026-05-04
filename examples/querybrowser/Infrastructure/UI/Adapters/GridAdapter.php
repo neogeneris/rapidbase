@@ -74,10 +74,18 @@ class GridAdapter
      * @param string $connectionId
      * @return array|null
      */
-    private static function getConnectionById(string $connectionId): ?array
+private static function getConnectionById(string $connectionId): ?array
     {
-        // Usar la misma lógica que el QueryBrowser para obtener conexiones
-        $dbFile = __DIR__ . '/../../../../rapidbase/data/connections.sqlite';
+        // Usar la misma ruta que el api.php del QueryBrowser
+        if (!defined('CONNECTIONS_DB')) {
+            // Intentar cargar config.php si existe
+            $configFile = __DIR__ . '/../../config.php';
+            if (file_exists($configFile)) {
+                require_once $configFile;
+            }
+        }
+        
+        $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../data/connections.sqlite';
         
         if (!file_exists($dbFile)) {
             return null;
@@ -85,7 +93,7 @@ class GridAdapter
 
         try {
             $sqlite = new \PDO('sqlite:' . $dbFile);
-            $sqlite->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+            $sqlite->setAttribute(\PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
             $stmt = $sqlite->prepare("SELECT * FROM connections WHERE id = ?");
             $stmt->execute([$connectionId]);
@@ -96,9 +104,23 @@ class GridAdapter
                 return null;
             }
 
+            // Construir configuración según el driver
+            $config = [];
+            $driver = $result['driver'];
+            
+            if ($driver === 'sqlite') {
+                $config['database'] = $result['database'];
+            } else {
+                $config['host'] = $result['host'];
+                $config['port'] = $result['port'];
+                $config['database'] = $result['database'];
+                $config['username'] = $result['username'];
+                $config['password'] = $result['password'];
+            }
+
             return [
-                'driver' => $result['driver'],
-                'config' => json_decode($result['config'], true)
+                'driver' => $driver,
+                'config' => $config
             ];
         } catch (\Exception $e) {
             error_log("Error obteniendo conexión: " . $e->getMessage());
