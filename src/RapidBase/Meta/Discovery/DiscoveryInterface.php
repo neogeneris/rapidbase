@@ -67,7 +67,8 @@ interface DiscoveryInterface
     /**
      * Devuelve un array con los nombres de todas las tablas de la base de datos.
      *
+     * @param string $databaseName Nombre de la base de datos.
      * @return array Un array de nombres de tablas.
      */
-    public function getTables(): array;
+    public function getTables(string $databaseName): array;
 }

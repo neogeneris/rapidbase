@@ -62,13 +62,12 @@ function getSchemaMapArray(PDO $pdo, string $connectionId): array {
     }
     
     if ($driverName === 'pgsql') {
-        $stmt = $pdo->query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
-        $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $allTables = $discovery->getTables($databaseName);
     } elseif ($driverName === 'sqlsrv') {
         $stmt = $pdo->query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = 'dbo'");
         $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     } else {
-        $allTables = $discovery->getTables();
+        $allTables = $discovery->getTables($databaseName);
     }
     
     $tablesMetadata = [];

@@ -14,7 +14,7 @@ class PostgreSQLDiscovery implements DiscoveryInterface
         $this->pdo = $pdo;
     }
 
-    public function discoverRelationships(string $databaseName = null): array
+    public function discoverRelationships(string $databaseName): array
     {
         $graph = ['from' => [], 'to' => []];
 
@@ -35,9 +35,12 @@ class PostgreSQLDiscovery implements DiscoveryInterface
                     ON ccu.constraint_name = tc.constraint_name
                     AND ccu.table_schema = tc.table_schema
             WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND tc.table_schema = :schemaName
             ORDER BY tc.table_name, kcu.column_name;";
 
-        $stmt = $this->pdo->query($sql);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':schemaName', $databaseName, PDO::PARAM_STR);
+        $stmt->execute();
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($results as $row) {
@@ -64,17 +67,19 @@ class PostgreSQLDiscovery implements DiscoveryInterface
         return $graph;
     }
     
-    public static function getSchemaSignature(PDO $pdo, string $databaseName = null): string 
+    public static function getSchemaSignature(PDO $pdo, string $databaseName): string 
     {
         // En PostgreSQL, usamos el checksum de las tablas y sus tiempos de modificación
         $sql = "SELECT md5(string_agg(tablename || '_' || pg_relation_size(schemaname||'.'||tablename), ''))
                 FROM pg_tables 
-                WHERE schemaname = 'public'";
-        $stmt = $pdo->query($sql);
+                WHERE schemaname = :schemaName";
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindParam(':schemaName', $databaseName, PDO::PARAM_STR);
+        $stmt->execute();
         return $stmt->fetchColumn() ?: '';
     }
 
-    public function discoverColumns(string $tableName, string $databaseName = null): array
+    public function discoverColumns(string $tableName, string $databaseName): array
     {
         $columns = [];
 
@@ -122,7 +127,7 @@ class PostgreSQLDiscovery implements DiscoveryInterface
         return $columns;
     }
     
-    public function discoverPrimaryKey(string $tableName, string $databaseName = null): ?string
+    public function discoverPrimaryKey(string $tableName, string $databaseName): ?string
     {
         $sql = "
             SELECT a.attname AS column_name
@@ -152,10 +157,12 @@ class PostgreSQLDiscovery implements DiscoveryInterface
         return null;
     }
 
-    public function getTables(): array
+    public function getTables(string $databaseName = 'public'): array
     {
-        $sql = "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename";
-        $stmt = $this->pdo->query($sql);
+        $sql = "SELECT tablename FROM pg_tables WHERE schemaname = :schemaName ORDER BY tablename";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':schemaName', $databaseName, PDO::PARAM_STR);
+        $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 }

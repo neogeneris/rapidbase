@@ -24,12 +24,12 @@ class SQLiteDiscovery implements DiscoveryInterface
         $this->pdo = $pdo;
     }
 
-    public function discoverRelationships(?string $databaseName = 'main'): array
+    public function discoverRelationships(string $databaseName): array
     {
         $graph = ['from' => [], 'to' => []];
 
         // Obtener todas las tablas
-        $tables = $this->getTables();
+        $tables = $this->getTables($databaseName);
 
         foreach ($tables as $table) {
             // Obtener foreign keys para cada tabla
@@ -64,7 +64,7 @@ class SQLiteDiscovery implements DiscoveryInterface
         return $graph;
     }
 
-    public function getTables(): array
+    public function getTables(string $databaseName = 'main'): array
     {
         $sql = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
         $stmt = $this->pdo->query($sql);
@@ -155,12 +155,12 @@ class SQLiteDiscovery implements DiscoveryInterface
         return null;
     }
 
-    public function discoverColumns(string $tableName, ?string $databaseName = 'main'): array
+    public function discoverColumns(string $tableName, string $databaseName = 'main'): array
     {
         return $this->getColumns($tableName);
     }
 
-    public function discoverPrimaryKey(string $tableName, ?string $databaseName = 'main'): ?string
+    public function discoverPrimaryKey(string $tableName, string $databaseName = 'main'): ?string
     {
         $pks = $this->getPrimaryKeys($tableName);
         return !empty($pks) ? $pks[0] : null;
