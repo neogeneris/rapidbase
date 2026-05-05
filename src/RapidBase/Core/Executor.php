@@ -67,7 +67,7 @@ class Executor
                     break;
                 }
 
-                // FETCH_ASSOC: opcional para casos particulares
+                // FETCH_ASSOC: arrays asociativos
                 if ($fetchMode === \PDO::FETCH_ASSOC) {
                     $rows = $stmt->fetchAll($fetchMode);
                     $result['rows']    = $rows;
@@ -95,37 +95,49 @@ class Executor
                             $map["col_$i"] = $i;
                         }
                     }
-                    if ($cq instanceof CompiledQuery) {
-                        $cq->setProjectionMap($map);
-                    }
                 }
 
-                // Extraer _total si existe (inyectado por Q::select con paginación)
+                // Extraer _total antes del filtro de columnas privadas
                 $total = count($rows);
                 if (!empty($map) && isset($map['_total'])) {
                     $totalIndex = $map['_total'];
                     if (!empty($rows) && isset($rows[0][$totalIndex])) {
                         $total = (int) $rows[0][$totalIndex];
-                        // Limpiar la columna _total de todas las filas para no ensuciar FETCH_NUM
-                        foreach ($rows as &$row) {
-                            unset($row[$totalIndex]);
-                            $row = array_values($row);
+                    }
+                }
+
+                // ── Filtrar columnas privadas (prefijo _) ──
+                $privateKeys = array_filter(array_keys($map), fn($k) => str_starts_with($k, '_'));
+                if (!empty($privateKeys)) {
+                    // Obtener los índices de las columnas a eliminar
+                    $indicesToRemove = array_intersect_key($map, array_flip($privateKeys));
+                    $indexes = array_values($indicesToRemove);
+                    
+                    // Eliminar esas posiciones de cada fila
+                    foreach ($rows as &$row) {
+                        foreach ($indexes as $idx) {
+                            unset($row[$idx]);
                         }
+                        $row = array_values($row);
                     }
-                    unset($map['_total']);
-                    // Re-mapear los índices ya que array_values los cambió
-                    $newMap = [];
-                    $idx = 0;
-                    foreach ($map as $k => $v) {
-                        $newMap[$k] = $idx++;
-                    }
-                    $map = $newMap;
+                    unset($row);
+                    
+                    // Quitar las claves privadas del mapa
+                    $map = array_diff_key($map, array_flip($privateKeys));
+                    
+                    // Reindexar el mapa para que coincida con las filas limpias
+                    $map = self::reindexMap($map);
+                }
+
+                // Guardar el mapa limpio en el CompiledQuery
+                if ($cq instanceof CompiledQuery) {
+                    $cq->setProjectionMap($map);
                 }
 
                 // Sin hidratación: devolvemos las filas numéricas
                 $result['rows']    = $rows;
                 $result['count']   = count($rows);
-                $result['cols']    = array_keys($map);   // nombres de columna
+                $result['cols']    = array_keys($map);   // nombres de columna públicos
                 $result['success'] = true;
                 $result['action']  = 'select';
                 $result['total']   = $total;
@@ -176,6 +188,22 @@ class Executor
         return $result;
     }
 
+    /**
+     * Re‑indexa un mapa de columna → índice, manteniendo el orden original
+     * y asignando nuevos índices secuenciales (0,1,2,…).
+     */
+    private static function reindexMap(array $map): array
+    {
+        // Ordenar por el valor (índice original)
+        asort($map);
+        $index = 0;
+        $newMap = [];
+        foreach ($map as $name => $oldIndex) {
+            $newMap[$name] = $index++;
+        }
+        return $newMap;
+    }
+
     // ─── Métodos legacy (sin cambios) ─────────────────────
     public static function query(string $sql, array $params = [], ?string $connectionName = null): \PDOStatement
     {
@@ -197,23 +225,19 @@ class Executor
             $stmt->execute($params);
 
             // PostgreSQL: lastInsertId() puede fallar si no hubo INSERT con SERIAL
-            // Solo llamar a lastInsertId() para statements que puedan haber generado uno
             $lastId = null;
             $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
             
             if ($driver === 'pgsql') {
-                // Para PostgreSQL, verificar si es un INSERT antes de llamar a lastInsertId
                 $sqlUpper = strtoupper(trim($sql));
                 if (strpos($sqlUpper, 'INSERT') === 0 || strpos($sqlUpper, 'INTO') !== false) {
                     try {
                         $lastId = $pdo->lastInsertId();
                     } catch (\PDOException $e) {
-                        // Ignorar error "lastval is not yet defined"
                         $lastId = null;
                     }
                 }
             } else {
-                // Para otros drivers (SQLite, MySQL), usar lastInsertId normalmente
                 try {
                     $lastId = $pdo->lastInsertId();
                 } catch (\PDOException $e) {

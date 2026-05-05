@@ -24,7 +24,6 @@ class JoinResolver
 {
     private array $relMap;
     private array $schema;
-    private string $driver;
     private string $quoteChar;
 
     /** @var array Caches for join trees and FROM clauses */
@@ -38,12 +37,11 @@ class JoinResolver
 
     private static int $subqueryAliasCounter = 0;
 
-    public function __construct(string $connectionId = 'default')
+    public function __construct()
     {
-        $map = SchemaMap::getMap($connectionId);
+        $map = SchemaMap::getMap(); // usa la conexión activa
         $this->relMap = $map['relationships'] ?? ['from' => [], 'to' => []];
         $this->schema = $map['tables'] ?? [];
-        $this->driver = 'sqlite';
         $this->quoteChar = '"';
     }
 

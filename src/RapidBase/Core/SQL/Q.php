@@ -13,15 +13,13 @@ class Q
     private const ORIGIN = 2; // 'from' o 'into'
 
     private array $state;
-    private string $connectionId;
     private array $compiledParams = [];
 
     /** @var array<string, array> Cache de proyección para '*' */
     private static array $starProjectionCache = [];
 
-    private function __construct(string $connectionId = 'main')
+    private function __construct()
     {
-        $this->connectionId = $connectionId;
         $this->state = [
             self::T      => '',
             self::F      => [],
@@ -93,7 +91,7 @@ class Q
                 $having,
                 $base['context'] ?? [],
                 $base['defaultAlias'] ?? '',
-                SchemaMap::getMap($this->connectionId)
+                SchemaMap::getMap()
               );
 
         $orderSql = $sort ? $this->buildOrderClause($sort) : '';
@@ -144,7 +142,6 @@ class Q
     {
         $this->ensureSingleTable();
 
-        // Normalizar objetos a arrays si es necesario
         if (is_array($rows) && !isset($rows['columns'], $rows['values']) && !($rows instanceof CompiledQuery)) {
             $first = reset($rows);
             if (is_object($first)) {
@@ -490,14 +487,14 @@ class Q
 
     private function getTablePrimaryKey(string $table): string
     {
-        $map = SchemaMap::getMap($this->connectionId);
+        $map = SchemaMap::getMap();
         $columns = $map['tables'][$table] ?? [];
         foreach ($columns as $colName => $def) {
             if (!empty($def['primary'])) {
                 return $colName;
             }
         }
-        return 'id'; // fallback absoluto
+        return 'id';
     }
 
     private function isSimpleTable(): bool
@@ -595,7 +592,7 @@ class Q
 
         if ($fields === '*') {
             if (!isset(self::$starProjectionCache[$realTable])) {
-                $schemaMap = SchemaMap::getMap($this->connectionId);
+                $schemaMap = SchemaMap::getMap();
                 $schemaTables = $schemaMap['tables'] ?? [];
                 if (isset($schemaTables[$realTable])) {
                     $cols = array_keys($schemaTables[$realTable]);
@@ -644,7 +641,7 @@ class Q
 
     private function buildBaseState(): array
     {
-        $joinResolver = new JoinResolver($this->connectionId);
+        $joinResolver = new JoinResolver();
         $joinResult   = $joinResolver->resolve($this->state[self::T]);
         $fromClause   = $joinResult['from'];
         $tablesInfo   = $joinResult['tablesInfo'];
@@ -661,7 +658,7 @@ class Q
                 $this->state[self::F],
                 $context,
                 $defaultAlias,
-                SchemaMap::getMap($this->connectionId)
+                SchemaMap::getMap()
               );
 
         $whereData['params'] = array_merge($this->compiledParams, $whereData['params']);
@@ -735,7 +732,7 @@ class Q
 
     private function inferJoinCondition(string $targetTable, array $sourceTables): string
     {
-        $map = SchemaMap::getMap($this->connectionId);
+        $map = SchemaMap::getMap();
         $fromRels = $map['relationships']['from'] ?? [];
         $toRels   = $map['relationships']['to']   ?? [];
 

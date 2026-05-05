@@ -25,7 +25,6 @@
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             z-index: 10;
             position: relative;
-            user-select: none;
         }
         .sidebar-content {
             flex: 1;
@@ -77,6 +76,9 @@
         }
         .conn-name {
             flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .conn-delete {
             color: #e74c3c;
@@ -97,24 +99,13 @@
             cursor: pointer;
             border-radius: 4px;
             font-weight: bold;
+            width: calc(100% - 20px);
         }
         .btn-add:hover {
             background: #16a085;
         }
         .database-list, .treeview {
             padding: 10px;
-        }
-        .treeview ul {
-            list-style-type: none;
-            padding-left: 20px;
-        }
-        .treeview > ul {
-            padding-left: 0;
-        }
-        .caret {
-            cursor: pointer;
-            user-select: none;
-            margin-right: 5px;
         }
         .database-item, .table-node {
             padding: 5px 10px;
@@ -123,6 +114,15 @@
         .database-item:hover, .table-node:hover {
             background: #3d566e;
             border-radius: 4px;
+        }
+        .treeview ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+        .caret {
+            cursor: pointer;
+            user-select: none;
+            margin-right: 5px;
         }
         .main {
             flex: 1;
@@ -174,6 +174,8 @@
             padding: 8px;
             margin-bottom: 12px;
             border-radius: 6px;
+            font-size: 0.85rem;
+            color: #6c757d;
         }
         .sql-editor {
             width: 100%;
@@ -195,24 +197,20 @@
             border-radius: 4px;
             cursor: pointer;
         }
-        .results-grid {
-            flex: 1;
-            overflow: auto;
-            border: 1px solid #e9ecef;
-        }
-        
-        /* Estilos para el Grid Component */
+        /* Estilos específicos para el Grid (modo scroll infinito) */
         .grid-container {
             display: flex;
             flex-direction: column;
             height: 100%;
             background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
         }
         .grid-head {
             display: flex;
-            font-weight: bold;
-            border-bottom: 2px solid #ccc;
             background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
             position: sticky;
             top: 0;
             z-index: 10;
@@ -220,7 +218,7 @@
         .grid-header {
             flex: 1;
             padding: 10px 12px;
-            text-align: left;
+            font-weight: 600;
             cursor: pointer;
             user-select: none;
             border-right: 1px solid #dee2e6;
@@ -231,20 +229,16 @@
         }
         .grid-header[data-sort="asc"]::after {
             content: " ▲";
-            font-size: 0.8em;
         }
         .grid-header[data-sort="desc"]::after {
             content: " ▼";
-            font-size: 0.8em;
         }
         .grid-body {
             flex: 1;
-            overflow: auto;
+            overflow-y: auto;
         }
         .grid-row {
             display: flex;
-            align-items: center;
-            padding: 0;
             border-bottom: 1px solid #eee;
             transition: background 0.15s;
         }
@@ -253,12 +247,11 @@
         }
         .grid-item {
             flex: 1;
-            padding: 10px 12px;
-            text-align: left;
-            border-right: 1px solid #eee;
+            padding: 8px 12px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            border-right: 1px solid #eee;
         }
         .grid-controls {
             display: flex;
@@ -288,19 +281,11 @@
             background: white;
             cursor: pointer;
             border-radius: 4px;
-            transition: all 0.2s;
-        }
-        .grid-paginator button:hover:not(:disabled) {
-            background: #e9ecef;
         }
         .grid-paginator button.active {
             background: #1abc9c;
             color: white;
             border-color: #1abc9c;
-        }
-        .grid-paginator button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
         }
         .grid-loading, .grid-error, .grid-empty {
             padding: 20px;
@@ -318,29 +303,10 @@
             border-radius: 4px;
             margin: 10px;
         }
-        .grid-empty {
-            color: #999;
-            font-style: italic;
-        }
         .hidden {
-            display: none !important;
+            display: none;
         }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #dee2e6;
-            padding: 6px 8px;
-            text-align: left;
-        }
-        th {
-            background: #f8f9fa;
-            position: sticky;
-            top: 0;
-        }
-        /* Modal */
+        /* Modal compacto */
         .modal {
             display: none;
             position: fixed;
@@ -358,16 +324,17 @@
             width: 750px;
             max-width: 95%;
             border-radius: 8px;
+            max-height: 85vh;
+            overflow-y: auto;
         }
         .modal-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
         }
         .modal-column {
-            display: flex;
-            flex-direction: column;
+            flex: 1;
+            min-width: 200px;
         }
         .modal-content input, .modal-content select {
             width: 100%;
@@ -396,6 +363,13 @@
             border-radius: 4px;
             margin-top: 10px;
         }
+        .success-message {
+            color: #27ae60;
+            background: #eafaf1;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -404,15 +378,13 @@
         <h2>📊 RapidBase</h2>
         <p>Query Browser</p>
     </div>
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <button class="btn-add" id="btn-add-connection">➕ Nueva conexión</button>
-    </div>
+    <button class="btn-add" id="btn-add-connection">➕ Nueva conexión</button>
     <div class="sidebar-content">
         <div class="connections-list" id="connections-list">
             Cargando conexiones...
         </div>
         <div class="database-list" id="database-list">
-            <!-- Se mostrarán las bases de datos una vez seleccionada una conexión -->
+            <!-- Archivos SQLite locales -->
         </div>
         <div class="treeview" id="treeview"></div>
     </div>
@@ -428,47 +400,37 @@
     <div class="modal-content">
         <h3>Nueva conexión</h3>
         <div class="modal-grid">
-            <!-- Columna 1: Tipo de BD, IP/Host, Puerto -->
             <div class="modal-column">
-                <label for="conn-driver">Tipo de base de datos</label>
+                <label>Tipo de base de datos</label>
                 <select id="conn-driver">
                     <option value="sqlite">SQLite</option>
                     <option value="mysql">MySQL</option>
                     <option value="pgsql">PostgreSQL</option>
                 </select>
-
                 <div id="sqlite-file-field">
-                    <label for="conn-database">Ruta del archivo .sqlite</label>
+                    <label>Ruta del archivo .sqlite</label>
                     <input type="text" id="conn-database" placeholder="/ruta/a/mi.db">
                 </div>
-
-                <div id="server-fields-col1">
-                    <label for="conn-host">Host / IP</label>
+                <div id="server-fields-col1" style="display:none;">
+                    <label>Host / IP</label>
                     <input type="text" id="conn-host" placeholder="localhost">
-                    
-                    <label for="conn-port">Puerto</label>
+                    <label>Puerto</label>
                     <input type="text" id="conn-port" placeholder="3306">
                 </div>
             </div>
-
-            <!-- Columna 2: Nombre conexión, BD, Usuario, Password -->
             <div class="modal-column">
-                <label for="conn-name">Nombre de la conexión</label>
+                <label>Nombre de la conexión</label>
                 <input type="text" id="conn-name" placeholder="Mi Base de Datos">
-
-                <div id="server-fields-col2">
-                    <label for="conn-dbname">Base de datos</label>
+                <div id="server-fields-col2" style="display:none;">
+                    <label>Base de datos</label>
                     <input type="text" id="conn-dbname" placeholder="nombre_bd">
-                    
-                    <label for="conn-user">Usuario</label>
+                    <label>Usuario</label>
                     <input type="text" id="conn-user" placeholder="root">
-                    
-                    <label for="conn-pass">Contraseña</label>
+                    <label>Contraseña</label>
                     <input type="password" id="conn-pass" placeholder="••••••">
                 </div>
             </div>
         </div>
-
         <div class="modal-buttons">
             <button id="modal-test">Probar</button>
             <button id="modal-accept" disabled>Aceptar</button>
@@ -478,77 +440,369 @@
     </div>
 </div>
 
-<!-- Grid Component Scripts -->
-<script src="grid/GridBuilder.js"></script>
-<script src="grid/APIDataGrid.js"></script>
-<script src="grid/Paginator.js"></script>
-<script src="grid/querybrowser-grid-component.js"></script>
-
 <script>
-    // ---------- Estado ----------
+    // -------------------------------
+    // 1. GridBuilder (clase base)
+    // -------------------------------
+    class GridBuilder {
+        constructor(containerSelector) {
+            this.container = document.querySelector(containerSelector);
+            if (!this.container) throw new Error("Container not found: " + containerSelector);
+            this.headerTemplate = this.container.querySelector('.grid-head');
+            this.rowTemplate = this.container.querySelector('.grid-row');
+            this.bodyContainer = this.container.querySelector('.grid-body') || this.container;
+            if (this.rowTemplate) this.rowTemplate.classList.add('hidden');
+            this.currentMetadata = null;
+            this.columns = [];
+        }
+
+        render(data, metadata = null) {
+            this.currentMetadata = metadata;
+            if (!data || data.length === 0) {
+                this.bodyContainer.innerHTML = '<div class="grid-empty">No hay datos</div>';
+                return;
+            }
+            const firstRow = data[0];
+            const isNumericArray = Array.isArray(firstRow);
+            if (isNumericArray) this.renderNumericMode(data, metadata);
+            else this.renderAssociativeMode(data, metadata);
+        }
+
+        renderNumericMode(data, metadata = null) {
+            if (metadata && metadata.columns && metadata.titles) {
+                this.columns = metadata.columns;
+                const headerHTML = metadata.titles.map((title, i) =>
+                    `<div class="grid-header" data-column="${metadata.columns[i]}">${this.escapeHtml(title)}</div>`
+                ).join('');
+                if (this.headerTemplate) this.headerTemplate.innerHTML = headerHTML;
+            } else {
+                const colsCount = data[0].length;
+                this.columns = Array.from({length: colsCount}, (_, i) => i.toString());
+                const headerHTML = Array.from({length: colsCount}, (_, i) =>
+                    `<div class="grid-header" data-column="${i}">Columna ${i}</div>`
+                ).join('');
+                if (this.headerTemplate) this.headerTemplate.innerHTML = headerHTML;
+            }
+            this.bodyContainer.innerHTML = '';
+            data.forEach((row, rowIndex) => {
+                let rowHTML = this.rowTemplate ? this.rowTemplate.innerHTML : '';
+                if (!this.rowTemplate) {
+                    rowHTML = Array.from({length: row.length}, (_, i) => `<div class="grid-item">{${i}}</div>`).join('');
+                }
+                row.forEach((value, colIndex) => {
+                    const placeholder = new RegExp(`\\{${colIndex}\\}`, 'g');
+                    rowHTML = rowHTML.replace(placeholder, this.escapeHtml(value));
+                });
+                this.bodyContainer.insertAdjacentHTML('beforeend',
+                    `<div class="grid-row" data-row-index="${rowIndex}">${rowHTML}</div>`
+                );
+            });
+        }
+
+        renderAssociativeMode(data, metadata = null) {
+            const keys = Object.keys(data[0]);
+            this.columns = keys;
+            if (metadata && metadata.columns && metadata.titles) {
+                const headerHTML = metadata.titles.map((title, i) =>
+                    `<div class="grid-header" data-column="${metadata.columns[i]}">${this.escapeHtml(title)}</div>`
+                ).join('');
+                if (this.headerTemplate) this.headerTemplate.innerHTML = headerHTML;
+            } else if (this.headerTemplate && this.headerTemplate.querySelectorAll('.grid-header').length <= 1) {
+                const headerHTML = keys.map(key => `<div class="grid-header" data-column="${key}">${this.formatKey(key)}</div>`).join('');
+                this.headerTemplate.innerHTML = headerHTML;
+            }
+            this.bodyContainer.innerHTML = '';
+            data.forEach((row, rowIndex) => {
+                let rowHTML = this.rowTemplate ? this.rowTemplate.innerHTML : '';
+                if (!this.rowTemplate) {
+                    rowHTML = keys.map(key => `<div class="grid-item">{${key}}</div>`).join('');
+                }
+                Object.keys(row).forEach(key => {
+                    const placeholder = new RegExp(`\\{${key}\\}`, 'g');
+                    rowHTML = rowHTML.replace(placeholder, this.escapeHtml(row[key]));
+                });
+                this.bodyContainer.insertAdjacentHTML('beforeend',
+                    `<div class="grid-row" data-row-index="${rowIndex}">${rowHTML}</div>`
+                );
+            });
+        }
+
+        formatKey(key) {
+            return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+        }
+
+        escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        clear() {
+            this.bodyContainer.innerHTML = '';
+            if (this.headerTemplate) this.headerTemplate.innerHTML = '';
+        }
+    }
+
+    // -------------------------------
+    // 2. APIDataGrid (scroll infinito)
+    // -------------------------------
+    class APIDataGrid extends GridBuilder {
+        constructor(containerSelector, apiUrl, options = {}) {
+            super(containerSelector);
+            this.apiUrl = apiUrl;
+            this.mode = options.mode || 'pagination';
+            this.currentPage = 1;
+            this.offset = 0;
+            this.sortField = null;
+            this.sortOrder = 'asc';
+            this.searchTerm = '';
+            this.pageSize = options.pageSize || 20;
+            this.hasMore = true;
+            this.isLoading = false;
+            this.filter = options.filter || {};
+            this.controlsContainer = this.container.querySelector('.grid-controls');
+            this.loadingIndicator = this.container.querySelector('.grid-loading');
+            this.errorContainer = this.container.querySelector('.grid-error');
+            this.addControls();
+            if (this.mode === 'pagination') {
+                const pagEl = this.container.querySelector('.grid-paginator');
+                if (pagEl && typeof Paginator !== 'undefined') {
+                    this.paginator = new Paginator(pagEl, (page) => {
+                        this.currentPage = page;
+                        this.offset = (page - 1) * this.pageSize;
+                        this.fetchData();
+                    });
+                }
+            }
+            if (this.mode === 'infinite') this.enableInfiniteScroll();
+            this.scrollCleanup = null;
+        }
+
+        addControls() {
+            if (!this.controlsContainer) return;
+            const searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.className = 'grid-search';
+            searchInput.placeholder = 'Buscar...';
+            let timeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    this.searchTerm = e.target.value;
+                    this.resetAndFetch();
+                }, 300);
+            });
+            this.controlsContainer.innerHTML = '';
+            this.controlsContainer.appendChild(searchInput);
+        }
+
+        buildParams() {
+            const params = new URLSearchParams();
+            const urlParts = this.apiUrl.split('?');
+            if (urlParts.length > 1) {
+                const existing = new URLSearchParams(urlParts[1]);
+                for (let [k, v] of existing) params.set(k, v);
+            }
+            params.set('offset', this.offset);
+            params.set('limit', this.pageSize);
+            if (this.sortField) {
+                const prefix = this.sortOrder === 'desc' ? '-' : '';
+                params.set('sort', `${prefix}${this.sortField}`);
+            }
+            if (this.searchTerm) params.set('search', this.searchTerm);
+            if (Object.keys(this.filter).length) params.set('filter', JSON.stringify(this.filter));
+            return params;
+        }
+
+        async fetchData() {
+            if (this.isLoading) return;
+            this.isLoading = true;
+            this.showLoading();
+            this.hideError();
+            try {
+                const params = this.buildParams();
+                const urlBase = this.apiUrl.split('?')[0];
+                const url = `${urlBase}?${params.toString()}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                if (this.mode === 'pagination') {
+                    const gridData = result.data || [];
+                    const meta = result.head || null;
+                    this.render(gridData, meta);
+                    if (this.paginator && result.page)
+                        this.paginator.update(result.page.current, result.page.total);
+                } else if (this.mode === 'infinite') {
+                    const newRows = result.data || [];
+                    const meta = result.head || null;
+                    if (newRows.length > 0) {
+                        if (this.offset === 0) this.render(newRows, meta);
+                        else this.appendRows(newRows, meta);
+                        this.hasMore = result.page ? result.page.current < result.page.total : false;
+                        if (!this.hasMore && this.scrollCleanup) {
+                            this.scrollCleanup();
+                            this.scrollCleanup = null;
+                        }
+                    } else {
+                        this.hasMore = false;
+                        if (this.scrollCleanup) this.scrollCleanup();
+                    }
+                }
+            } catch (err) {
+                this.showError(err.message);
+            } finally {
+                this.isLoading = false;
+                this.hideLoading();
+            }
+        }
+
+        appendRows(data, metadata = null) {
+            if (!data || data.length === 0) return;
+            if (this.bodyContainer.querySelector('.grid-row') === null && metadata) {
+                this.render(data, metadata);
+                return;
+            }
+            const isNum = Array.isArray(data[0]);
+            data.forEach((row, idx) => {
+                let rowHTML = this.rowTemplate ? this.rowTemplate.innerHTML : '';
+                if (!this.rowTemplate) {
+                    const len = isNum ? row.length : Object.keys(row).length;
+                    rowHTML = Array.from({length: len}, (_, i) => `<div class="grid-item">{${i}}</div>`).join('');
+                }
+                if (isNum) {
+                    row.forEach((val, col) => {
+                        const re = new RegExp(`\\{${col}\\}`, 'g');
+                        rowHTML = rowHTML.replace(re, this.escapeHtml(val));
+                    });
+                } else {
+                    Object.keys(row).forEach(k => {
+                        const re = new RegExp(`\\{${k}\\}`, 'g');
+                        rowHTML = rowHTML.replace(re, this.escapeHtml(row[k]));
+                    });
+                }
+                this.bodyContainer.insertAdjacentHTML('beforeend',
+                    `<div class="grid-row" data-row-index="${this.offset + idx}">${rowHTML}</div>`
+                );
+            });
+        }
+
+        enableInfiniteScroll() {
+            const scrollContainer = this.bodyContainer;
+            if (!scrollContainer) return;
+            const onScroll = () => {
+                if (!this.hasMore || this.isLoading) return;
+                const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+                if (scrollTop + clientHeight >= scrollHeight - 200) {
+                    this.offset += this.pageSize;
+                    this.fetchData();
+                }
+            };
+            scrollContainer.addEventListener('scroll', onScroll);
+            this.scrollCleanup = () => scrollContainer.removeEventListener('scroll', onScroll);
+        }
+
+        resetAndFetch() {
+            this.currentPage = 1;
+            this.offset = 0;
+            this.hasMore = true;
+            this.clear();
+            this.fetchData();
+        }
+
+        sortBy(field) {
+            if (this.sortField === field) this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+            else { this.sortField = field; this.sortOrder = 'asc'; }
+            this.resetAndFetch();
+        }
+
+        setFilter(filter) { this.filter = filter; this.resetAndFetch(); }
+        showLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'block'; }
+        hideLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'none'; }
+        showError(msg) { if (this.errorContainer) { this.errorContainer.textContent = `Error: ${msg}`; this.errorContainer.style.display = 'block'; } }
+        hideError() { if (this.errorContainer) this.errorContainer.style.display = 'none'; }
+        load() { this.fetchData(); }
+    }
+
+    // -------------------------------
+    // 3. Clase QueryBrowserGrid (integración)
+    // -------------------------------
+    class QueryBrowserGrid {
+        static createTableGrid(containerSelector, connectionId, table, options = {}) {
+            const apiUrl = 'api.php?action=grid_data';
+            const config = {
+                mode: options.mode || 'infinite',
+                pageSize: options.pageSize || 30,
+                filter: options.filter || {}
+            };
+            const grid = new APIDataGrid(containerSelector, apiUrl, config);
+            grid.connectionId = connectionId;
+            grid.table = table;
+            const orig = grid.buildParams.bind(grid);
+            grid.buildParams = function() {
+                const p = orig();
+                p.set('connectionId', this.connectionId);
+                p.set('table', this.table);
+                return p;
+            };
+            grid.container.addEventListener('click', (e) => {
+                const header = e.target.closest('.grid-header');
+                if (header && header.dataset.column) grid.sortBy(header.dataset.column);
+            });
+            grid.load();
+            return grid;
+        }
+        static destroy(grid) { if (grid && typeof grid.clear === 'function') grid.clear(); }
+    }
+    window.QueryBrowserGrid = QueryBrowserGrid;
+
+    // -------------------------------
+    // 4. Estado y lógica principal del QueryBrowser
+    // -------------------------------
     let currentConnectionId = null;
-    let currentConnType = null; // 'file' o 'saved'
     let tabs = new Map();
     let nextTabId = 0;
-    let connections = [];
-    
-    // Almacén de grids activos por tab
-    const activeGrids = new Map();
-
-    // ---------- Helpers ----------
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str).replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
 
     async function fetchJson(url, options = {}) {
         const resp = await fetch(url, options);
-        if (!resp.ok) {
-            const text = await resp.text();
-            throw new Error(`HTTP ${resp.status}: ${text}`);
-        }
-        return resp.json();
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
+        const json = await resp.json();
+        if (json.error) throw new Error(json.error);
+        return json;
     }
 
-    // ---------- Gestión de conexiones guardadas ----------
     async function loadConnections() {
         try {
             const data = await fetchJson('api.php?action=list_connections');
-            connections = data.connections || [];
+            const conns = data.connections || [];
             const container = document.getElementById('connections-list');
-            if (connections.length === 0) {
-                container.innerHTML = '<div style="padding: 10px;">No hay conexiones guardadas.</div>';
+            if (conns.length === 0) {
+                container.innerHTML = '<div style="padding:10px;">No hay conexiones guardadas.</div>';
                 return;
             }
             let html = '';
-            connections.forEach(conn => {
-                html += `
-                    <div class="connection-item" data-id="${conn.id}" data-name="${escapeHtml(conn.name)}">
-                        <span class="conn-name">📁 ${escapeHtml(conn.name)}</span>
-                        <span class="conn-delete" data-id="${conn.id}">✖</span>
-                    </div>
-                `;
+            conns.forEach(c => {
+                html += `<div class="connection-item" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
+                            <span class="conn-name">📁 ${escapeHtml(c.name)}</span>
+                            <span class="conn-delete" data-id="${c.id}">✖</span>
+                         </div>`;
             });
             container.innerHTML = html;
-            // Eventos
             document.querySelectorAll('.connection-item').forEach(el => {
                 el.addEventListener('click', (e) => {
                     if (e.target.classList.contains('conn-delete')) {
                         e.stopPropagation();
                         deleteConnection(parseInt(e.target.dataset.id));
                     } else {
-                        const id = parseInt(el.dataset.id);
-                        connectSavedConnection(id);
+                        connectSavedConnection(parseInt(el.dataset.id));
                     }
                 });
             });
-        } catch (err) {
-            document.getElementById('connections-list').innerHTML = `<div style="padding:10px; color:#e74c3c;">Error: ${err.message}</div>`;
+        } catch(err) {
+            document.getElementById('connections-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${err.message}</div>`;
         }
     }
 
@@ -556,7 +810,6 @@
         if (!confirm('¿Eliminar esta conexión?')) return;
         await fetchJson(`api.php?action=remove_connection&id=${id}`);
         loadConnections();
-        // Si la conexión eliminada era la activa, limpiar vista
         if (currentConnectionId && currentConnectionId.startsWith('saved_') && parseInt(currentConnectionId.split('_')[1]) === id) {
             currentConnectionId = null;
             document.getElementById('database-list').innerHTML = '';
@@ -565,151 +818,106 @@
     }
 
     async function connectSavedConnection(connId) {
-        try {
-            const formData = new FormData();
-            formData.append('connId', connId);
-            const data = await fetchJson('api.php?action=connect_saved', { method: 'POST', body: formData });
-            if (data.status === 'ok') {
-                currentConnectionId = data.connectionId;
-                currentConnType = 'saved';
-                // Resaltar elemento activo
-                document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
-                const activeEl = document.querySelector(`.connection-item[data-id="${connId}"]`);
-                if (activeEl) activeEl.classList.add('active');
-                // Cargar árbol de tablas
-                await loadTables();
-                // También podríamos listar bases de datos para SQLite (pero ya estamos dentro de una conexión)
-                document.getElementById('database-list').innerHTML = '<div style="padding:10px;">Conectado a: ' + escapeHtml(activeEl?.querySelector('.conn-name')?.innerText || '') + '</div>';
-            }
-        } catch (err) {
-            alert('Error al conectar: ' + err.message);
+        const formData = new FormData();
+        formData.append('connId', connId);
+        const data = await fetchJson('api.php?action=connect_saved', { method: 'POST', body: formData });
+        if (data.status === 'ok') {
+            currentConnectionId = data.connectionId;
+            document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
+            const activeEl = document.querySelector(`.connection-item[data-id="${connId}"]`);
+            if (activeEl) activeEl.classList.add('active');
+            await loadTables();
+            document.getElementById('database-list').innerHTML = '<div style="padding:10px;">✅ Conectado a: ' + escapeHtml(activeEl?.querySelector('.conn-name')?.innerText || '') + '</div>';
         }
     }
 
-    // ---------- Conexión a archivo SQLite (demo) ----------
     async function loadDatabases() {
         try {
             const data = await fetchJson('api.php?action=list_databases');
             const dbs = data.databases || [];
             const dbDiv = document.getElementById('database-list');
             if (dbs.length === 0) {
-                dbDiv.innerHTML = '<div style="padding: 10px;">No hay archivos .sqlite en /data</div>';
+                dbDiv.innerHTML = '<div style="padding:10px;">No hay archivos .sqlite en /data</div>';
                 return;
             }
-            let html = '<div style="padding: 5px 10px; font-weight:bold;">📂 Archivos SQLite</div>';
-            dbs.forEach(db => {
-                html += `<div class="database-item" data-db="${escapeHtml(db)}">🗄️ ${escapeHtml(db)}</div>`;
-            });
+            let html = '<div style="padding:5px 10px; font-weight:bold;">📂 Archivos SQLite</div>';
+            dbs.forEach(db => html += `<div class="database-item" data-db="${escapeHtml(db)}">🗄️ ${escapeHtml(db)}</div>`);
             dbDiv.innerHTML = html;
             document.querySelectorAll('.database-item').forEach(el => {
                 el.addEventListener('click', () => connectDatabaseFile(el.dataset.db));
             });
-        } catch (err) {
-            document.getElementById('database-list').innerHTML = `<div style="padding:10px; color:#e74c3c;">Error: ${err.message}</div>`;
+        } catch(err) {
+            document.getElementById('database-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${err.message}</div>`;
         }
     }
 
     async function connectDatabaseFile(dbName) {
-        try {
-            const formData = new FormData();
-            formData.append('db', dbName);
-            const data = await fetchJson('api.php?action=connect', { method: 'POST', body: formData });
-            if (data.status === 'ok') {
-                currentConnectionId = data.connectionId;
-                currentConnType = 'file';
-                // Limpiar resaltado de conexiones guardadas
-                document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
-                await loadTables();
-            }
-        } catch (err) {
-            alert('Error al conectar: ' + err.message);
+        const formData = new FormData();
+        formData.append('db', dbName);
+        const data = await fetchJson('api.php?action=connect', { method: 'POST', body: formData });
+        if (data.status === 'ok') {
+            currentConnectionId = data.connectionId;
+            document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
+            await loadTables();
         }
     }
 
     async function loadTables() {
         if (!currentConnectionId) return;
-        try {
-            const data = await fetchJson(`api.php?action=list_tables&connectionId=${currentConnectionId}`);
-            const tables = data.tables || [];
-            const quotedTables = data.quotedTables || tables; // Nombres con quotes correctos
-            const treeDiv = document.getElementById('treeview');
-            if (tables.length === 0) {
-                treeDiv.innerHTML = '<div style="padding:10px;">No hay tablas.</div>';
-                return;
-            }
-            let html = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul class="nested">';
-            tables.forEach((table, idx) => {
-                const quotedName = quotedTables[idx] || table;
-                html += `<li class="table-node" draggable="true" data-table="${escapeHtml(table)}" data-quoted-table="${escapeHtml(quotedName)}">📄 ${escapeHtml(table)}</li>`;
+        const data = await fetchJson(`api.php?action=list_tables&connectionId=${currentConnectionId}`);
+        const tables = data.tables || [];
+        const treeDiv = document.getElementById('treeview');
+        if (tables.length === 0) {
+            treeDiv.innerHTML = '<div style="padding:10px;">No hay tablas.</div>';
+            return;
+        }
+        let html = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul>';
+        tables.forEach(table => {
+            html += `<li class="table-node" draggable="true" data-table="${escapeHtml(table)}">📄 ${escapeHtml(table)}</li>`;
+        });
+        html += '</ul></li></ul>';
+        treeDiv.innerHTML = html;
+        document.querySelectorAll('.table-node').forEach(el => {
+            el.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'table', name: el.dataset.table }));
             });
-            html += '</ul></li></ul>';
-            treeDiv.innerHTML = html;
-            // Drag & drop
-            document.querySelectorAll('.table-node').forEach(el => {
-                el.addEventListener('dragstart', e => {
-                    e.dataTransfer.setData('text/plain', JSON.stringify({ 
-                        type: 'table', 
-                        name: el.dataset.table,
-                        quotedName: el.dataset.quotedTable
-                    }));
-                    e.dataTransfer.effectAllowed = 'copy';
-                });
-                el.addEventListener('click', () => openTab(el.dataset.table, el.dataset.quotedTable));
-            });
-            // Toggle collapse/expand
-            const caret = document.querySelector('.caret');
-            if (caret) {
-                const parentLi = caret.parentElement;
-                const childUl = parentLi.querySelector('ul.nested');
-                if (childUl) {
-                    caret.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        if (childUl.style.display === 'none') {
-                            childUl.style.display = '';
-                            caret.innerText = '▼';
-                        } else {
-                            childUl.style.display = 'none';
-                            caret.innerText = '▶';
-                        }
-                    });
+            el.addEventListener('click', () => openTab(el.dataset.table));
+        });
+        const caret = document.querySelector('.caret');
+        if (caret) {
+            const parent = caret.parentElement;
+            const childUl = parent.querySelector('ul');
+            caret.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (childUl.style.display === 'none') {
+                    childUl.style.display = '';
+                    caret.innerText = '▼';
+                } else {
+                    childUl.style.display = 'none';
+                    caret.innerText = '▶';
                 }
-            }
-        } catch (err) {
-            document.getElementById('treeview').innerHTML = `<div style="padding:10px; color:#e74c3c;">Error: ${err.message}</div>`;
+            });
         }
     }
 
-    // ---------- Pestañas y queries ----------
-    function openTab(tableName, quotedTableName = null) {
-        // Si no se proporciona el nombre con quotes, usar el nombre plano
-        const safeTableName = quotedTableName || tableName;
-        
-        for (let [tid, t] of tabs.entries()) {
+    function openTab(tableName) {
+        for (let [tid, t] of tabs) {
             if (t.tableName === tableName && t.connectionId === currentConnectionId) {
                 activateTab(tid);
                 return;
             }
         }
         const tabId = `tab_${nextTabId++}`;
-        // Usar el nombre con quotes correctos para la consulta SQL
-        const defaultSql = `SELECT * FROM ${safeTableName} LIMIT 100`;
-        tabs.set(tabId, {
-            tableName: tableName,
-            connectionId: currentConnectionId,
-            sql: defaultSql
-        });
+        const defaultSql = `SELECT * FROM "${tableName}" LIMIT 100`;
+        tabs.set(tabId, { tableName, connectionId: currentConnectionId, sql: defaultSql });
         // Header
         const tabButton = document.createElement('div');
         tabButton.className = 'tab';
         tabButton.dataset.tabId = tabId;
         tabButton.innerHTML = `<span>📋 ${escapeHtml(tableName)}</span><span class="tab-close">✖</span>`;
         tabButton.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tab-close')) {
-                e.stopPropagation();
-                closeTab(tabId);
-            } else {
-                activateTab(tabId);
-            }
+            if (e.target.classList.contains('tab-close')) closeTab(tabId);
+            else activateTab(tabId);
         });
         document.getElementById('tabs-header').appendChild(tabButton);
         // Pane
@@ -719,12 +927,10 @@
         pane.innerHTML = `
             <div class="drop-zone" data-tab-id="${tabId}">🎯 Arrastra otra tabla aquí para auto-join</div>
             <textarea id="sql_${tabId}" class="sql-editor" rows="3">${escapeHtml(defaultSql)}</textarea>
-            <div class="toolbar">
-                <button class="run-btn" data-tab-id="${tabId}">▶ Ejecutar</button>
-            </div>
+            <div class="toolbar"><button class="run-btn" data-tab-id="${tabId}">▶ Ejecutar</button></div>
             <div class="grid-container" id="grid_${tabId}">
                 <div class="grid-controls"></div>
-                <div class="grid-head"><div class="grid-header">Cargando...</div></div>
+                <div class="grid-head"></div>
                 <div class="grid-body"></div>
                 <div class="grid-paginator"></div>
                 <div class="grid-loading">Cargando datos...</div>
@@ -732,17 +938,20 @@
             </div>
         `;
         document.getElementById('tab-content').appendChild(pane);
-        
-        // Inicializar grid usando QueryBrowserGrid
+        // Crear grid en modo infinite scroll
         const gridContainer = `#grid_${tabId}`;
         const grid = QueryBrowserGrid.createTableGrid(gridContainer, currentConnectionId, tableName, {
-            mode: 'pagination',
-            pageSize: 20
+            mode: 'infinite',
+            pageSize: 30
         });
-        
-        // Guardar referencia al grid activo
-        activeGrids.set(tabId, grid);
-        // Drop zone
+        // Guardar referencia (opcional)
+        pane.querySelector('.run-btn').addEventListener('click', () => executeQuery(tabId));
+        const textarea = pane.querySelector('.sql-editor');
+        textarea.addEventListener('input', () => {
+            const tab = tabs.get(tabId);
+            if (tab) tab.sql = textarea.value;
+        });
+        // Drop zone para auto-join
         const dropZone = pane.querySelector('.drop-zone');
         dropZone.addEventListener('dragover', e => e.preventDefault());
         dropZone.addEventListener('drop', async e => {
@@ -755,30 +964,27 @@
                 formData.append('tables', JSON.stringify([tableName, dropped.name]));
                 const resp = await fetchJson('api.php?action=auto_query', { method: 'POST', body: formData });
                 if (resp.sql) {
-                    const textarea = pane.querySelector('.sql-editor');
                     textarea.value = resp.sql;
                     executeQuery(tabId);
                 }
             }
         });
-        // Run button
-        pane.querySelector('.run-btn').addEventListener('click', () => executeQuery(tabId));
-        const textarea = pane.querySelector('.sql-editor');
-        textarea.addEventListener('input', () => {
-            const tab = tabs.get(tabId);
-            if (tab) tab.sql = textarea.value;
-        });
         activateTab(tabId);
-        executeQuery(tabId);
+        // No es necesario cargar datos manualmente, el grid lo hace solo
     }
 
     async function executeQuery(tabId) {
-        // Nota: El grid ya carga automáticamente al abrir una tabla.
-        // Esta función se mantiene para consultas SQL personalizadas si se necesita en el futuro.
+        // Función para consultas manuales (si se modifica el SQL)
         const pane = document.getElementById(`pane_${tabId}`);
-        if (!pane) return;
-        
-        console.log('Para usar el grid, abre una tabla desde el explorador del aside.');
+        const sql = pane.querySelector('.sql-editor').value;
+        const tabInfo = tabs.get(tabId);
+        if (!tabInfo) return;
+        const gridContainer = `#grid_${tabId}`;
+        // Si el usuario ejecuta una consulta personalizada, podemos volver a crear el grid?
+        // Por simplicidad, recargamos el grid con la nueva consulta.
+        // Sin embargo, el grid está diseñado para trabajar con una tabla fija.
+        // Mejor redirigir a un nuevo tab? O actualizar el grid.
+        alert('La ejecución de consultas personalizadas requiere reconstruir el grid. Por ahora usa el explorador de tablas.');
     }
 
     function activateTab(tabId) {
@@ -791,13 +997,6 @@
     }
 
     function closeTab(tabId) {
-        // Destruir grid activo si existe
-        const grid = activeGrids.get(tabId);
-        if (grid) {
-            QueryBrowserGrid.destroy(grid);
-            activeGrids.delete(tabId);
-        }
-        
         const tab = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
         if (tab) tab.remove();
         const pane = document.getElementById(`pane_${tabId}`);
@@ -812,36 +1011,30 @@
         }
     }
 
-    // ---------- Modal de nueva conexión ----------
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
+    }
+
+    // Modal de nueva conexión
     const modal = document.getElementById('modal-connection');
     const btnAdd = document.getElementById('btn-add-connection');
     const btnClose = document.getElementById('modal-close');
     const btnTest = document.getElementById('modal-test');
     const btnAccept = document.getElementById('modal-accept');
     const driverSelect = document.getElementById('conn-driver');
-    const sqliteFileField = document.getElementById('sqlite-file-field');
-    const serverFieldsCol1 = document.getElementById('server-fields-col1');
-    const serverFieldsCol2 = document.getElementById('server-fields-col2');
+    const sqliteField = document.getElementById('sqlite-file-field');
+    const serverCol1 = document.getElementById('server-fields-col1');
+    const serverCol2 = document.getElementById('server-fields-col2');
 
     function toggleFields() {
-        const driver = driverSelect.value;
-        if (driver === 'sqlite') {
-            sqliteFileField.style.display = 'block';
-            serverFieldsCol1.style.display = 'none';
-            serverFieldsCol2.style.display = 'none';
-        } else {
-            sqliteFileField.style.display = 'none';
-            serverFieldsCol1.style.display = 'block';
-            serverFieldsCol2.style.display = 'block';
-            // Actualizar puerto según el tipo de BD
-            const portInput = document.getElementById('conn-port');
-            if (driver === 'mysql') {
-                portInput.value = '3306';
-                portInput.placeholder = '3306';
-            } else if (driver === 'pgsql') {
-                portInput.value = '5432';
-                portInput.placeholder = '5432';
-            }
+        const isSQLite = driverSelect.value === 'sqlite';
+        sqliteField.style.display = isSQLite ? 'block' : 'none';
+        serverCol1.style.display = isSQLite ? 'none' : 'block';
+        serverCol2.style.display = isSQLite ? 'none' : 'block';
+        if (!isSQLite) {
+            const port = driverSelect.value === 'mysql' ? '3306' : '5432';
+            document.getElementById('conn-port').value = port;
         }
     }
     driverSelect.addEventListener('change', toggleFields);
@@ -851,7 +1044,6 @@
         modal.style.display = 'block';
         document.getElementById('modal-message').innerHTML = '';
         btnAccept.disabled = true;
-        // limpiar campos
         document.getElementById('conn-name').value = '';
         document.getElementById('conn-database').value = '';
         document.getElementById('conn-host').value = 'localhost';
@@ -864,7 +1056,7 @@
     window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
 
     btnTest.addEventListener('click', async () => {
-        const connData = getConnectionDataFromModal();
+        const connData = getConnectionData();
         if (!connData.name || !connData.database) {
             document.getElementById('modal-message').innerHTML = '<div class="error-message">Nombre y base de datos obligatorios</div>';
             return;
@@ -876,20 +1068,20 @@
                 body: JSON.stringify(connData)
             });
             if (resp.success) {
-                document.getElementById('modal-message').innerHTML = '<div style="color:green;">✅ Conexión exitosa</div>';
+                document.getElementById('modal-message').innerHTML = '<div class="success-message">✅ Conexión exitosa</div>';
                 btnAccept.disabled = false;
             } else {
                 document.getElementById('modal-message').innerHTML = '<div class="error-message">❌ Falló la conexión</div>';
                 btnAccept.disabled = true;
             }
-        } catch (err) {
+        } catch(err) {
             document.getElementById('modal-message').innerHTML = `<div class="error-message">Error: ${err.message}</div>`;
             btnAccept.disabled = true;
         }
     });
 
     btnAccept.addEventListener('click', async () => {
-        const connData = getConnectionDataFromModal();
+        const connData = getConnectionData();
         try {
             await fetchJson('api.php?action=add_connection', {
                 method: 'POST',
@@ -898,12 +1090,12 @@
             });
             modal.style.display = 'none';
             loadConnections();
-        } catch (err) {
+        } catch(err) {
             alert('Error al guardar: ' + err.message);
         }
     });
 
-    function getConnectionDataFromModal() {
+    function getConnectionData() {
         const driver = driverSelect.value;
         if (driver === 'sqlite') {
             return {
@@ -926,32 +1118,28 @@
         }
     }
 
-    // Inicializar
+    // Inicialización
     loadConnections();
     loadDatabases();
 
-    // ---------- Redimensionar Sidebar ----------
-    const sidebar = document.getElementById('sidebar');
+    // Redimensionador sidebar
+    const sidebar = document.querySelector('.sidebar');
     const resizer = document.getElementById('sidebar-resizer');
-    
     if (sidebar && resizer) {
         let isResizing = false;
-
         resizer.addEventListener('mousedown', (e) => {
             isResizing = true;
             resizer.classList.add('resizing');
             document.body.style.cursor = 'col-resize';
             e.preventDefault();
         });
-
         document.addEventListener('mousemove', (e) => {
             if (!isResizing) return;
-            const newWidth = e.clientX;
-            if (newWidth > 200 && newWidth < 600) {
-                sidebar.style.width = `${newWidth}px`;
-            }
+            let newWidth = e.clientX;
+            if (newWidth < 200) newWidth = 200;
+            if (newWidth > 600) newWidth = 600;
+            sidebar.style.width = `${newWidth}px`;
         });
-
         document.addEventListener('mouseup', () => {
             if (isResizing) {
                 isResizing = false;

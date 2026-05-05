@@ -3,6 +3,14 @@
  * 
  * Componente de grilla que se conecta a una API para cargar datos dinámicamente.
  * Soporta paginación y scroll infinito.
+ * 
+ * El formato de respuesta esperado es el que produce DB::grid a través de su método toGridFormat():
+ * {
+ *   head: { columns: string[], titles: string[] },
+ *   data: array[array] (filas en formato FETCH_NUM),
+ *   page: { current: number, total: number, records: number },
+ *   stats: { ... }
+ * }
  */
 class APIDataGrid extends GridBuilder {
     constructor(containerSelector, apiUrl, options = {}) {
@@ -28,7 +36,7 @@ class APIDataGrid extends GridBuilder {
         // Inicializar controles
         this.addControls();
 
-        // Configurar paginator si existe
+        // Configurar paginador si existe y estamos en modo paginación
         if (this.mode === 'pagination') {
             const paginatorElement = this.container.querySelector('.grid-paginator');
             if (paginatorElement && typeof Paginator !== 'undefined') {
@@ -44,6 +52,9 @@ class APIDataGrid extends GridBuilder {
         if (this.mode === 'infinite') {
             this.enableInfiniteScroll();
         }
+
+        // Almacenar referencia a la función de limpieza del scroll
+        this.scrollCleanup = null;
     }
 
     /**
@@ -58,7 +69,6 @@ class APIDataGrid extends GridBuilder {
         searchInput.className = 'grid-search';
         searchInput.placeholder = 'Buscar...';
         
-        // Debounce para la búsqueda
         let searchTimeout;
         searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
@@ -119,7 +129,6 @@ class APIDataGrid extends GridBuilder {
 
         try {
             const params = this.buildParams();
-            // Usar solo la parte base de la URL (sin parámetros)
             const urlBase = this.apiUrl.split('?')[0];
             const url = `${urlBase}?${params.toString()}`;
             
@@ -132,31 +141,38 @@ class APIDataGrid extends GridBuilder {
             const result = await response.json();
 
             if (this.mode === 'pagination') {
-                // El formato de GridAdapter.toGridFormat() es:
-                // { head: { columns, titles }, data, page, stats }
                 const gridData = result.data || [];
-                const metadata = result.head ? {
-                    columns: result.head.columns || [],
-                    titles: result.head.titles || []
-                } : null;
+                const metadata = result.head || null;
                 
                 this.render(gridData, metadata);
                 
                 if (this.paginator && result.page) {
                     this.paginator.update(result.page.current, result.page.total);
                 }
-            } else if (this.mode === 'infinite') {
-                const gridData = result.data || [];
-                const metadata = result.head ? {
-                    columns: result.head.columns || [],
-                    titles: result.head.titles || []
-                } : null;
+            } 
+            else if (this.mode === 'infinite') {
+                const newRows = result.data || [];
+                const metadata = result.head || null;
                 
-                if (gridData.length > 0) {
-                    this.appendRows(gridData, metadata);
+                if (newRows.length > 0) {
+                    // Si es la primera carga (offset === 0) reemplazamos todo
+                    if (this.offset === 0) {
+                        this.render(newRows, metadata);
+                    } else {
+                        this.appendRows(newRows, metadata);
+                    }
+                    // Determinar si hay más datos
                     this.hasMore = result.page ? result.page.current < result.page.total : false;
+                    if (!this.hasMore && this.scrollCleanup) {
+                        this.scrollCleanup();
+                        this.scrollCleanup = null;
+                    }
                 } else {
                     this.hasMore = false;
+                    if (this.scrollCleanup) {
+                        this.scrollCleanup();
+                        this.scrollCleanup = null;
+                    }
                 }
             }
 
@@ -171,23 +187,24 @@ class APIDataGrid extends GridBuilder {
 
     /**
      * Agrega filas al grid (modo scroll infinito)
+     * @param {Array} data - Nuevas filas (formato FETCH_NUM)
+     * @param {Object|null} metadata - Metadatos con columnas y títulos (se usa solo si no hay encabezado previo)
      */
     appendRows(data, metadata = null) {
         if (!data || data.length === 0) return;
 
-        // Si es el primer lote, renderizar completo con metadata
+        // Si no hay encabezados renderizados aún, hacer render completo
         if (this.bodyContainer.querySelector('.grid-row') === null && metadata) {
             this.render(data, metadata);
             return;
         }
 
-        // Para lotes subsiguientes, solo agregar las filas
         const isNumericArray = Array.isArray(data[0]);
         
         data.forEach((row, rowIndex) => {
             let rowHTML = this.rowTemplate ? this.rowTemplate.innerHTML : '';
             
-            // Si no hay plantilla, crear una dinámica
+            // Si no hay plantilla de fila, crear una dinámica
             if (!this.rowTemplate) {
                 const colsCount = isNumericArray ? row.length : Object.keys(row).length;
                 if (isNumericArray) {
@@ -215,30 +232,40 @@ class APIDataGrid extends GridBuilder {
                 });
             }
             
+            const absoluteRowIndex = this.offset + rowIndex;
             this.bodyContainer.insertAdjacentHTML('beforeend', 
-                `<div class="grid-row" data-row-index="${this.offset + rowIndex}">${rowHTML}</div>`
+                `<div class="grid-row" data-row-index="${absoluteRowIndex}">${rowHTML}</div>`
             );
         });
     }
 
     /**
-     * Habilita el scroll infinito
+     * Habilita el scroll infinito sobre el contenedor .grid-body
      */
     enableInfiniteScroll() {
-        const scrollContainer = this.bodyContainer.closest('.grid-body') || 
-                                this.bodyContainer.parentElement || 
-                                window;
+        // El contenedor de scroll es el elemento con clase .grid-body
+        const scrollContainer = this.bodyContainer;
+        if (!scrollContainer) return;
 
-        scrollContainer.addEventListener('scroll', () => {
+        const onScroll = () => {
             if (!this.hasMore || this.isLoading) return;
-
-            const { scrollTop, scrollHeight, clientHeight } = 
-                scrollContainer === window 
-                    ? { scrollTop: window.scrollY, scrollHeight: document.documentElement.scrollHeight, clientHeight: window.innerHeight }
-                    : scrollContainer;
-
-            // Cuando estamos cerca del final (100px)
-            if (scrollTop + clientHeight >= scrollHeight - 100) {
+            
+            const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+            // Cargar más cuando falten 200px para llegar al final
+            if (scrollTop + clientHeight >= scrollHeight - 200) {
+                this.offset += this.pageSize;
+                this.fetchData();
+            }
+        };
+        
+        scrollContainer.addEventListener('scroll', onScroll);
+        this.scrollCleanup = () => scrollContainer.removeEventListener('scroll', onScroll);
+        
+        // También permite que el scroll se ejecute cuando se redimensiona el contenedor
+        window.addEventListener('resize', () => {
+            if (!this.hasMore || this.isLoading) return;
+            const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+            if (scrollTop + clientHeight >= scrollHeight - 200) {
                 this.offset += this.pageSize;
                 this.fetchData();
             }
@@ -246,7 +273,7 @@ class APIDataGrid extends GridBuilder {
     }
 
     /**
-     * Reinicia y carga datos
+     * Reinicia y carga datos (primera página, limpia grid)
      */
     resetAndFetch() {
         this.currentPage = 1;
@@ -271,7 +298,7 @@ class APIDataGrid extends GridBuilder {
     }
 
     /**
-     * Establece un filtro
+     * Establece un filtro adicional
      */
     setFilter(filter) {
         this.filter = filter;
