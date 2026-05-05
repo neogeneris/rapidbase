@@ -304,8 +304,7 @@ try {
                 if (is_array($decoded)) $conditions = $decoded;
             }
 
-            $pagination = Q::page($page, $limit);
-            $response = DB::grid($table, $conditions, $pagination, $sort);
+            $response = DB::grid($table, $conditions, [$page, $limit], $sort);
 
             echo json_encode([
                 'data'      => $response->data,

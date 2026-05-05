@@ -32,11 +32,12 @@ class Gateway
         $returnedLimit = 0;
         if ($page !== 0 && $page !== null) {
             if (is_array($page)) {
-                $p = max(1, (int)$page[0]);
-                $perPage = (int)($page[1] ?? 10);
-                $pagination = Q::page($p, $perPage);
-                $returnedPage = $p;
-                $returnedLimit = $perPage;
+                // Array es [offset, limit] directamente
+                $offset = max(0, (int)$page[0]);
+                $limit = max(1, (int)($page[1] ?? 10));
+                $pagination = [$offset, $limit];
+                $returnedPage = $limit > 0 ? (int)($offset / $limit) + 1 : 1;
+                $returnedLimit = $limit;
             } else {
                 $p = max(1, (int)$page);
                 $perPage = 10;

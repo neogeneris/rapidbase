@@ -74,7 +74,6 @@ class APIDataGrid extends GridBuilder {
             }
         }
         
-        // Enviar page en lugar de offset
         params.set('page', this.currentPage);
         params.set('limit', this.pageSize);
 
@@ -105,8 +104,8 @@ class APIDataGrid extends GridBuilder {
             const params = this.buildParams();
             const urlBase = this.apiUrl.split('?')[0];
             const url = `${urlBase}?${params.toString()}`;
-            console.log('FETCH URL:', url);  
-			const response = await fetch(url);
+            
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -134,8 +133,9 @@ class APIDataGrid extends GridBuilder {
                     } else {
                         this.appendRows(newRows, metadata);
                     }
-                    // hasMore: current page < last page
-                    this.hasMore = result.page < result.last_page;
+                    // hasMore: true si la página retornó el máximo de filas (hay más)
+                    // La última página retorna menos de pageSize filas
+                    this.hasMore = newRows.length === this.pageSize;
                     if (!this.hasMore && this.scrollCleanup) {
                         this.scrollCleanup();
                         this.scrollCleanup = null;
@@ -169,37 +169,24 @@ class APIDataGrid extends GridBuilder {
         const isNumericArray = Array.isArray(data[0]);
         
         data.forEach((row, rowIndex) => {
-            let rowHTML = this.rowTemplate ? this.rowTemplate.innerHTML : '';
-            
-            if (!this.rowTemplate) {
-                const colsCount = isNumericArray ? row.length : Object.keys(row).length;
-                if (isNumericArray) {
-                    rowHTML = Array.from({length: colsCount}, (_, i) => 
-                        `<div class="grid-item">{${i}}</div>`
-                    ).join('');
-                } else {
-                    const keys = Object.keys(row);
-                    rowHTML = keys.map(key => 
-                        `<div class="grid-item">{${key}}</div>`
-                    ).join('');
-                }
-            }
-
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'grid-row';
             if (isNumericArray) {
-                row.forEach((value, colIndex) => {
-                    const placeholder = new RegExp(`\\{${colIndex}\\}`, 'g');
-                    rowHTML = rowHTML.replace(placeholder, this.escapeHtml(value));
+                row.forEach(value => {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-item';
+                    cell.textContent = value !== null && value !== undefined ? value : '';
+                    rowDiv.appendChild(cell);
                 });
             } else {
-                Object.keys(row).forEach(key => {
-                    const placeholder = new RegExp(`\\{${key}\\}`, 'g');
-                    rowHTML = rowHTML.replace(placeholder, this.escapeHtml(row[key]));
+                this.columns.forEach(key => {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-item';
+                    cell.textContent = row[key] !== null && row[key] !== undefined ? row[key] : '';
+                    rowDiv.appendChild(cell);
                 });
             }
-            
-            this.bodyContainer.insertAdjacentHTML('beforeend', 
-                `<div class="grid-row">${rowHTML}</div>`
-            );
+            this.bodyContainer.appendChild(rowDiv);
         });
     }
 

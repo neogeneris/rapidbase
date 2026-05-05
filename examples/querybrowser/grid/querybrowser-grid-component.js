@@ -3,7 +3,7 @@ class QueryBrowserGrid {
         const apiUrl = 'api.php?action=grid_data';
         const config = {
             mode: options.mode || 'infinite',
-            pageSize: options.pageSize || 5,
+            pageSize: options.pageSize || 30,
             filter: options.filter || {}
         };
         const grid = new APIDataGrid(containerSelector, apiUrl, config);

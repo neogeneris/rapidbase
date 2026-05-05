@@ -6,6 +6,7 @@ use RapidBase\Core\Conn;
 use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\SchemaMap;
 use RapidBase\Core\SQL\ConditionMatrix;
+use RapidBase\Core\SQL\Q;
 
 use \PDO;
 use \Generator;
@@ -197,6 +198,13 @@ class DB implements DBInterface
 
     /**
      * Motor para GRIDs que retorna un objeto QueryResponse optimizado.
+     * 
+     * @param string|array|object $table      Tabla(s)
+     * @param array               $conditions Condiciones WHERE
+     * @param mixed               $page       [page, perPage] para UI, o número de página, o [offset, limit]
+     * @param mixed               $sort       Ordenamiento
+     * @param string|null         $class      Modo fetch
+     * @return QueryResponse
      */
     public static function grid(
         string|array|object $table,
@@ -211,10 +219,25 @@ class DB implements DBInterface
             default    => \PDO::FETCH_CLASS,
         };
 
+        // Normalizar paginación: acepta [page, perPage] (formato UI) o número de página
+        if (is_array($page) && count($page) === 2) {
+            $displayPage = max(1, (int)$page[0]);
+            $displayLimit = max(1, (int)$page[1]);
+            $gatewayPage = Q::page($displayPage, $displayLimit);
+        } elseif (is_numeric($page) && (int)$page > 1) {
+            $displayPage = max(1, (int)$page);
+            $displayLimit = 10;
+            $gatewayPage = Q::page($displayPage, $displayLimit);
+        } else {
+            $displayPage = 1;
+            $displayLimit = 10;
+            $gatewayPage = Q::page(1, 10);
+        }
+
         $res = Gateway::selectCached(
             '*', $table, $conditions, [], [],
             is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []),
-            $page, 3600, $fetchMode,
+            $gatewayPage, 3600, $fetchMode,
             ($class !== null && $class !== 'StdClass') ? $class : null
         );
 
@@ -232,9 +255,7 @@ class DB implements DBInterface
         }
 
         $columnTitles = array_map([self::class, 'formatTitle'], $columnNames);
-
-        $limit    = $res['limit'] ?? 10;
-        $lastPage = ($limit > 0) ? (int) ceil($realTotal / $limit) : 1;
+        $lastPage = ($displayLimit > 0) ? (int) ceil($realTotal / $displayLimit) : 1;
 
         return new QueryResponse(
             data: $res['data'],
@@ -253,10 +274,10 @@ class DB implements DBInterface
                 ],
             ],
             state: [
-                'page'      => $res['page'],
-                'per_page'  => $res['limit'],
+                'page'      => $displayPage,
+                'per_page'  => $displayLimit,
                 'last_page' => $lastPage,
-                'offset'    => ($res['page'] - 1) * $res['limit'],
+                'offset'    => ($displayPage - 1) * $displayLimit,
                 'source'    => $res['source'],
             ]
         );
