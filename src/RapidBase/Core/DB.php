@@ -14,17 +14,12 @@ class DB implements DBInterface
 {
     public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void
     {
-        // Registrar la conexión (usa el nuevo Conn::add internamente)
         Conn::setup($dsn, $user, $pass, $name);
-        
-        // Obtener el driver directamente desde Conn (sin tocar PDO)
         $driver = Conn::getDriver($name);
         ConditionMatrix::setDriver($driver);
 
-        // Sincronizar SchemaMap con la conexión activa
         SchemaMap::setDefaultConnection(Conn::getCurrentConnectionId());
 
-        // Carga del SchemaMap (igual que antes)
         $schemaMapPath = __DIR__ . "/../../schema_map_{$name}.php";
         if (file_exists($schemaMapPath)) {
             SchemaMap::loadFromFile($schemaMapPath, $name);
@@ -33,7 +28,7 @@ class DB implements DBInterface
                 \RapidBase\Meta\SchemaMapper::setOutputFile($schemaMapPath);
                 $dbName = Conn::getDatabaseName($name);
                 \RapidBase\Meta\SchemaMapper::generate(
-                    Conn::get($name),   // PDO solo se usa aquí para generar el mapa
+                    Conn::get($name),
                     $dbName,
                     null,
                     $name
@@ -101,7 +96,7 @@ class DB implements DBInterface
 
     public static function find(string $table, array $conditions): array|false
     {
-        $result = Gateway::select('*', $table, $conditions, [],[],[], [1, 1], false, \PDO::FETCH_OBJ);
+        $result = Gateway::select('*', $table, $conditions, [],[],[], [1, 1], \PDO::FETCH_OBJ);
         $row = $result['data'][0] ?? false;
         return $row ? self::normalizeRow((array)$row) : false;
     }
@@ -178,14 +173,14 @@ class DB implements DBInterface
 
     public static function all(string|array $table, array $conditions = [], array $sort = []): array
     {
-        $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort, 1, false, 3600, \PDO::FETCH_OBJ);
+        $res = Gateway::selectCached('*', $table, $conditions,[],[], $sort, 1, 3600, \PDO::FETCH_OBJ);
         return array_map(function($row) { return self::normalizeRow((array)$row); }, $res['data']);
     }
 
     public static function list(
         string|array $table, array $where = [], array $sort = [], mixed $page = 0
     ): array {
-        $res = Gateway::selectCached(['*'], $table, $where, [],[], $sort, $page, false, 3600, \PDO::FETCH_OBJ);
+        $res = Gateway::selectCached('*', $table, $where, [],[], $sort, $page, 3600, \PDO::FETCH_OBJ);
         $data = $res['data'] ?? [];
         if (empty($data)) return [];
         $firstRow = (array)$data[0];
@@ -202,16 +197,6 @@ class DB implements DBInterface
 
     /**
      * Motor para GRIDs que retorna un objeto QueryResponse optimizado.
-     * 
-     * ## Modo de Fetching (parámetro $class):
-     * - null (default): Usa FETCH_NUM para máximo rendimiento (arrays numéricos)
-     * - 'StdClass': Usa FETCH_OBJ para objetos genéricos optimizados
-     * - Nombre de clase: Usa FETCH_CLASS para hidratación directa a esa clase
-     * 
-     * ## Beneficios de FETCH_NUM (default):
-     * - 45% menos uso de memoria vs FETCH_ASSOC
-     * - 30% más rápido en consultas grandes
-     * - Sin colisiones de columnas en JOINs (ej: users.id y posts.id no se solapan)
      */
     public static function grid(
         string|array|object $table,
@@ -226,25 +211,17 @@ class DB implements DBInterface
             default    => \PDO::FETCH_CLASS,
         };
 
-        // Llamada a la caché SIN total separado (ya viene en _total)
         $res = Gateway::selectCached(
-            '*',
-            $table,
-            $conditions,
-            [],
-            [],
+            '*', $table, $conditions, [], [],
             is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []),
-            $page,
-            false,          // withTotal = false → usa _total automático
-            3600,
-            $fetchMode,
+            $page, 3600, $fetchMode,
             ($class !== null && $class !== 'StdClass') ? $class : null
         );
 
-        // Columnas desde la metadata unificada (sin depender de SchemaMap)
-        $columnNames = $res['metadata']['cols'] ?? [];
+        // Obtener el total real con COUNT (sin paginación)
+        $realTotal = Gateway::count($table, $conditions);
 
-        // Fallback ligero si no hay metadata (poco probable)
+        $columnNames = $res['metadata']['cols'] ?? [];
         if (empty($columnNames) && !empty($res['data'])) {
             $firstRow = $res['data'][0] ?? [];
             if (is_array($firstRow)) {
@@ -257,11 +234,11 @@ class DB implements DBInterface
         $columnTitles = array_map([self::class, 'formatTitle'], $columnNames);
 
         $limit    = $res['limit'] ?? 10;
-        $lastPage = ($limit > 0) ? (int) ceil($res['total'] / $limit) : 1;
+        $lastPage = ($limit > 0) ? (int) ceil($realTotal / $limit) : 1;
 
         return new QueryResponse(
             data: $res['data'],
-            total: $res['total'],
+            total: $realTotal,
             count: count($res['data']),
             metadata: [
                 'columns'        => $columnNames,

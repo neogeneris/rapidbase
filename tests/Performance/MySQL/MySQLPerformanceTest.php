@@ -1,522 +1,334 @@
 <?php
 /**
- * MySQL Performance Test for RapidBase
+ * MySQL Performance Benchmark: PDO vs RapidBase (No Cache) vs RapidBase (With Cache)
+ * Measures execution time for Simple Select, 2-Table Join, and 3-Table Join.
  * 
- * Pruebas de rendimiento progresivas:
- * 1. Consultas simples (INSERT, SELECT básico)
- * 2. Consultas con WHERE y ORDER BY
- * 3. JOINs entre tablas
- * 4. Agregaciones y GROUP BY
- * 5. Subconsultas y CTEs
- * 6. Operaciones masivas (bulk operations)
+ * Requires: mysql-test-setup.php to be run first (for base tables)
+ * This script will add additional records for benchmarking.
  */
 
-// Carga manual de dependencias de RapidBase y configuración
-require_once __DIR__ . "/../../../vendor/autoload.php";
-require_once __DIR__ . "/config.php";
+// Load MySQL config
+$configFile = __DIR__ . '/../../mysql-test-config.local.php';
+if (!file_exists($configFile)) {
+    $configFile = __DIR__ . '/../../mysql-test-config.php';
+}
+require_once $configFile;
+
+require_once __DIR__ . '/../../../examples/querybrowser/RapidBase.php';
 
 use RapidBase\Core\DB;
-use RapidBase\Core\Schema;
-use RapidBase\Core\Conn;
+use RapidBase\Core\Gateway;
 use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\SchemaMap;
+use RapidBase\Meta\SchemaMapper;
 
-class MySQLPerformanceTest {
-    
-    private array $results = [];
-    private \PDO $pdo;
-    
-    public function run(): void {
-        echo "=== MySQL Performance Test ===\n\n";
-        
-        try {
-            // Conectar a MySQL usando configuración centralizada
-            MySQLConfig::setupRapidBase();
-            $this->pdo = MySQLConfig::getPDO();
-            echo "✓ Conectado a MySQL (Host: " . MySQLConfig::DB_HOST . ":" . MySQLConfig::DB_PORT . ")\n\n";
-            
-            // Limpiar tablas si existen
-            $this->cleanup();
-            
-            // Ejecutar pruebas progresivas
-            $this->testSimpleInserts();
-            $this->testSimpleSelects();
-            $this->testWhereAndOrderBy();
-            $this->testJoins();
-            $this->testAggregations();
-            $this->testSubqueriesAndCTEs();
-            $this->testBulkOperations();
-            $this->testComplexQueries();
-            
-            // Mostrar resumen
-            $this->printSummary();
-            
-        } catch (Exception $e) {
-            echo "✗ Error: " . $e->getMessage() . "\n";
-            echo $e->getTraceAsString() . "\n";
-        } finally {
-            $this->cleanup();
-            Conn::close('main');
-        }
+$prefix = TEST_PREFIX;
+$cacheDir = __DIR__ . '/../../tmp/cache';
+
+// Clean cache
+if (is_dir($cacheDir)) {
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($cacheDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($it as $file) {
+        if ($file->isDir()) rmdir($file->getRealPath());
+        else unlink($file->getRealPath());
     }
-    
-    private function cleanup(): void {
-        MySQLConfig::cleanup();
-    }
-    
-    private function createTables(): void {
-        // Tabla customers
-        $this->pdo->exec(<<<SQL
-            CREATE TABLE IF NOT EXISTS customers (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL,
-                city VARCHAR(100),
-                credit_limit DECIMAL(10, 2),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        SQL);
-        
-        // Tabla categories
-        $this->pdo->exec(<<<SQL
-            CREATE TABLE IF NOT EXISTS categories (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                description TEXT
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        SQL);
-        
-        // Tabla products
-        $this->pdo->exec(<<<SQL
-            CREATE TABLE IF NOT EXISTS products (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                category_id INTEGER,
-                price DECIMAL(10, 2),
-                stock INTEGER,
-                metadata JSON,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (category_id) REFERENCES categories(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        SQL);
-        
-        // Tabla orders
-        $this->pdo->exec(<<<SQL
-            CREATE TABLE IF NOT EXISTS orders (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                customer_id INTEGER,
-                status VARCHAR(50),
-                total DECIMAL(12, 2),
-                order_date TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (customer_id) REFERENCES customers(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        SQL);
-        
-        // Tabla order_items
-        $this->pdo->exec(<<<SQL
-            CREATE TABLE IF NOT EXISTS order_items (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                order_id INTEGER,
-                product_id INTEGER,
-                quantity INTEGER,
-                unit_price DECIMAL(10, 2),
-                subtotal DECIMAL(12, 2),
-                FOREIGN KEY (order_id) REFERENCES orders(id),
-                FOREIGN KEY (product_id) REFERENCES products(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        SQL);
-    }
-    
-    private function seedData(int $customerCount, int $categoryCount, int $productCount, int $orderCount): void {
-        echo "  → Generando datos de prueba...\n";
-        
-        $startTime = microtime(true);
-        
-        // Insertar categorías
-        $categories = [];
-        for ($i = 1; $i <= $categoryCount; $i++) {
-            $categories[] = [
-                'name' => "Category $i",
-                'description' => "Description for category $i"
-            ];
-        }
-        DB::table('categories')->insert($categories);
-        
-        // Insertar clientes
-        $cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego'];
-        $customers = [];
-        for ($i = 1; $i <= $customerCount; $i++) {
-            $customers[] = [
-                'name' => "Customer $i",
-                'email' => "customer$i@example.com",
-                'city' => $cities[array_rand($cities)],
-                'credit_limit' => rand(1000, 50000) / 100,
-                'created_at' => date('Y-m-d H:i:s', strtotime("-" . rand(1, 365) . " days"))
-            ];
-        }
-        DB::table('customers')->insert($customers);
-        
-        // Insertar productos
-        $products = [];
-        for ($i = 1; $i <= $productCount; $i++) {
-            $products[] = [
-                'name' => "Product $i",
-                'category_id' => rand(1, $categoryCount),
-                'price' => rand(10, 10000) / 100,
-                'stock' => rand(0, 1000),
-                'metadata' => json_encode(['brand' => "Brand " . rand(1, 10), 'rating' => rand(1, 5) / 10]),
-                'created_at' => date('Y-m-d H:i:s', strtotime("-" . rand(1, 365) . " days"))
-            ];
-        }
-        DB::table('products')->insert($products);
-        
-        // Insertar órdenes
-        $statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
-        $orders = [];
-        for ($i = 1; $i <= $orderCount; $i++) {
-            $orders[] = [
-                'customer_id' => rand(1, $customerCount),
-                'status' => $statuses[array_rand($statuses)],
-                'total' => rand(100, 100000) / 100,
-                'order_date' => date('Y-m-d H:i:s', strtotime("-" . rand(1, 365) . " days")),
-                'created_at' => date('Y-m-d H:i:s', strtotime("-" . rand(1, 365) . " days"))
-            ];
-        }
-        DB::table('orders')->insert($orders);
-        
-        // Insertar order_items (aproximadamente 3 items por orden)
-        $orderItems = [];
-        for ($i = 1; $i <= $orderCount * 3; $i++) {
-            $productId = rand(1, $productCount);
-            $quantity = rand(1, 10);
-            $unitPrice = rand(10, 10000) / 100;
-            $orderItems[] = [
-                'order_id' => (($i - 1) % $orderCount) + 1,
-                'product_id' => $productId,
-                'quantity' => $quantity,
-                'unit_price' => $unitPrice,
-                'subtotal' => $quantity * $unitPrice
-            ];
-        }
-        DB::table('order_items')->insert($orderItems);
-        
-        $endTime = microtime(true);
-        $duration = round(($endTime - $startTime) * 1000, 2);
-        echo "  ✓ Datos generados en {$duration}ms\n";
-        echo "    - Clientes: $customerCount\n";
-        echo "    - Categorías: $categoryCount\n";
-        echo "    - Productos: $productCount\n";
-        echo "    - Órdenes: $orderCount\n";
-        echo "    - Items de orden: " . ($orderCount * 3) . "\n\n";
-    }
-    
-    private function measure(string $name, callable $callback, int $iterations = 1): array {
-        $times = [];
-        
-        for ($i = 0; $i < $iterations; $i++) {
-            $startTime = microtime(true);
-            $result = $callback();
-            $endTime = microtime(true);
-            $times[] = ($endTime - $startTime) * 1000; // Convertir a ms
-        }
-        
-        $avg = array_sum($times) / count($times);
-        $min = min($times);
-        $max = max($times);
-        
-        return [
-            'name' => $name,
-            'avg' => round($avg, 3),
-            'min' => round($min, 3),
-            'max' => round($max, 3),
-            'iterations' => $iterations,
-            'result' => $result ?? null
-        ];
-    }
-    
-    private function testSimpleInserts(): void {
-        echo "--- Prueba 1: INSERTs Simples ---\n";
-        $this->createTables();
-        
-        // Insert individual
-        $result = $this->measure('INSERT individual', function() {
-            return DB::insert('customers', [
-                'name' => 'Test Customer',
-                'email' => 'test@example.com',
-                'city' => 'Test City',
-                'credit_limit' => 1000.00
-            ]);
-        });
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // Insert multiple (100 registros)
-        $batchData = [];
-        for ($i = 0; $i < 100; $i++) {
-            $batchData[] = [
-                'name' => "Batch Customer $i",
-                'email' => "batch$i@example.com",
-                'city' => 'Batch City',
-                'credit_limit' => 500.00
-            ];
-        }
-        
-        $result = $this->measure('INSERT batch (100 registros)', function() use ($batchData) {
-            $ids = [];
-            foreach ($batchData as $row) {
-                $ids[] = DB::insert('customers', $row);
-            }
-            return count($ids);
-        });
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms (" . round(100 / ($result['avg'] / 1000), 0) . " regs/seg)\n\n";
-    }
-    
-    private function testSimpleSelects(): void {
-        echo "--- Prueba 2: SELECTs Simples ---\n";
-        
-        // SELECT * sin WHERE
-        $result = $this->measure('SELECT * (sin WHERE, 1000 regs)', function() {
-            return count(DB::many('SELECT * FROM customers LIMIT 1000'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n";
-        
-        // SELECT con columnas específicas
-        $result = $this->measure('SELECT columnas específicas', function() {
-            return count(DB::many('SELECT id, name, email FROM customers LIMIT 1000'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // SELECT COUNT
-        $result = $this->measure('SELECT COUNT(*)', function() {
-            return DB::value('SELECT COUNT(*) FROM customers');
-        }, 10);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n\n";
-    }
-    
-    private function testWhereAndOrderBy(): void {
-        echo "--- Prueba 3: WHERE y ORDER BY ---\n";
-        
-        // WHERE simple
-        $result = $this->measure('WHERE simple (city = ?)', function() {
-            return count(DB::many('SELECT * FROM customers WHERE city = ?', ['New York']));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n";
-        
-        // WHERE múltiple
-        $result = $this->measure('WHERE múltiple (AND)', function() {
-            return count(DB::many('SELECT * FROM customers WHERE credit_limit > ? AND city = ?', [100, 'New York']));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n";
-        
-        // ORDER BY
-        $result = $this->measure('ORDER BY DESC', function() {
-            return count(DB::many('SELECT * FROM customers ORDER BY credit_limit DESC LIMIT 100'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // WHERE + ORDER BY + LIMIT
-        $result = $this->measure('WHERE + ORDER BY + LIMIT', function() {
-            return DB::many('SELECT * FROM customers WHERE credit_limit > ? ORDER BY credit_limit DESC LIMIT 50', [50]);
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n\n";
-    }
-    
-    private function testJoins(): void {
-        echo "--- Prueba 4: JOINs ---\n";
-        
-        // INNER JOIN simple
-        $result = $this->measure('INNER JOIN (2 tablas)', function() {
-            return count(DB::many('SELECT p.name, c.name as category_name, p.price FROM products p JOIN categories c ON p.category_id = c.id LIMIT 500'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n";
-        
-        // JOIN múltiple
-        $result = $this->measure('JOIN múltiple (3 tablas)', function() {
-            return count(DB::many('SELECT o.id as order_id, p.name, oi.quantity, oi.subtotal FROM order_items oi JOIN orders o ON oi.order_id = o.id JOIN products p ON oi.product_id = p.id LIMIT 500'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n";
-        
-        // JOIN con WHERE
-        $result = $this->measure('JOIN + WHERE', function() {
-            return count(DB::many("SELECT o.*, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.status = ? AND c.city = ? LIMIT 200", ['delivered', 'New York']));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n\n";
-    }
-    
-    private function testAggregations(): void {
-        echo "--- Prueba 5: Agregaciones ---\n";
-        
-        // COUNT con GROUP BY
-        $result = $this->measure('COUNT + GROUP BY', function() {
-            return DB::many('SELECT status, COUNT(*) as count FROM orders GROUP BY status');
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // SUM con GROUP BY
-        $result = $this->measure('SUM + GROUP BY', function() {
-            return DB::many('SELECT product_id, SUM(subtotal) as total_sales FROM order_items GROUP BY product_id ORDER BY total_sales DESC LIMIT 20');
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // AVG, MIN, MAX
-        $result = $this->measure('AVG, MIN, MAX', function() {
-            return DB::query('SELECT AVG(price) as avg_price, MIN(price) as min_price, MAX(price) as max_price FROM products')->fetch(\PDO::FETCH_ASSOC);
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // HAVING clause
-        $result = $this->measure('GROUP BY + HAVING', function() {
-            return count(DB::many('SELECT product_id, SUM(quantity) as total_qty FROM order_items GROUP BY product_id HAVING SUM(quantity) > 10 LIMIT 50'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n\n";
-    }
-    
-    private function testSubqueriesAndCTEs(): void {
-        echo "--- Prueba 6: Subconsultas y CTEs ---\n";
-        
-        // Subquery en WHERE
-        $result = $this->measure('Subquery en WHERE', function() {
-            return count(DB::many("SELECT * FROM products WHERE category_id IN (SELECT id FROM categories WHERE name LIKE '%Category 1%') LIMIT 200"));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n";
-        
-        // CTE (WITH clause)
-        $result = $this->measure('CTE (WITH clause)', function() {
-            return DB::many('WITH product_sales AS (SELECT product_id, SUM(subtotal) as product_total FROM order_items GROUP BY product_id) SELECT p.name, ps.product_total FROM product_sales ps JOIN products p ON ps.product_id = p.id ORDER BY ps.product_total DESC LIMIT 20');
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // Subquery correlacionada
-        $result = $this->measure('Subquery correlacionada', function() {
-            return count(DB::many('SELECT c.*, (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id) as order_count FROM customers c LIMIT 100'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n\n";
-    }
-    
-    private function testBulkOperations(): void {
-        echo "--- Prueba 7: Operaciones Masivas ---\n";
-        
-        // Bulk UPDATE
-        $result = $this->measure('Bulk UPDATE (1000 registros)', function() {
-            DB::exec('UPDATE products SET stock = stock + 10 WHERE stock > 0');
-            return DB::getAffectedRows();
-        });
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros actualizados)\n";
-        
-        // Bulk DELETE
-        $result = $this->measure('Bulk DELETE (registros antiguos)', function() {
-            DB::exec("DELETE FROM customers WHERE created_at < DATE_SUB(NOW(), INTERVAL 200 DAY)");
-            return DB::getAffectedRows();
-        });
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros eliminados)\n";
-        
-        // UPSERT (ON DUPLICATE KEY UPDATE)
-        $result = $this->measure('UPSERT (ON DUPLICATE KEY)', function() {
-            DB::exec("INSERT INTO categories (id, name, description) VALUES (1, 'Updated Category 1', 'Updated description'), (2, 'Updated Category 2', 'Updated description') ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)");
-            return DB::getAffectedRows();
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n\n";
-    }
-    
-    private function testComplexQueries(): void {
-        echo "--- Prueba 8: Consultas Complejas ---\n";
-        
-        // Query compleja con múltiples JOINs, agregaciones y filtros
-        $result = $this->measure('Query compleja (reporte de ventas)', function() {
-            return DB::many("SELECT 
-                c.name as category_name,
-                cust.city,
-                COUNT(DISTINCT o.id) as order_count,
-                SUM(oi.quantity) as total_quantity,
-                SUM(oi.subtotal) as total_revenue,
-                AVG(oi.subtotal) as avg_item_value
-            FROM orders o
-            JOIN customers cust ON o.customer_id = cust.id
-            JOIN order_items oi ON o.id = oi.order_id
-            JOIN products p ON oi.product_id = p.id
-            JOIN categories c ON p.category_id = c.id
-            WHERE o.status = 'delivered'
-            AND o.order_date >= DATE_SUB(NOW(), INTERVAL 180 DAY)
-            GROUP BY c.name, cust.city
-            HAVING SUM(oi.subtotal) > 100
-            ORDER BY total_revenue DESC
-            LIMIT 50");
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms\n";
-        
-        // Window functions (disponible en MySQL 8.0+)
-        $result = $this->measure('Window Function (RANK)', function() {
-            return count(DB::many('SELECT name, price, category_id, RANK() OVER (PARTITION BY category_id ORDER BY price DESC) as price_rank FROM products LIMIT 100'));
-        }, 5);
-        $this->results[] = $result;
-        echo "  {$result['name']}: {$result['avg']}ms ({$result['result']} registros)\n\n";
-    }
-    
-    private function printSummary(): void {
-        echo "\n";
-        echo "╔══════════════════════════════════════════════════════════════╗\n";
-        echo "║                    PERFORMANCE SUMMARY                       ║\n";
-        echo "╠══════════════════════════════════════════════════════════════╣\n";
-        echo "║ Operation                              │ Avg (ms) │ Type    ║\n";
-        echo "╠────────────────────────────────────────┼──────────┼─────────╣\n";
-        
-        foreach ($this->results as $result) {
-            $type = $this->getResultType($result['name']);
-            $name = str_pad(substr($result['name'], 0, 38), 38);
-            $avg = str_pad($result['avg'], 8);
-            echo "║ $name │ $avg │ $type ║\n";
-        }
-        
-        echo "╚══════════════════════════════════════════════════════════════╝\n\n";
-        
-        // Estadísticas generales
-        $avgTimes = array_column($this->results, 'avg');
-        $overallAvg = array_sum($avgTimes) / count($avgTimes);
-        $fastest = min($avgTimes);
-        $slowest = max($avgTimes);
-        
-        echo "📊 Estadísticas Generales:\n";
-        echo "   - Total de pruebas: " . count($this->results) . "\n";
-        echo "   - Promedio general: " . round($overallAvg, 3) . "ms\n";
-        echo "   - Más rápida: " . round($fastest, 3) . "ms\n";
-        echo "   - Más lenta: " . round($slowest, 3) . "ms\n";
-        echo "   - Desviación: " . round($slowest / $fastest, 2) . "x\n\n";
-    }
-    
-    private function getResultType(string $name): string {
-        if (strpos($name, 'INSERT') !== false) return 'WRITE';
-        if (strpos($name, 'UPDATE') !== false) return 'WRITE';
-        if (strpos($name, 'DELETE') !== false) return 'WRITE';
-        if (strpos($name, 'UPSERT') !== false) return 'WRITE';
-        return 'READ';
-    }
+} else {
+    mkdir($cacheDir, 0777, true);
 }
 
-// Ejecutar tests
-$test = new MySQLPerformanceTest();
-$test->run();
+echo "==================================================\n";
+echo "MYSQL PERFORMANCE BENCHMARK\n";
+echo "PDO vs RapidBase (No Cache) vs RapidBase (Cache)\n";
+echo "==================================================\n";
+echo "Host: " . MYSQL_HOST . "\n";
+echo "DB:   " . MYSQL_DB . "\n\n";
+
+// Connect
+$dsn = "mysql:host=" . MYSQL_HOST . ";port=" . MYSQL_PORT . ";dbname=" . MYSQL_DB . ";charset=utf8mb4";
+$pdo = new PDO($dsn, MYSQL_USER, MYSQL_PASS, [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+]);
+
+// Create large benchmark tables
+echo "Setting up benchmark tables with 100,000 records...\n";
+
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_users`");
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_posts`");
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_tags`");
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_post_tag`");
+
+$pdo->exec("
+    CREATE TABLE `{$prefix}bench_users` (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(150) NOT NULL,
+        INDEX idx_email (email)
+    ) ENGINE=InnoDB
+");
+
+$pdo->exec("
+    CREATE TABLE `{$prefix}bench_posts` (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        content TEXT,
+        INDEX idx_user (user_id)
+    ) ENGINE=InnoDB
+");
+
+$pdo->exec("
+    CREATE TABLE `{$prefix}bench_tags` (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB
+");
+
+$pdo->exec("
+    CREATE TABLE `{$prefix}bench_post_tag` (
+        post_id INT UNSIGNED NOT NULL,
+        tag_id INT UNSIGNED NOT NULL,
+        PRIMARY KEY (post_id, tag_id)
+    ) ENGINE=InnoDB
+");
+
+// Insert users (10,000)
+echo "Inserting users...\n";
+$stmt = $pdo->prepare("INSERT INTO `{$prefix}bench_users` (name, email) VALUES (?, ?)");
+$pdo->beginTransaction();
+for ($i = 1; $i <= 10000; $i++) {
+    $stmt->execute(["User $i", "user$i@test.com"]);
+    if ($i % 1000 === 0) {
+        $pdo->commit();
+        $pdo->beginTransaction();
+        echo "  $i/10000\n";
+    }
+}
+$pdo->commit();
+echo "  Done.\n";
+
+// Insert posts (50,000)
+echo "Inserting posts...\n";
+$stmt = $pdo->prepare("INSERT INTO `{$prefix}bench_posts` (user_id, title, content) VALUES (?, ?, ?)");
+$pdo->beginTransaction();
+for ($i = 1; $i <= 50000; $i++) {
+    $stmt->execute([($i % 10000) + 1, "Post Title $i", "Content for post $i"]);
+    if ($i % 5000 === 0) {
+        $pdo->commit();
+        $pdo->beginTransaction();
+        echo "  $i/50000\n";
+    }
+}
+$pdo->commit();
+echo "  Done.\n";
+
+// Insert tags (100)
+echo "Inserting tags...\n";
+$stmt = $pdo->prepare("INSERT INTO `{$prefix}bench_tags` (name) VALUES (?)");
+$pdo->beginTransaction();
+for ($i = 1; $i <= 100; $i++) {
+    $stmt->execute(["Tag $i"]);
+}
+$pdo->commit();
+echo "  Done.\n";
+
+// Insert post_tag (50,000)
+echo "Inserting post_tag relations...\n";
+$stmt = $pdo->prepare("INSERT IGNORE INTO `{$prefix}bench_post_tag` (post_id, tag_id) VALUES (?, ?)");
+$pdo->beginTransaction();
+for ($i = 1; $i <= 50000; $i++) {
+    $stmt->execute([$i, ($i % 100) + 1]);
+    if ($i % 5000 === 0) {
+        $pdo->commit();
+        $pdo->beginTransaction();
+        echo "  $i/50000\n";
+    }
+}
+$pdo->commit();
+echo "  Done.\n\n";
+
+// Initialize RapidBase with MySQL
+echo "Initializing RapidBase...\n";
+DB::setup($dsn, MYSQL_USER, MYSQL_PASS, 'bench');
+CacheService::init($cacheDir);
+// Generate schema map for the bench tables
+$pdo2 = new PDO($dsn, MYSQL_USER, MYSQL_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+SchemaMapper::setOutputFile(__DIR__ . '/../../tmp/bench_schema.php');
+SchemaMapper::generate($pdo2, MYSQL_DB, null, 'bench');
+if (file_exists(__DIR__ . '/../../tmp/bench_schema.php')) {
+    $map = include __DIR__ . '/../../tmp/bench_schema.php';
+    SchemaMap::setMap($map, 'bench');
+}
+echo "  Done.\n\n";
+
+// Helper for timing
+function benchmark($name, callable $fn, $iterations = 100) {
+    echo "  $name: warming up...\n";
+    // Warmup
+    for ($i = 0; $i < 5; $i++) $fn();
+    
+    echo "  $name: running $iterations iterations...\n";
+    $start = microtime(true);
+    for ($i = 0; $i < $iterations; $i++) $fn();
+    $end = microtime(true);
+    
+    $avg = (($end - $start) / $iterations) * 1000;
+    echo sprintf("  %-30s: %.4f ms\n", $name, $avg);
+    return $avg;
+}
+
+echo "--- SCENARIO 1: Simple Select (100 iterations) ---\n";
+echo "Fetching 50 users...\n\n";
+
+$timePdoSimple = benchmark("PDO Native", function() use ($pdo, $prefix) {
+    $stmt = $pdo->query("SELECT * FROM `{$prefix}bench_users` LIMIT 50");
+    $stmt->fetchAll(PDO::FETCH_ASSOC);
+});
+
+$timeRbNoCache = benchmark("RapidBase (No Cache)", function() use ($prefix) {
+    CacheService::disable();
+    Gateway::select('*', "{$prefix}bench_users", [], [], [], [], [1, 50]);
+});
+
+CacheService::enable();
+Gateway::selectCached('*', "{$prefix}bench_users", [], [], [], [], [1, 50]);
+
+$timeRbCache = benchmark("RapidBase (Cache Hit)", function() use ($prefix) {
+    Gateway::selectCached('*', "{$prefix}bench_users", [], [], [], [], [1, 50]);
+});
+
+echo "\n--- SCENARIO 2: Join 2 Tables (50 iterations) ---\n";
+echo "Fetching posts with users...\n\n";
+
+$timePdoJoin2 = benchmark("PDO Native", function() use ($pdo, $prefix) {
+    $stmt = $pdo->query("
+        SELECT p.*, u.name as user_name 
+        FROM `{$prefix}bench_posts` p 
+        JOIN `{$prefix}bench_users` u ON p.user_id = u.id 
+        LIMIT 50
+    ");
+    $stmt->fetchAll(PDO::FETCH_ASSOC);
+});
+
+$timeRbJoin2NoCache = benchmark("RapidBase (No Cache)", function() use ($prefix) {
+    CacheService::disable();
+    Gateway::select(
+        ['p.*', 'u.name as user_name'],
+        [
+            "{$prefix}bench_posts AS p",
+            ["{$prefix}bench_users" => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]
+        ],
+        [], [], [], [], [1, 50]
+    );
+});
+
+CacheService::enable();
+Gateway::selectCached(
+    ['p.*', 'u.name as user_name'],
+    [
+        "{$prefix}bench_posts AS p",
+        ["{$prefix}bench_users" => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]
+    ],
+    [], [], [], [], [1, 50]
+);
+
+$timeRbJoin2Cache = benchmark("RapidBase (Cache Hit)", function() use ($prefix) {
+    Gateway::selectCached(
+        ['p.*', 'u.name as user_name'],
+        [
+            "{$prefix}bench_posts AS p",
+            ["{$prefix}bench_users" => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]
+        ],
+        [], [], [], [], [1, 50]
+    );
+});
+
+echo "\n--- SCENARIO 3: Join 3 Tables (20 iterations) ---\n";
+echo "Fetching posts with users and tags...\n\n";
+
+$timePdoJoin3 = benchmark("PDO Native", function() use ($pdo, $prefix) {
+    $stmt = $pdo->query("
+        SELECT p.*, u.name as user_name, t.name as tag_name 
+        FROM `{$prefix}bench_posts` p 
+        JOIN `{$prefix}bench_users` u ON p.user_id = u.id 
+        JOIN `{$prefix}bench_post_tag` pt ON p.id = pt.post_id 
+        JOIN `{$prefix}bench_tags` t ON pt.tag_id = t.id 
+        LIMIT 50
+    ");
+    $stmt->fetchAll(PDO::FETCH_ASSOC);
+});
+
+$timeRbJoin3NoCache = benchmark("RapidBase (No Cache)", function() use ($prefix) {
+    CacheService::disable();
+    Gateway::select(
+        ['p.*', 'u.name as user_name', 't.name as tag_name'],
+        [
+            "{$prefix}bench_posts AS p",
+            ["{$prefix}bench_users" => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']],
+            ["{$prefix}bench_post_tag" => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
+            ["{$prefix}bench_tags" => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
+        ],
+        [], [], [], [], [1, 50]
+    );
+});
+
+CacheService::enable();
+Gateway::selectCached(
+    ['p.*', 'u.name as user_name', 't.name as tag_name'],
+    [
+        "{$prefix}bench_posts AS p",
+        ["{$prefix}bench_users" => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']],
+        ["{$prefix}bench_post_tag" => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
+        ["{$prefix}bench_tags" => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
+    ],
+    [], [], [], [], [1, 50]
+);
+
+$timeRbJoin3Cache = benchmark("RapidBase (Cache Hit)", function() use ($prefix) {
+    Gateway::selectCached(
+        ['p.*', 'u.name as user_name', 't.name as tag_name'],
+        [
+            "{$prefix}bench_posts AS p",
+            ["{$prefix}bench_users" => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']],
+            ["{$prefix}bench_post_tag" => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
+            ["{$prefix}bench_tags" => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
+        ],
+        [], [], [], [], [1, 50]
+    );
+});
+
+echo "\n==================================================\n";
+echo "SUMMARY (Relative to PDO = 1.0x)\n";
+echo "==================================================\n";
+
+function calcRatio($base, $compare) {
+    return number_format($compare / $base, 2);
+}
+
+echo "\nSimple Select (100 iterations):\n";
+echo "  PDO:              1.00x (Base)\n";
+echo "  RapidBase No Cache: " . calcRatio($timePdoSimple, $timeRbNoCache) . "x\n";
+echo "  RapidBase Cache:    " . calcRatio($timePdoSimple, $timeRbCache) . "x (" . number_format($timePdoSimple / $timeRbCache, 1) . "x FASTER than PDO)\n";
+
+echo "\nJoin 2 Tables (50 iterations):\n";
+echo "  PDO:              1.00x (Base)\n";
+echo "  RapidBase No Cache: " . calcRatio($timePdoJoin2, $timeRbJoin2NoCache) . "x\n";
+echo "  RapidBase Cache:    " . calcRatio($timePdoJoin2, $timeRbJoin2Cache) . "x (" . number_format($timePdoJoin2 / $timeRbJoin2Cache, 1) . "x FASTER than PDO)\n";
+
+echo "\nJoin 3 Tables (20 iterations):\n";
+echo "  PDO:              1.00x (Base)\n";
+echo "  RapidBase No Cache: " . calcRatio($timePdoJoin3, $timeRbJoin3NoCache) . "x\n";
+echo "  RapidBase Cache:    " . calcRatio($timePdoJoin3, $timeRbJoin3Cache) . "x (" . number_format($timePdoJoin3 / $timeRbJoin3Cache, 1) . "x FASTER than PDO)\n";
+
+// Cleanup benchmark tables
+echo "\n--- Cleanup ---\n";
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_users`");
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_posts`");
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_tags`");
+$pdo->exec("DROP TABLE IF EXISTS `{$prefix}bench_post_tag`");
+echo "Benchmark tables removed.\n";
+
+echo "\nBenchmark completed.\n";

@@ -29,6 +29,14 @@ class Executor
             $map    = $cq->getProjectionMap();
         }
 
+        // Forzar conversión de parámetros numéricos a entero (evita error en MySQL con LIMIT/OFFSET)
+        $params = array_map(function ($p) {
+            if (is_string($p) && ctype_digit($p)) {
+                return (int)$p;
+            }
+            return $p;
+        }, $params);
+
         $result = [
             'rows'    => [],
             'count'   => 0,
@@ -84,7 +92,6 @@ class Executor
 
                 // ── Determinar el mapa de columnas ─────────
                 if (empty($map) && !empty($rows)) {
-                    // Fallback: construir mapa desde getColumnMeta
                     $map = [];
                     $columnCount = $stmt->columnCount();
                     for ($i = 0; $i < $columnCount; $i++) {
@@ -109,11 +116,9 @@ class Executor
                 // ── Filtrar columnas privadas (prefijo _) ──
                 $privateKeys = array_filter(array_keys($map), fn($k) => str_starts_with($k, '_'));
                 if (!empty($privateKeys)) {
-                    // Obtener los índices de las columnas a eliminar
                     $indicesToRemove = array_intersect_key($map, array_flip($privateKeys));
                     $indexes = array_values($indicesToRemove);
-                    
-                    // Eliminar esas posiciones de cada fila
+
                     foreach ($rows as &$row) {
                         foreach ($indexes as $idx) {
                             unset($row[$idx]);
@@ -121,11 +126,8 @@ class Executor
                         $row = array_values($row);
                     }
                     unset($row);
-                    
-                    // Quitar las claves privadas del mapa
+
                     $map = array_diff_key($map, array_flip($privateKeys));
-                    
-                    // Reindexar el mapa para que coincida con las filas limpias
                     $map = self::reindexMap($map);
                 }
 
@@ -137,7 +139,7 @@ class Executor
                 // Sin hidratación: devolvemos las filas numéricas
                 $result['rows']    = $rows;
                 $result['count']   = count($rows);
-                $result['cols']    = array_keys($map);   // nombres de columna públicos
+                $result['cols']    = array_keys($map);
                 $result['success'] = true;
                 $result['action']  = 'select';
                 $result['total']   = $total;
@@ -194,7 +196,6 @@ class Executor
      */
     private static function reindexMap(array $map): array
     {
-        // Ordenar por el valor (índice original)
         asort($map);
         $index = 0;
         $newMap = [];
@@ -224,10 +225,9 @@ class Executor
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
 
-            // PostgreSQL: lastInsertId() puede fallar si no hubo INSERT con SERIAL
             $lastId = null;
             $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
-            
+
             if ($driver === 'pgsql') {
                 $sqlUpper = strtoupper(trim($sql));
                 if (strpos($sqlUpper, 'INSERT') === 0 || strpos($sqlUpper, 'INTO') !== false) {

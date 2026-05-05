@@ -43,7 +43,7 @@ class SqlCompiler
         $group  = ($g = self::normalizeField($state[self::GROUP] ?? '')) ? ' GROUP BY ' . $g : '';
         $having = $state[self::HAVING] ? ' HAVING ' . $state[self::HAVING] : '';
         $order  = ($o = self::normalizeField($state[self::ORDER] ?? '')) ? ' ORDER BY ' . $o : '';
-        $limit  = $state[self::LIMIT]  ? ' LIMIT ' . $state[self::LIMIT] : '';
+        $limit  = $state[self::LIMIT]  ?  $state[self::LIMIT] : '';
         $params = $state[self::PARAMS] ?? [];
 
         $sql = sprintf(

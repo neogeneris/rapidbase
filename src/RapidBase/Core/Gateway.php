@@ -22,7 +22,6 @@ class Gateway
         array $having   = [],
         array $sort     = [],
         mixed $page     = 1,
-        bool $withTotal = false,
         int $fetchMode  = \PDO::FETCH_NUM,
         ?string $class  = null
     ): array {
@@ -47,6 +46,8 @@ class Gateway
             }
         }
 
+        $withTotal = false;
+
         $query = Q::from($table, $where ?? []);
         $compiled = $query->select($fields, $pagination, $sort, $groupBy, $having, $withTotal);
 
@@ -55,11 +56,7 @@ class Gateway
             $res = $compiled->run($fetchMode, $class);
             $duration = (microtime(true) - $start) * 1000;
 
-            // Determinar el total si no vino en _total:
             $total = (int)($res['total'] ?? $res['count'] ?? 0);
-            
-            // Ya NO necesitamos ejecutar un segundo query si withTotal=true 
-            // porque Executor ya extrajo _total_count de las filas si existía.
 
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $res, 'select', $tableName, $duration);
 
@@ -94,14 +91,13 @@ class Gateway
         array $having   = [],
         array $sort     = [],
         mixed $page     = 1,
-        bool $withTotal = false,
         int $ttl        = 3600,
         int $fetchMode  = \PDO::FETCH_NUM,
         ?string $class  = null
     ): array {
         $tableName = self::tableNameFromMixed($table);
 
-        $queryData = [$fields, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class];
+        $queryData = [$fields, $where, $groupBy, $having, $sort, $page, $fetchMode, $class];
         $jsonEncoded = json_encode($queryData);
         $queryHash = CacheService::hash($jsonEncoded);
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
@@ -116,7 +112,7 @@ class Gateway
             }
         }
 
-        $result = self::select($fields, $table, $where, $groupBy, $having, $sort, $page, $withTotal, $fetchMode, $class);
+        $result = self::select($fields, $table, $where, $groupBy, $having, $sort, $page, $fetchMode, $class);
 
         if ($result && (self::$hasCacheService ?? true)) {
             CacheService::set($cacheKey, $result, $ttl);
@@ -174,7 +170,6 @@ class Gateway
         }
     }
 
-    // UPSERT atómico directo, sin fallback (Q ya genera la sintaxis correcta)
     public static function upsert(string $table, array $data, array $conflictColumns = []): array
     {
         $start = microtime(true);
@@ -246,12 +241,12 @@ class Gateway
         ?string $class = null,
         bool $fail = false
     ): array|object|null {
-        $start = microtime(true);
+        $start     = microtime(true);
         $tableName = self::tableNameFromMixed($table);
 
         try {
-            $result = self::select($fields, $table, $where, [], [], [], [1, 1], false, \PDO::FETCH_ASSOC, $class);
-            $row = $result['data'][0] ?? null;
+            $result   = self::select($fields, $table, $where, [], [], [], [0, 1], \PDO::FETCH_ASSOC, $class);
+            $row      = $result['data'][0] ?? null;
             $duration = (microtime(true) - $start) * 1000;
 
             if ($row === null && $fail) {

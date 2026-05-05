@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 use RapidBase\Core\DB;
+use RapidBase\Core\SQL\Q;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\Cache\CacheService;
 
@@ -129,6 +130,21 @@ $timeRbCache = benchmark("RapidBase (Cache Hit)", function() {
     Gateway::selectCached('*', 'users', [], [], [], [], [1, 50]);
 });
 
+// Test COUNT(*) OVER() impact
+echo "\n--- COUNT(*) OVER() Impact Test ---\n";
+
+$timePdoCountOver = benchmark("PDO with COUNT OVER", function() use ($pdo) {
+    $stmt = $pdo->query("SELECT *, COUNT(*) OVER() AS _total FROM users LIMIT 50");
+    $stmt->fetchAll(PDO::FETCH_ASSOC);
+});
+
+$timePdoPlain = benchmark("PDO plain SELECT", function() use ($pdo) {
+    $stmt = $pdo->query("SELECT * FROM users LIMIT 50");
+    $stmt->fetchAll(PDO::FETCH_ASSOC);
+});
+
+echo "\n  COUNT OVER overhead: " . number_format($timePdoCountOver / $timePdoPlain, 2) . "x slower\n";
+
 echo "\n--- SCENARIO 2: Join 2 Tables (50 iterations) ---\n";
 echo "Fetching posts with users...\n";
 
@@ -142,7 +158,7 @@ $timeRbJoin2NoCache = benchmark("RapidBase (No Cache)", function() {
     Gateway::select(
         ['p.*', 'u.name as user_name'],
         ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]],
-        [], [], [], [], [1, 50]
+        [], [], [], [], Q::page(1, 50)
     );
 });
 
@@ -150,14 +166,14 @@ CacheService::enable();
 Gateway::selectCached(
     ['p.*', 'u.name as user_name'],
     ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]],
-    [], [], [], [], [1, 50]
+    [], [], [], [], Q::page(1, 50)
 );
 
 $timeRbJoin2Cache = benchmark("RapidBase (Cache Hit)", function() {
     Gateway::selectCached(
         ['p.*', 'u.name as user_name'],
         ['posts AS p', ['users' => ['local_key' => 'user_id', 'foreign_key' => 'id', 'as' => 'u']]],
-        [], [], [], [], [1, 50]
+        [], [], [], [], Q::page(1, 50)
     );
 });
 
@@ -186,7 +202,7 @@ $timeRbJoin3NoCache = benchmark("RapidBase (No Cache)", function() {
             ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
             ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
         ],
-        [], [], [], [], [1, 50]
+        [], [], [], [], Q::page(1, 50)
     );
 });
 
@@ -199,7 +215,7 @@ Gateway::selectCached(
         ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
         ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
     ],
-    [], [], [], [], [1, 50]
+    [], [], [], [], Q::page(1, 50)
 );
 
 $timeRbJoin3Cache = benchmark("RapidBase (Cache Hit)", function() {
@@ -211,7 +227,7 @@ $timeRbJoin3Cache = benchmark("RapidBase (Cache Hit)", function() {
             ['post_tag' => ['local_key' => 'id', 'foreign_key' => 'post_id', 'as' => 'pt']],
             ['tags' => ['local_key' => 'tag_id', 'foreign_key' => 'id', 'as' => 't']]
         ],
-        [], [], [], [], [1, 50]
+        [], [], [], [], Q::page(1, 50)
     );
 });
 

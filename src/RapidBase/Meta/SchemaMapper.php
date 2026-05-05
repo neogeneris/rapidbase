@@ -53,7 +53,7 @@ class SchemaMapper
                 $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
             } else {
                 // Para SQLite y MySQL
-                $allTables = $discovery->getTables();
+                $allTables = $discovery->getTables($databaseName);
             }
 
             $tablesMetadata = [];
