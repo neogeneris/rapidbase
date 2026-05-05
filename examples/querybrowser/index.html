@@ -6,389 +6,74 @@
     <title>RapidBase Query Browser</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            height: 100vh;
-            display: flex;
-            background: #f5f7fb;
-            overflow: hidden;
-        }
-        .sidebar {
-            width: 320px;
-            min-width: 200px;
-            max-width: 600px;
-            background: #2c3e50;
-            color: #ecf0f1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-            z-index: 10;
-            position: relative;
-        }
-        .sidebar-content {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-        .sidebar-resizer {
-            position: absolute;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            width: 5px;
-            cursor: col-resize;
-            background-color: transparent;
-            transition: background-color 0.2s;
-            z-index: 20;
-        }
-        .sidebar-resizer:hover, .sidebar-resizer.resizing {
-            background-color: #1abc9c;
-        }
-        .sidebar-header {
-            padding: 15px;
-            background: #1a2a36;
-            border-bottom: 1px solid #3d566e;
-        }
-        .sidebar-header h2 {
-            font-size: 1.3rem;
-            margin-bottom: 5px;
-        }
-        .connections-list {
-            padding: 10px 0;
-            border-bottom: 1px solid #3d566e;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        .connection-item {
-            padding: 6px 12px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: background 0.2s;
-        }
-        .connection-item:hover {
-            background: #3d566e;
-        }
-        .connection-item.active {
-            background: #1abc9c;
-        }
-        .conn-name {
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .conn-delete {
-            color: #e74c3c;
-            font-weight: bold;
-            cursor: pointer;
-            padding: 0 5px;
-            opacity: 0.7;
-        }
-        .conn-delete:hover {
-            opacity: 1;
-        }
-        .btn-add {
-            background: #1abc9c;
-            border: none;
-            color: white;
-            padding: 6px 12px;
-            margin: 10px;
-            cursor: pointer;
-            border-radius: 4px;
-            font-weight: bold;
-            width: calc(100% - 20px);
-        }
-        .btn-add:hover {
-            background: #16a085;
-        }
-        .database-list, .treeview {
-            padding: 10px;
-        }
-        .database-item, .table-node {
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        .database-item:hover, .table-node:hover {
-            background: #3d566e;
-            border-radius: 4px;
-        }
-        .treeview ul {
-            list-style: none;
-            padding-left: 20px;
-        }
-        .caret {
-            cursor: pointer;
-            user-select: none;
-            margin-right: 5px;
-        }
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: white;
-        }
-        .tabs-header {
-            display: flex;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            overflow-x: auto;
-        }
-        .tab {
-            padding: 10px 16px;
-            background: #e9ecef;
-            border-right: 1px solid #dee2e6;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .tab.active {
-            background: white;
-            border-bottom: 2px solid #1abc9c;
-        }
-        .tab-close {
-            font-size: 1.2rem;
-            opacity: 0.6;
-        }
-        .tab-close:hover {
-            opacity: 1;
-        }
-        .tab-pane {
-            display: none;
-            height: 100%;
-            flex-direction: column;
-            padding: 15px;
-            overflow-y: auto;
-        }
-        .tab-pane.active {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 120px);  /* Ajusta según tu layout */
-    overflow: hidden;
-}
-        .drop-zone {
-            border: 2px dashed #ced4da;
-            background: #f8f9fa;
-            text-align: center;
-            padding: 8px;
-            margin-bottom: 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: #6c757d;
-        }
-        .sql-editor {
-            width: 100%;
-            font-family: monospace;
-            padding: 10px;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            margin-bottom: 12px;
-            resize: vertical;
-        }
-        .toolbar {
-            margin-bottom: 12px;
-        }
-        button {
-            background: #1abc9c;
-            color: white;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .grid-container {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 200px);  /* Altura máxima menos headers/toolbars */
-    min-height: 400px;
-    background: white;
-    border: 1px solid #e9ecef;
-    border-radius: 6px;
-    overflow: hidden;
-}
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; background: #f5f7fb; overflow: hidden; }
+        .sidebar { width: 320px; min-width: 200px; max-width: 600px; background: #2c3e50; color: #ecf0f1; display: flex; flex-direction: column; overflow: hidden; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; position: relative; }
+        .sidebar-content { flex: 1; overflow-y: auto; overflow-x: hidden; }
+        .sidebar-resizer { position: absolute; top: 0; right: 0; bottom: 0; width: 5px; cursor: col-resize; background: transparent; z-index: 20; }
+        .sidebar-resizer:hover, .sidebar-resizer.resizing { background: #1abc9c; }
+        .sidebar-header { padding: 15px; background: #1a2a36; border-bottom: 1px solid #3d566e; }
+        .sidebar-header h2 { font-size: 1.3rem; margin-bottom: 5px; }
+        .connections-list { padding: 10px 0; border-bottom: 1px solid #3d566e; max-height: 200px; overflow-y: auto; }
+        .connection-item { padding: 6px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+        .connection-item:hover { background: #3d566e; }
+        .connection-item.active { background: #1abc9c; }
+        .conn-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .conn-delete { color: #e74c3c; font-weight: bold; cursor: pointer; padding: 0 5px; opacity: 0.7; }
+        .conn-delete:hover { opacity: 1; }
+        .btn-add { background: #1abc9c; border: none; color: white; padding: 6px 12px; margin: 10px; cursor: pointer; border-radius: 4px; font-weight: bold; width: calc(100% - 20px); }
+        .btn-add:hover { background: #16a085; }
+        .database-list, .treeview { padding: 10px; }
+        .database-item, .table-node { padding: 5px 10px; cursor: pointer; }
+        .database-item:hover, .table-node:hover { background: #3d566e; border-radius: 4px; }
+        .treeview ul { list-style: none; padding-left: 20px; }
+        .caret { cursor: pointer; user-select: none; margin-right: 5px; }
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: white; }
+        .tabs-header { display: flex; background: #f8f9fa; border-bottom: 1px solid #dee2e6; overflow-x: auto; }
+        .tab { padding: 10px 16px; background: #e9ecef; border-right: 1px solid #dee2e6; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .tab.active { background: white; border-bottom: 2px solid #1abc9c; }
+        .tab-close { font-size: 1.2rem; opacity: 0.6; }
+        .tab-close:hover { opacity: 1; }
+        .tab-pane { display: none; height: 100%; flex-direction: column; padding: 15px; overflow: hidden; }
+        .tab-pane.active { display: flex; flex-direction: column; height: calc(100vh - 120px); }
+        button { background: #1abc9c; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
+        .sql-editor { font-family: monospace; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; min-height: 40px; max-height: 120px; flex: 1; }
+        .sql-toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+        .sql-run-btn { align-self: flex-start; padding: 8px 16px; }
 
-.grid-body {
-    flex: 1;
-    overflow-y: auto;   /* ← Esto es clave para el scroll */
-    overflow-x: auto;
-    min-height: 0;       /* Importante para que flex funcione con overflow */
-}
-        .grid-head {
-            display: flex;
-            background: #f8f9fa;
-            border-bottom: 2px solid #dee2e6;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .grid-header {
-            flex: 1;
-            padding: 10px 12px;
-            font-weight: 600;
-            cursor: pointer;
-            user-select: none;
-            border-right: 1px solid #dee2e6;
-            transition: background 0.2s;
-        }
-        .grid-header:hover {
-            background: #e9ecef;
-        }
-        .grid-header[data-sort="asc"]::after {
-            content: " ▲";
-        }
-        .grid-header[data-sort="desc"]::after {
-            content: " ▼";
-        }
-     
-        .grid-row {
-            display: flex;
-            border-bottom: 1px solid #eee;
-            transition: background 0.15s;
-        }
-        .grid-row:hover {
-            background: #f5f7fb;
-        }
-        .grid-item {
-            flex: 1;
-            padding: 8px 12px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            border-right: 1px solid #eee;
-        }
-        .grid-controls {
-            display: flex;
-            gap: 10px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            align-items: center;
-        }
-        .grid-search {
-            padding: 6px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            min-width: 200px;
-        }
-        .grid-paginator {
-            display: flex;
-            gap: 5px;
-            justify-content: center;
-            padding: 10px;
-            background: #f8f9fa;
-            border-top: 1px solid #dee2e6;
-        }
-        .grid-paginator button {
-            padding: 6px 12px;
-            border: 1px solid #ced4da;
-            background: white;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        .grid-paginator button.active {
-            background: #1abc9c;
-            color: white;
-            border-color: #1abc9c;
-        }
-        .grid-loading, .grid-error, .grid-empty {
-            padding: 20px;
-            text-align: center;
-            color: #666;
-        }
-        .grid-loading {
-            display: none;
-            color: #1abc9c;
-        }
-        .grid-error {
-            display: none;
-            color: #e74c3c;
-            background: #fdf2f2;
-            border-radius: 4px;
-            margin: 10px;
-        }
-        .hidden {
-            display: none;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-        }
-        .modal-content {
-            background: white;
-            margin: 5% auto;
-            padding: 20px;
-            width: 750px;
-            max-width: 95%;
-            border-radius: 8px;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-        .modal-grid {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .modal-column {
-            flex: 1;
-            min-width: 200px;
-        }
-        .modal-content input, .modal-content select {
-            width: 100%;
-            padding: 8px;
-            margin: 4px 0 12px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .modal-content label {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 0.9rem;
-        }
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #e9ecef;
-        }
-        .error-message {
-            color: #e74c3c;
-            background: #fdeded;
-            padding: 8px;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
-        .success-message {
-            color: #27ae60;
-            background: #eafaf1;
-            padding: 8px;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
+        .grid-container { display: flex; flex-direction: column; height: 100%; min-height: 300px; background: white; border: 1px solid #e9ecef; border-radius: 6px; overflow: hidden; }
+        .grid-scroll-wrapper { flex: 1; overflow: auto; min-height: 0; }
+        .grid-table { width: 100%; border-collapse: collapse; table-layout: auto; white-space: nowrap; }
+        .grid-head { position: sticky; top: 0; z-index: 10; }
+        .grid-head th { padding: 10px 12px; font-weight: 600; cursor: pointer; user-select: none; border-right: 1px solid #dee2e6; background: #f8f9fa; border-bottom: 2px solid #dee2e6; text-align: left; min-width: 120px; }
+        .grid-head th:hover { background: #e9ecef; }
+        .grid-head th[data-sort="asc"]::after { content: " ▲"; }
+        .grid-head th[data-sort="desc"]::after { content: " ▼"; }
+        .grid-body td { padding: 8px 12px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #eee; border-bottom: 1px solid #eee; min-width: 120px; max-width: 300px; }
+        .grid-body tr:hover td { background: #f5f7fb; }
+        .grid-controls { display: flex; gap: 10px; padding: 10px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; align-items: center; }
+        .grid-search { padding: 6px 12px; border: 1px solid #ced4da; border-radius: 4px; min-width: 200px; }
+        .grid-footer { padding: 6px 12px; background: #f8f9fa; border-top: 1px solid #dee2e6; font-size: 0.8rem; color: #888; text-align: center; flex-shrink: 0; }
+        .grid-loading, .grid-error, .grid-empty { padding: 20px; text-align: center; color: #666; }
+        .grid-loading { display: none; color: #1abc9c; }
+        .grid-error { display: none; color: #e74c3c; background: #fdf2f2; border-radius: 4px; margin: 10px; }
+        .hidden { display: none; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 750px; max-width: 95%; border-radius: 8px; max-height: 85vh; overflow-y: auto; }
+        .modal-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+        .modal-column { flex: 1; min-width: 200px; }
+        .modal-content input, .modal-content select { width: 100%; padding: 8px; margin: 4px 0 12px 0; border: 1px solid #ccc; border-radius: 4px; }
+        .modal-content label { font-weight: 600; color: #2c3e50; font-size: 0.9rem; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e9ecef; }
+        .error-message { color: #e74c3c; background: #fdeded; padding: 8px; border-radius: 4px; margin-top: 10px; }
+        .success-message { color: #27ae60; background: #eafaf1; padding: 8px; border-radius: 4px; margin-top: 10px; }
     </style>
 </head>
 <body>
 <div class="sidebar">
-    <div class="sidebar-header">
-        <h2>📊 RapidBase</h2>
-        <p>Query Browser</p>
-    </div>
+    <div class="sidebar-header"><h2>📊 RapidBase</h2><p>Query Browser</p></div>
     <button class="btn-add" id="btn-add-connection">➕ Nueva conexión</button>
     <div class="sidebar-content">
-        <div class="connections-list" id="connections-list">
-            Cargando conexiones...
-        </div>
+        <div class="connections-list" id="connections-list">Cargando conexiones...</div>
         <div class="database-list" id="database-list"></div>
         <div class="treeview" id="treeview"></div>
     </div>
@@ -399,344 +84,226 @@
     <div class="tab-content" id="tab-content"></div>
 </div>
 
-<!-- Modal para nueva conexión -->
 <div id="modal-connection" class="modal">
     <div class="modal-content">
         <h3>Nueva conexión</h3>
         <div class="modal-grid">
             <div class="modal-column">
                 <label>Tipo de base de datos</label>
-                <select id="conn-driver">
-                    <option value="sqlite">SQLite</option>
-                    <option value="mysql">MySQL</option>
-                    <option value="pgsql">PostgreSQL</option>
-                </select>
-                <div id="sqlite-file-field">
-                    <label>Ruta del archivo .sqlite</label>
-                    <input type="text" id="conn-database" placeholder="/ruta/a/mi.db">
-                </div>
-                <div id="server-fields-col1" style="display:none;">
-                    <label>Host / IP</label>
-                    <input type="text" id="conn-host" placeholder="localhost">
-                    <label>Puerto</label>
-                    <input type="text" id="conn-port" placeholder="3306">
-                </div>
+                <select id="conn-driver"><option value="sqlite">SQLite</option><option value="mysql">MySQL</option><option value="pgsql">PostgreSQL</option></select>
+                <div id="sqlite-file-field"><label>Ruta del archivo .sqlite</label><input type="text" id="conn-database" placeholder="/ruta/a/mi.db"></div>
+                <div id="server-fields-col1" style="display:none;"><label>Host / IP</label><input type="text" id="conn-host" placeholder="localhost"><label>Puerto</label><input type="text" id="conn-port" placeholder="3306"></div>
             </div>
             <div class="modal-column">
-                <label>Nombre de la conexión</label>
-                <input type="text" id="conn-name" placeholder="Mi Base de Datos">
-                <div id="server-fields-col2" style="display:none;">
-                    <label>Base de datos</label>
-                    <input type="text" id="conn-dbname" placeholder="nombre_bd">
-                    <label>Usuario</label>
-                    <input type="text" id="conn-user" placeholder="root">
-                    <label>Contraseña</label>
-                    <input type="password" id="conn-pass" placeholder="••••••">
-                </div>
+                <label>Nombre de la conexión</label><input type="text" id="conn-name" placeholder="Mi Base de Datos">
+                <div id="server-fields-col2" style="display:none;"><label>Base de datos</label><input type="text" id="conn-dbname" placeholder="nombre_bd"><label>Usuario</label><input type="text" id="conn-user" placeholder="root"><label>Contraseña</label><input type="password" id="conn-pass" placeholder="••••••"></div>
             </div>
         </div>
-        <div class="modal-buttons">
-            <button id="modal-test">Probar</button>
-            <button id="modal-accept" disabled>Aceptar</button>
-            <button id="modal-close">Cancelar</button>
-        </div>
+        <div class="modal-buttons"><button id="modal-test">Probar</button><button id="modal-accept" disabled>Aceptar</button><button id="modal-close">Cancelar</button></div>
         <div id="modal-message"></div>
     </div>
 </div>
 
-<!-- En el <head> o al final del <body>, carga los archivos en este orden -->
 <script src="grid/GridBuilder.js"></script>
 <script src="grid/Paginator.js"></script>
 <script src="grid/APIDataGrid.js"></script>
 <script src="grid/querybrowser-grid-component.js"></script>
 
 <script>
-    // -------------------------------
-    // Código del QueryBrowser (conexiones, tabs, modal)
-    // -------------------------------
-    let currentConnectionId = null;
-    let tabs = new Map();
-    let nextTabId = 0;
+let currentConnectionId = null, tabs = new Map(), nextTabId = 0;
 
-    async function fetchJson(url, options = {}) {
-        const resp = await fetch(url, options);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const json = await resp.json();
-        if (json.error) throw new Error(json.error);
-        return json;
-    }
+async function fetchJson(url, options = {}) {
+    const r = await fetch(url, options);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json(); if (j.error) throw new Error(j.error); return j;
+}
 
-    async function loadConnections() {
+async function loadConnections() {
+    try {
+        const data = await fetchJson('api.php?action=list_connections');
+        const c = document.getElementById('connections-list');
+        if (!data.connections.length) { c.innerHTML = '<div style="padding:10px;">No hay conexiones guardadas.</div>'; return; }
+        c.innerHTML = data.connections.map(x => `<div class="connection-item" data-id="${x[0]}"><span class="conn-name">📁 ${escapeHtml(x[1])}</span><span class="conn-delete" data-id="${x[0]}">✖</span></div>`).join('');
+        c.querySelectorAll('.connection-item').forEach(el => el.addEventListener('click', e => {
+            if (e.target.classList.contains('conn-delete')) { e.stopPropagation(); deleteConnection(+e.target.dataset.id); }
+            else connectSavedConnection(+el.dataset.id);
+        }));
+    } catch(e) { document.getElementById('connections-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
+}
+
+async function deleteConnection(id) { if (confirm('¿Eliminar?')) { await fetchJson(`api.php?action=remove_connection&id=${id}`); loadConnections(); } }
+
+async function connectSavedConnection(id) {
+    try {
+        const f = new FormData(); f.append('connId', id);
+        const d = await fetchJson('api.php?action=connect_saved', { method: 'POST', body: f });
+        if (d.status === 'ok') {
+            currentConnectionId = d.connectionId;
+            document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.connection-item[data-id="${id}"]`)?.classList.add('active');
+            await loadTables();
+        }
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function loadDatabases() {
+    try {
+        const d = await fetchJson('api.php?action=list_databases');
+        const div = document.getElementById('database-list');
+        if (!d.databases.length) { div.innerHTML = '<div style="padding:10px;">No hay archivos .sqlite</div>'; return; }
+        div.innerHTML = '<div style="padding:5px 10px;font-weight:bold;">📂 Archivos SQLite</div>' + d.databases.map(db => `<div class="database-item" data-db="${escapeHtml(db)}">🗄️ ${escapeHtml(db)}</div>`).join('');
+        div.querySelectorAll('.database-item').forEach(el => el.addEventListener('click', () => connectDatabaseFile(el.dataset.db)));
+    } catch(e) { document.getElementById('database-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
+}
+
+async function connectDatabaseFile(db) {
+    try {
+        const f = new FormData(); f.append('db', db);
+        const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f });
+        if (d.status === 'ok') { currentConnectionId = d.connectionId; await loadTables(); }
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function loadTables() {
+    if (!currentConnectionId) return;
+    try {
+        const d = await fetchJson(`api.php?action=list_tables&connectionId=${currentConnectionId}`);
+        const div = document.getElementById('treeview');
+        if (!d.tables.length) { div.innerHTML = '<div style="padding:10px;">No hay tablas.</div>'; return; }
+        div.innerHTML = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul>' + d.tables.map(t => `<li class="table-node" data-table="${escapeHtml(t)}">📄 ${escapeHtml(t)}</li>`).join('') + '</ul></li></ul>';
+        div.querySelectorAll('.table-node').forEach(el => el.addEventListener('click', () => openTab(el.dataset.table)));
+        const caret = div.querySelector('.caret'), childUl = caret?.parentElement.querySelector('ul');
+        caret?.addEventListener('click', e => { e.stopPropagation(); childUl.style.display = childUl.style.display === 'none' ? '' : 'none'; caret.innerText = childUl.style.display === 'none' ? '▶' : '▼'; });
+    } catch(e) { document.getElementById('treeview').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
+}
+
+function openTab(tableName) {
+    for (let [tid, t] of tabs) if (t.tableName === tableName && t.connectionId === currentConnectionId) { activateTab(tid); return; }
+    const tabId = `tab_${nextTabId++}`;
+    const defaultSql = `SELECT * FROM ${tableName} LIMIT 100`;
+    tabs.set(tabId, { tableName, connectionId: currentConnectionId });
+
+    const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
+    btn.innerHTML = `<span>📋 ${escapeHtml(tableName)}</span><span class="tab-close">✖</span>`;
+    btn.addEventListener('click', e => { if (e.target.classList.contains('tab-close')) closeTab(tabId); else activateTab(tabId); });
+    document.getElementById('tabs-header').appendChild(btn);
+
+    const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
+    pane.innerHTML = `
+        <div class="sql-toolbar">
+            <textarea class="sql-editor" id="sql_${tabId}">${escapeHtml(defaultSql)}</textarea>
+            <button class="sql-run-btn" id="run_${tabId}">▶ Ejecutar</button>
+        </div>
+        <div class="grid-container" id="grid_${tabId}">
+            <div class="grid-controls"></div>
+            <div class="grid-scroll-wrapper"><table class="grid-table"><thead class="grid-head"></thead><tbody class="grid-body"></tbody></table></div>
+            <div class="grid-loading">Cargando datos...</div><div class="grid-error"></div>
+        </div>`;
+    document.getElementById('tab-content').appendChild(pane);
+    activateTab(tabId);
+
+    document.getElementById(`run_${tabId}`).addEventListener('click', () => executeTabSQL(tabId));
+    document.getElementById(`sql_${tabId}`).addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter') executeTabSQL(tabId); });
+
+    executeTabSQL(tabId);
+}
+
+async function executeTabSQL(tabId) {
+    const sql = document.getElementById(`sql_${tabId}`).value.trim();
+    if (!sql) return;
+    const tab = tabs.get(tabId);
+    const gridContainer = `#grid_${tabId}`;
+    const container = document.querySelector(gridContainer);
+    container.querySelector('.grid-head').innerHTML = '';
+    container.querySelector('.grid-body').innerHTML = '';
+
+    const isSelect = /^\s*SELECT/i.test(sql);
+    if (!isSelect) {
+        const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
         try {
-            const data = await fetchJson('api.php?action=list_connections');
-            const conns = data.connections || [];
-            const container = document.getElementById('connections-list');
-            if (conns.length === 0) {
-                container.innerHTML = '<div style="padding:10px;">No hay conexiones guardadas.</div>';
-                return;
-            }
-            let html = '';
-            conns.forEach(c => {
-                const id = c[0];
-                const name = c[1];
-                html += `<div class="connection-item" data-id="${id}" data-name="${escapeHtml(name)}">
-                            <span class="conn-name">📁 ${escapeHtml(name)}</span>
-                            <span class="conn-delete" data-id="${id}">✖</span>
-                         </div>`;
-            });
-            container.innerHTML = html;
-            document.querySelectorAll('.connection-item').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('conn-delete')) {
-                        e.stopPropagation();
-                        deleteConnection(parseInt(e.target.dataset.id));
-                    } else {
-                        connectSavedConnection(parseInt(el.dataset.id));
-                    }
-                });
-            });
-        } catch(err) {
-            document.getElementById('connections-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${err.message}</div>`;
-        }
+            const r = await fetchJson('api.php?action=execute_query', { method: 'POST', body: f });
+            alert(r.affected !== undefined ? `Filas afectadas: ${r.affected}` : 'Comando ejecutado.');
+        } catch(e) { alert('Error: ' + e.message); }
+        return;
     }
 
-    async function deleteConnection(id) {
-        if (!confirm('¿Eliminar esta conexión?')) return;
-        await fetchJson(`api.php?action=remove_connection&id=${id}`);
-        loadConnections();
-    }
-
-    async function connectSavedConnection(connId) {
+    // SELECT: cargar en grid
+    const grid = new APIDataGrid(gridContainer, 'api.php?action=execute_query', { mode: 'infinite', pageSize: 30 });
+    const origFetch = grid.fetchData.bind(grid);
+    grid.fetchData = async function() {
+        if (this.isLoading) return;
+        this.isLoading = true; this.showLoading(); this.hideError();
         try {
-            const formData = new FormData();
-            formData.append('connId', connId);
-            const data = await fetchJson('api.php?action=connect_saved', { method: 'POST', body: formData });
-            if (data.status === 'ok') {
-                currentConnectionId = data.connectionId;
-                document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
-                const activeEl = document.querySelector(`.connection-item[data-id="${connId}"]`);
-                if (activeEl) activeEl.classList.add('active');
-                await loadTables();
-            }
-        } catch(err) {
-            alert('Error al conectar: ' + err.message);
-        }
-    }
+            const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
+            const r = await fetchJson('api.php?action=execute_query', { method: 'POST', body: f });
+            this.render(r.rows, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
+            this.hasMore = false;
+            this.footerContainer.textContent = `Total: ${r.rows.length} registros | ${r.columns.length} columnas`;
+        } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
+    };
+    grid.load();
+}
 
-    async function loadDatabases() {
-        try {
-            const data = await fetchJson('api.php?action=list_databases');
-            const dbs = data.databases || [];
-            const dbDiv = document.getElementById('database-list');
-            if (dbs.length === 0) {
-                dbDiv.innerHTML = '<div style="padding:10px;">No hay archivos .sqlite en /data</div>';
-                return;
-            }
-            let html = '<div style="padding:5px 10px; font-weight:bold;">📂 Archivos SQLite</div>';
-            dbs.forEach(db => html += `<div class="database-item" data-db="${escapeHtml(db)}">🗄️ ${escapeHtml(db)}</div>`);
-            dbDiv.innerHTML = html;
-            document.querySelectorAll('.database-item').forEach(el => {
-                el.addEventListener('click', () => connectDatabaseFile(el.dataset.db));
-            });
-        } catch(err) {
-            document.getElementById('database-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${err.message}</div>`;
-        }
-    }
+function activateTab(id) {
+    document.querySelectorAll('.tab,.tab-pane').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.tab[data-tab-id="${id}"]`)?.classList.add('active');
+    document.getElementById(`pane_${id}`)?.classList.add('active');
+}
 
-    async function connectDatabaseFile(dbName) {
-        try {
-            const formData = new FormData();
-            formData.append('db', dbName);
-            const data = await fetchJson('api.php?action=connect', { method: 'POST', body: formData });
-            if (data.status === 'ok') {
-                currentConnectionId = data.connectionId;
-                document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
-                await loadTables();
-            }
-        } catch(err) {
-            alert('Error al conectar: ' + err.message);
-        }
-    }
+function closeTab(id) {
+    document.querySelector(`.tab[data-tab-id="${id}"]`)?.remove();
+    document.getElementById(`pane_${id}`)?.remove();
+    tabs.delete(id);
+    if (!tabs.size) { document.getElementById('tabs-header').innerHTML = ''; document.getElementById('tab-content').innerHTML = ''; }
+    else activateTab(tabs.keys().next().value);
+}
 
-    async function loadTables() {
-        if (!currentConnectionId) return;
-        try {
-            const data = await fetchJson(`api.php?action=list_tables&connectionId=${currentConnectionId}`);
-            const tables = data.tables || [];
-            const treeDiv = document.getElementById('treeview');
-            if (tables.length === 0) {
-                treeDiv.innerHTML = '<div style="padding:10px;">No hay tablas.</div>';
-                return;
-            }
-            let html = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul>';
-            tables.forEach(table => {
-                html += `<li class="table-node" draggable="true" data-table="${escapeHtml(table)}">📄 ${escapeHtml(table)}</li>`;
-            });
-            html += '</ul></li></ul>';
-            treeDiv.innerHTML = html;
-            document.querySelectorAll('.table-node').forEach(el => {
-                el.addEventListener('click', () => openTab(el.dataset.table));
-            });
-            const caret = document.querySelector('.caret');
-            if (caret) {
-                const childUl = caret.parentElement.querySelector('ul');
-                caret.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    childUl.style.display = childUl.style.display === 'none' ? '' : 'none';
-                    caret.innerText = childUl.style.display === 'none' ? '▶' : '▼';
-                });
-            }
-        } catch(err) {
-            document.getElementById('treeview').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${err.message}</div>`;
-        }
-    }
+function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-    function openTab(tableName) {
-        for (let [tid, t] of tabs) {
-            if (t.tableName === tableName && t.connectionId === currentConnectionId) {
-                activateTab(tid);
-                return;
-            }
-        }
-        const tabId = `tab_${nextTabId++}`;
-        tabs.set(tabId, { tableName, connectionId: currentConnectionId });
+// Modal
+const modal = document.getElementById('modal-connection');
+document.getElementById('btn-add-connection').addEventListener('click', () => {
+    modal.style.display = 'block'; document.getElementById('modal-message').innerHTML = '';
+    document.getElementById('modal-accept').disabled = true;
+    ['conn-name','conn-database','conn-dbname','conn-user','conn-pass'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('conn-host').value = 'localhost'; document.getElementById('conn-port').value = '3306';
+});
+document.getElementById('modal-close').addEventListener('click', () => modal.style.display = 'none');
+window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+document.getElementById('conn-driver').addEventListener('change', function() {
+    const s = this.value === 'sqlite';
+    document.getElementById('sqlite-file-field').style.display = s ? 'block' : 'none';
+    document.getElementById('server-fields-col1').style.display = s ? 'none' : 'block';
+    document.getElementById('server-fields-col2').style.display = s ? 'none' : 'block';
+    if (!s) document.getElementById('conn-port').value = this.value === 'mysql' ? '3306' : '5432';
+});
+document.getElementById('conn-driver').dispatchEvent(new Event('change'));
+document.getElementById('modal-test').addEventListener('click', async () => {
+    const d = getConnectionData();
+    if (!d.name || !d.database) { document.getElementById('modal-message').innerHTML = '<div class="error-message">Nombre y base de datos obligatorios</div>'; return; }
+    try {
+        const r = await fetchJson('api.php?action=test_connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+        document.getElementById('modal-message').innerHTML = r.success ? '<div class="success-message">✅ Conexión exitosa</div>' : '<div class="error-message">❌ Falló la conexión</div>';
+        document.getElementById('modal-accept').disabled = !r.success;
+    } catch(e) { document.getElementById('modal-message').innerHTML = `<div class="error-message">Error: ${e.message}</div>`; }
+});
+document.getElementById('modal-accept').addEventListener('click', async () => {
+    try { await fetchJson('api.php?action=add_connection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(getConnectionData()) }); modal.style.display = 'none'; loadConnections(); }
+    catch(e) { alert('Error: ' + e.message); }
+});
+function getConnectionData() {
+    const d = document.getElementById('conn-driver').value;
+    if (d === 'sqlite') return { name: document.getElementById('conn-name').value.trim(), driver: 'sqlite', database: document.getElementById('conn-database').value.trim(), username: '', password: '' };
+    return { name: document.getElementById('conn-name').value.trim(), driver: d, host: document.getElementById('conn-host').value.trim(), port: +document.getElementById('conn-port').value || 3306, database: document.getElementById('conn-dbname').value.trim(), username: document.getElementById('conn-user').value.trim(), password: document.getElementById('conn-pass').value };
+}
 
-        const tabButton = document.createElement('div');
-        tabButton.className = 'tab';
-        tabButton.dataset.tabId = tabId;
-        tabButton.innerHTML = `<span>📋 ${escapeHtml(tableName)}</span><span class="tab-close">✖</span>`;
-        tabButton.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tab-close')) closeTab(tabId);
-            else activateTab(tabId);
-        });
-        document.getElementById('tabs-header').appendChild(tabButton);
+loadConnections(); loadDatabases();
 
-        const pane = document.createElement('div');
-        pane.className = 'tab-pane';
-        pane.id = `pane_${tabId}`;
-        pane.innerHTML = `
-            <div class="grid-container" id="grid_${tabId}">
-                <div class="grid-controls"></div>
-                <div class="grid-head"></div>
-                <div class="grid-body"></div>
-                <div class="grid-loading">Cargando datos...</div>
-                <div class="grid-error"></div>
-            </div>
-        `;
-        document.getElementById('tab-content').appendChild(pane);
-        activateTab(tabId);
-
-        // Crear grid usando QueryBrowserGrid (carga APIDataGrid con scroll infinito)
-        const grid = QueryBrowserGrid.createTableGrid(`#grid_${tabId}`, currentConnectionId, tableName, {
-            mode: 'infinite',
-            pageSize: 30
-        });
-    }
-
-    function activateTab(tabId) {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-        const tab = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
-        if (tab) tab.classList.add('active');
-        const pane = document.getElementById(`pane_${tabId}`);
-        if (pane) pane.classList.add('active');
-    }
-
-    function closeTab(tabId) {
-        document.querySelector(`.tab[data-tab-id="${tabId}"]`)?.remove();
-        document.getElementById(`pane_${tabId}`)?.remove();
-        tabs.delete(tabId);
-        if (tabs.size === 0) {
-            document.getElementById('tabs-header').innerHTML = '';
-            document.getElementById('tab-content').innerHTML = '';
-        } else {
-            activateTab(tabs.keys().next().value);
-        }
-    }
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
-    // Modal
-    const modal = document.getElementById('modal-connection');
-    document.getElementById('btn-add-connection').addEventListener('click', () => {
-        modal.style.display = 'block';
-        document.getElementById('modal-message').innerHTML = '';
-        document.getElementById('modal-accept').disabled = true;
-        document.getElementById('conn-name').value = '';
-        document.getElementById('conn-database').value = '';
-        document.getElementById('conn-host').value = 'localhost';
-        document.getElementById('conn-port').value = '3306';
-        document.getElementById('conn-dbname').value = '';
-        document.getElementById('conn-user').value = '';
-        document.getElementById('conn-pass').value = '';
-    });
-    document.getElementById('modal-close').addEventListener('click', () => modal.style.display = 'none');
-    window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
-
-    const driverSelect = document.getElementById('conn-driver');
-    function toggleFields() {
-        const isSQLite = driverSelect.value === 'sqlite';
-        document.getElementById('sqlite-file-field').style.display = isSQLite ? 'block' : 'none';
-        document.getElementById('server-fields-col1').style.display = isSQLite ? 'none' : 'block';
-        document.getElementById('server-fields-col2').style.display = isSQLite ? 'none' : 'block';
-        if (!isSQLite) document.getElementById('conn-port').value = driverSelect.value === 'mysql' ? '3306' : '5432';
-    }
-    driverSelect.addEventListener('change', toggleFields);
-    toggleFields();
-
-    document.getElementById('modal-test').addEventListener('click', async () => {
-        const connData = getConnectionData();
-        if (!connData.name || !connData.database) {
-            document.getElementById('modal-message').innerHTML = '<div class="error-message">Nombre y base de datos obligatorios</div>';
-            return;
-        }
-        try {
-            const resp = await fetchJson('api.php?action=test_connection', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(connData)
-            });
-            document.getElementById('modal-message').innerHTML = resp.success
-                ? '<div class="success-message">✅ Conexión exitosa</div>'
-                : '<div class="error-message">❌ Falló la conexión</div>';
-            document.getElementById('modal-accept').disabled = !resp.success;
-        } catch(err) {
-            document.getElementById('modal-message').innerHTML = `<div class="error-message">Error: ${err.message}</div>`;
-        }
-    });
-
-    document.getElementById('modal-accept').addEventListener('click', async () => {
-        try {
-            await fetchJson('api.php?action=add_connection', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(getConnectionData())
-            });
-            modal.style.display = 'none';
-            loadConnections();
-        } catch(err) { alert('Error: ' + err.message); }
-    });
-
-    function getConnectionData() {
-        const d = driverSelect.value;
-        if (d === 'sqlite') return { name: document.getElementById('conn-name').value.trim(), driver: 'sqlite', database: document.getElementById('conn-database').value.trim(), username: '', password: '' };
-        return { name: document.getElementById('conn-name').value.trim(), driver: d, host: document.getElementById('conn-host').value.trim(), port: parseInt(document.getElementById('conn-port').value) || 3306, database: document.getElementById('conn-dbname').value.trim(), username: document.getElementById('conn-user').value.trim(), password: document.getElementById('conn-pass').value };
-    }
-
-    // Init
-    loadConnections();
-    loadDatabases();
-
-    // Sidebar resizer
-    const sidebar = document.querySelector('.sidebar');
-    const resizer = document.getElementById('sidebar-resizer');
-    if (sidebar && resizer) {
-        let isResizing = false;
-        resizer.addEventListener('mousedown', (e) => { isResizing = true; resizer.classList.add('resizing'); document.body.style.cursor = 'col-resize'; e.preventDefault(); });
-        document.addEventListener('mousemove', (e) => { if (!isResizing) return; let w = Math.min(600, Math.max(200, e.clientX)); sidebar.style.width = w + 'px'; });
-        document.addEventListener('mouseup', () => { isResizing = false; resizer.classList.remove('resizing'); document.body.style.cursor = ''; });
-    }
+const sidebar = document.querySelector('.sidebar'), resizer = document.getElementById('sidebar-resizer');
+let isResizing = false;
+resizer.addEventListener('mousedown', e => { isResizing = true; resizer.classList.add('resizing'); document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+document.addEventListener('mousemove', e => { if (!isResizing) return; sidebar.style.width = Math.min(600, Math.max(200, e.clientX)) + 'px'; });
+document.addEventListener('mouseup', () => { isResizing = false; resizer.classList.remove('resizing'); document.body.style.cursor = ''; });
 </script>
 </body>
 </html>

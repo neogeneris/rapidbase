@@ -221,28 +221,29 @@ try {
             echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
             break;
 
-        case 'connect_saved':
-            $connId = $_POST['connId'] ?? 0;
-            $connRow = Gateway::one('connections', ['id' => $connId], '*', null, true);
-            if (!$connRow) throw new Exception('Connection not found');
-            $connectionKey = "saved_{$connId}";
-            if (!isset($_SESSION['connections'][$connectionKey])) {
-                $dsn = buildDSN($connRow);
-                $pdo = new PDO($dsn, $connRow['username'], $connRow['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-                $databaseName = $connRow['database'] ?? null;
-                $schema = ($connRow['driver'] === 'pgsql') ? 'public' : null;
-                $map = getSchemaMapArrayFallback($pdo, $connectionKey, $databaseName, $schema);
-                $_SESSION['connections'][$connectionKey] = [
-                    'dsn'  => $dsn,
-                    'map'  => $map,
-                    'user' => $connRow['username'] ?? '',
-                    'pass' => $connRow['password'] ?? '',
-                ];
-            }
-            activateSessionConnection($connectionKey);
-            echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
-            break;
-
+		 case 'connect_saved':
+			$connId = $_POST['connId'] ?? 0;
+			$connRow = Gateway::one('connections', ['id' => $connId], '*', null, true);
+			if (!$connRow) throw new Exception('Connection not found');
+			$connectionKey = "saved_{$connId}";
+			
+			// Siempre regenerar el schema map (no usar cache)
+			$dsn = buildDSN($connRow);
+			$pdo = new PDO($dsn, $connRow['username'], $connRow['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+			$databaseName = $connRow['database'] ?? null;
+			$schema = ($connRow['driver'] === 'pgsql') ? 'public' : null;
+			$map = getSchemaMapArrayFallback($pdo, $connectionKey, $databaseName, $schema);
+			
+			$_SESSION['connections'][$connectionKey] = [
+				'dsn'  => $dsn,
+				'map'  => $map,
+				'user' => $connRow['username'] ?? '',
+				'pass' => $connRow['password'] ?? '',
+			];
+			
+			activateSessionConnection($connectionKey);
+			echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
+			break;
         case 'list_tables':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             activateSessionConnection($connectionKey);
