@@ -1,6 +1,7 @@
 <?php
 /**
  * RapidBase API - Query Browser and Dynamic Grid
+ * Demo del framework RapidBase
  */
 
 session_start();
@@ -16,7 +17,6 @@ use RapidBase\Core\DB;
 use RapidBase\Core\SchemaMap;
 use RapidBase\Core\SQL\ConditionMatrix;
 use RapidBase\Core\SQL\Q;
-use RapidBase\Meta\SchemaMapper;
 use RapidBase\Meta\Discovery\DiscoveryFactory;
 use RapidBase\Meta\Discovery\FeatureDetector;
 
@@ -27,66 +27,34 @@ header('Content-Type: application/json; charset=utf-8');
 
 $action = $_REQUEST['action'] ?? '';
 
-// ---------------------------------------------------------------------------
-// Initialize internal connections database (SQLite)
-// ---------------------------------------------------------------------------
 function initConnectionsDB(): void
 {
     $dbFile = CONNECTIONS_DB;
     $dir = dirname($dbFile);
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
+    if (!is_dir($dir)) mkdir($dir, 0777, true);
     if (!file_exists($dbFile)) {
         $pdo = new PDO("sqlite:$dbFile");
-        $pdo->exec("
-            CREATE TABLE connections (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                driver TEXT NOT NULL,
-                host TEXT,
-                port INTEGER,
-                database TEXT,
-                username TEXT,
-                password TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ");
+        $pdo->exec("CREATE TABLE connections (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, driver TEXT NOT NULL, host TEXT, port INTEGER, database TEXT, username TEXT, password TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
     }
 }
 
 initConnectionsDB();
-Conn::setup("sqlite:" . CONNECTIONS_DB, '', '', 'main');
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+DB::setup("sqlite:" . CONNECTIONS_DB, '', '', 'main');
 
 function buildDSN(array $conn): string
 {
-    switch ($conn['driver']) {
-        case 'sqlite':
-            return "sqlite:{$conn['database']}";
-        case 'mysql':
-            $port = $conn['port'] ?? 3306;
-            return "mysql:host={$conn['host']};port={$port};dbname={$conn['database']};charset=utf8mb4";
-        case 'pgsql':
-            $port = $conn['port'] ?? 5432;
-            return "pgsql:host={$conn['host']};port={$port};dbname={$conn['database']}";
-        default:
-            throw new Exception("Unsupported driver: {$conn['driver']}");
-    }
+    return match ($conn['driver']) {
+        'sqlite' => "sqlite:{$conn['database']}",
+        'mysql'  => "mysql:host={$conn['host']};port=" . ($conn['port'] ?? 3306) . ";dbname={$conn['database']};charset=utf8mb4",
+        'pgsql'  => "pgsql:host={$conn['host']};port=" . ($conn['port'] ?? 5432) . ";dbname={$conn['database']}",
+        default  => throw new Exception("Unsupported driver: {$conn['driver']}"),
+    };
 }
 
 function testConnection(array $conn): bool
 {
     try {
-        $pdo = new PDO(
-            buildDSN($conn),
-            $conn['username'] ?? '',
-            $conn['password'] ?? '',
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
+        $pdo = new PDO(buildDSN($conn), $conn['username'] ?? '', $conn['password'] ?? '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $pdo->query("SELECT 1");
         return true;
     } catch (Exception $e) {
@@ -94,9 +62,13 @@ function testConnection(array $conn): bool
     }
 }
 
-function getSchemaMapArrayFallback(PDO $pdo, string $connectionId, ?string $databaseName, ?string $schema): array
+function discoverSchema(string $dsn, string $user, string $pass, string $connectionKey, array $connRow): array
 {
-    $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+    $driverName = $connRow['driver'];
+    $databaseName = $connRow['database'] ?? null;
+    $schema = ($driverName === 'pgsql') ? 'public' : null;
+
+    $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     $discovery = DiscoveryFactory::create($pdo, $schema);
     $allTables = $discovery->getTables($databaseName);
 
@@ -111,14 +83,12 @@ function getSchemaMapArrayFallback(PDO $pdo, string $connectionId, ?string $data
 
     $signature = '';
     if ($driverName === 'sqlite') {
-        $schemas = $pdo->query(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-        )->fetchAll(PDO::FETCH_COLUMN);
+        $schemas = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
         $signature = md5(implode("\n", $schemas));
     }
 
     return [
-        'connection'    => $connectionId,
+        'connection'    => $connectionKey,
         'driver'        => $driverName,
         'checksum'      => $signature,
         'generated_at'  => date('Y-m-d H:i:s'),
@@ -128,35 +98,23 @@ function getSchemaMapArrayFallback(PDO $pdo, string $connectionId, ?string $data
     ];
 }
 
-function activateSessionConnection(string $connectionKey): array
+function activateSessionConnection(string $connectionKey): void
 {
     if (!isset($_SESSION['connections'][$connectionKey])) {
         throw new Exception("Connection not found or expired");
     }
-    $connInfo = $_SESSION['connections'][$connectionKey];
-
-    $user = $connInfo['user'] ?? '';
-    $pass = $connInfo['pass'] ?? '';
-    Conn::setup($connInfo['dsn'], $user, $pass, $connectionKey);
-    Conn::select($connectionKey);
-
-    $map = $connInfo['map'];
-    SchemaMap::setMap($map, $connectionKey);
+    $c = $_SESSION['connections'][$connectionKey];
+    DB::setup($c['dsn'], $c['user'] ?? '', $c['pass'] ?? '', $connectionKey);
+    SchemaMap::setMap($c['map'], $connectionKey);
     SchemaMap::setDefaultConnection($connectionKey);
-    ConditionMatrix::setDriver($map['driver']);
-
-    return $connInfo;
+    ConditionMatrix::setDriver($c['map']['driver']);
 }
 
-// ---------------------------------------------------------------------------
-// Main Router
-// ---------------------------------------------------------------------------
 try {
     switch ($action) {
 
         case 'list_connections':
-            $rows = Gateway::select('*', 'connections');
-            echo json_encode(['connections' => $rows['data']]);
+            echo json_encode(['connections' => Gateway::select('*', 'connections')['data']]);
             break;
 
         case 'test_connection':
@@ -167,37 +125,27 @@ try {
         case 'add_connection':
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['name']) || empty($data['driver']) || empty($data['database'])) {
-                throw new Exception('Missing required fields (name, driver, database)');
+                throw new Exception('Missing required fields');
             }
-            if (!testConnection($data)) {
-                throw new Exception('Could not connect to database. Verify the data.');
-            }
-            $insertData = [
-                'name'     => $data['name'],
-                'driver'   => $data['driver'],
-                'host'     => $data['host'] ?? null,
-                'port'     => $data['port'] ?? null,
-                'database' => $data['database'],
-                'username' => $data['username'] ?? null,
+            if (!testConnection($data)) throw new Exception('Could not connect to database.');
+            $id = Gateway::insert('connections', [
+                'name' => $data['name'], 'driver' => $data['driver'],
+                'host' => $data['host'] ?? null, 'port' => $data['port'] ?? null,
+                'database' => $data['database'], 'username' => $data['username'] ?? null,
                 'password' => $data['password'] ?? null,
-            ];
-            $id = Gateway::insert('connections', $insertData);
+            ]);
             echo json_encode(['success' => true, 'id' => $id]);
             break;
 
         case 'remove_connection':
             $id = $_REQUEST['id'] ?? 0;
-            if ($id) {
-                Gateway::delete('connections', ['id' => $id]);
-            }
+            if ($id) Gateway::delete('connections', ['id' => $id]);
             echo json_encode(['success' => true]);
             break;
 
         case 'list_databases':
             if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0777, true);
-            $files = glob(DATA_PATH . '/*.sqlite');
-            $databases = array_map('basename', $files);
-            echo json_encode(['databases' => $databases]);
+            echo json_encode(['databases' => array_map('basename', glob(DATA_PATH . '/*.sqlite'))]);
             break;
 
         case 'connect':
@@ -207,61 +155,61 @@ try {
             if (!file_exists($fullPath)) throw new Exception('Database file not found');
             $connectionKey = md5($fullPath);
             if (!isset($_SESSION['connections'][$connectionKey])) {
-                $pdo = new PDO("sqlite:$fullPath", '', '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-                $connRow = ['driver' => 'sqlite', 'database' => $fullPath];
-                $map = getSchemaMapArrayFallback($pdo, $connectionKey, $fullPath, null);
-                $_SESSION['connections'][$connectionKey] = [
-                    'dsn'  => "sqlite:$fullPath",
-                    'map'  => $map,
-                    'user' => '',
-                    'pass' => '',
-                ];
+                $map = discoverSchema("sqlite:$fullPath", '', '', $connectionKey, ['driver' => 'sqlite', 'database' => $fullPath]);
+                $_SESSION['connections'][$connectionKey] = ['dsn' => "sqlite:$fullPath", 'map' => $map, 'user' => '', 'pass' => ''];
             }
             activateSessionConnection($connectionKey);
             echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
             break;
 
-		 case 'connect_saved':
-			$connId = $_POST['connId'] ?? 0;
-			$connRow = Gateway::one('connections', ['id' => $connId], '*', null, true);
-			if (!$connRow) throw new Exception('Connection not found');
-			$connectionKey = "saved_{$connId}";
-			
-			// Siempre regenerar el schema map (no usar cache)
-			$dsn = buildDSN($connRow);
-			$pdo = new PDO($dsn, $connRow['username'], $connRow['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-			$databaseName = $connRow['database'] ?? null;
-			$schema = ($connRow['driver'] === 'pgsql') ? 'public' : null;
-			$map = getSchemaMapArrayFallback($pdo, $connectionKey, $databaseName, $schema);
-			
-			$_SESSION['connections'][$connectionKey] = [
-				'dsn'  => $dsn,
-				'map'  => $map,
-				'user' => $connRow['username'] ?? '',
-				'pass' => $connRow['password'] ?? '',
-			];
-			
-			activateSessionConnection($connectionKey);
-			echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
-			break;
+        case 'connect_saved':
+            $connId = $_POST['connId'] ?? 0;
+            $connRow = Gateway::one('connections', ['id' => $connId], '*', null, true);
+            if (!$connRow) throw new Exception('Connection not found');
+            $connectionKey = "saved_{$connId}";
+            $dsn = buildDSN($connRow);
+            $map = discoverSchema($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connectionKey, $connRow);
+            $_SESSION['connections'][$connectionKey] = [
+                'dsn' => $dsn, 'map' => $map,
+                'user' => $connRow['username'] ?? '', 'pass' => $connRow['password'] ?? '',
+            ];
+            activateSessionConnection($connectionKey);
+            echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
+            break;
+
         case 'list_tables':
+            activateSessionConnection($_REQUEST['connectionId'] ?? '');
+            $tables = array_keys(SchemaMap::getMap()['tables'] ?? []);
+            echo json_encode(['tables' => $tables, 'views' => []]);
+            break;
+
+        case 'table_relations':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $tableName = $_REQUEST['table'] ?? '';
+            if (!$connectionKey || !$tableName) { echo json_encode(['from' => [], 'to' => []]); break; }
+            activateSessionConnection($connectionKey);
+            $map = SchemaMap::getMap();
+            $rels = $map['relationships'] ?? [];
+            echo json_encode([
+                'from' => array_keys($rels['from'][$tableName] ?? []),
+                'to'   => array_keys($rels['to'][$tableName] ?? []),
+            ]);
+            break;
+
+        case 'db_status':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             activateSessionConnection($connectionKey);
-            $map = SchemaMap::getMap($connectionKey);
-            $tables = array_keys($map['tables'] ?? []);
-            $quotedTables = array_map(fn($t) => ConditionMatrix::quote($t), $tables);
-            echo json_encode(['tables' => $tables, 'quotedTables' => $quotedTables, 'views' => []]);
+            echo json_encode(['status' => DB::status()]);
             break;
 
         case 'auto_query':
             $connectionKey = $_POST['connectionId'] ?? '';
-            $tablesJson    = $_POST['tables'] ?? '';
+            $tablesJson = $_POST['tables'] ?? '';
             if (!$connectionKey || !$tablesJson) throw new Exception('connectionId and tables required');
+            activateSessionConnection($connectionKey);
             $tables = json_decode($tablesJson, true);
             if (count($tables) < 1) throw new Exception('At least one table required');
-            activateSessionConnection($connectionKey);
-            $compiled = Q::from($tables)->select('*');
-            echo json_encode(['sql' => $compiled->getSql()]);
+            echo json_encode(['sql' => Q::from($tables)->select('*')->getSql()]);
             break;
 
         case 'execute_query':
@@ -269,23 +217,51 @@ try {
             $sql = $_POST['sql'] ?? '';
             if (!$connectionKey || !$sql) throw new Exception('connectionId and sql required');
             activateSessionConnection($connectionKey);
-            $stmt = Conn::get()->prepare($sql);
-            $stmt->execute();
-            if (stripos(trim($sql), 'select') === 0) {
-                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                $columns = $rows ? array_keys($rows[0]) : [];
-                echo json_encode(['columns' => $columns, 'rows' => $rows]);
+            $start = microtime(true);
+            $upper = strtoupper(trim($sql));
+            $isSelect = str_starts_with($upper, 'SELECT') || str_starts_with($upper, 'DESCRIBE')
+                || str_starts_with($upper, 'SHOW') || str_starts_with($upper, 'EXPLAIN')
+                || str_starts_with($upper, 'PRAGMA');
+            if ($isSelect) {
+                $stmt = DB::query($sql);
+                $rows = $stmt->fetchAll(PDO::FETCH_NUM);
+                $columns = [];
+                for ($i = 0; $i < $stmt->columnCount(); $i++) {
+                    $meta = $stmt->getColumnMeta($i);
+                    $columns[] = $meta['name'] ?? "col_$i";
+                }
+                echo json_encode(['columns' => $columns, 'rows' => $rows, 'elapsed' => round(microtime(true) - $start, 4)]);
             } else {
-                echo json_encode(['affected' => $stmt->rowCount()]);
+                $result = DB::exec($sql);
+                echo json_encode(['affected' => $result['count'] ?? 0, 'elapsed' => round(microtime(true) - $start, 4)]);
+            }
+            break;
+
+        case 'grid_sql':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $table = $_REQUEST['table'] ?? '';
+            $page = max(1, (int)($_REQUEST['page'] ?? 1));
+            $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
+            $sort = $_REQUEST['sort'] ?? null;
+
+            if (!$connectionKey || !$table) { echo json_encode(['sql' => '']); break; }
+            activateSessionConnection($connectionKey);
+
+            try {
+                $q = Q::from($table, []);
+                $compiled = $q->select('*', Q::page($page, $limit), $sort ? (is_string($sort) ? [$sort] : (is_array($sort) ? $sort : [])) : []);
+                echo json_encode(['sql' => $compiled->getSql()]);
+            } catch (\Exception $e) {
+                echo json_encode(['sql' => '']);
             }
             break;
 
         case 'grid_data':
-            $connectionKey = $_REQUEST['connectionId'] ?? $_REQUEST['connection_id'] ?? '';
-            $table  = $_REQUEST['table']  ?? '';
-            $page   = (int)($_REQUEST['page']   ?? 1);
-            $limit  = (int)($_REQUEST['limit']  ?? 10);
-            $sort   = $_REQUEST['sort']   ?? null;
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $table = $_REQUEST['table'] ?? '';
+            $page = max(1, (int)($_REQUEST['page'] ?? 1));
+            $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
+            $sort = $_REQUEST['sort'] ?? null;
             $filter = $_REQUEST['filter'] ?? null;
 
             if (!$connectionKey || !$table) {
@@ -294,29 +270,62 @@ try {
                 break;
             }
 
-            $page  = max(1, $page);
-            $limit = max(1, min($limit, 1000));
-
             activateSessionConnection($connectionKey);
+
+            $decoded = json_decode($table, true);
+            if (is_array($decoded)) $table = $decoded;
 
             $conditions = [];
             if ($filter) {
-                $decoded = is_string($filter) ? json_decode($filter, true) : $filter;
-                if (is_array($decoded)) $conditions = $decoded;
+                $d = is_string($filter) ? json_decode($filter, true) : $filter;
+                if (is_array($d)) $conditions = $d;
             }
 
             $response = DB::grid($table, $conditions, [$page, $limit], $sort);
+            $status = DB::status();
 
             echo json_encode([
                 'data'      => $response->data,
                 'total'     => $response->total,
                 'columns'   => $response->metadata['columns'] ?? [],
                 'titles'    => $response->metadata['titles']  ?? [],
-                'limit'     => $response->state['per_page'],
-                'page'      => $response->state['page'],
+                'limit'     => $limit,
+                'page'      => $page,
                 'last_page' => $response->state['last_page'],
+                'debug'     => [
+                    'sql'      => $status['sql'] ?? '',
+                    'duration' => $status['duration'] ?? 0,
+                ],
             ]);
             break;
+			
+			case 'test_join':
+    $connectionKey = $_REQUEST['connectionId'] ?? '';
+    $tablesJson = $_REQUEST['tables'] ?? '[]';
+    if (!$connectionKey || !$tablesJson) {
+        echo json_encode(['error' => 'connectionId and tables required']);
+        break;
+    }
+    activateSessionConnection($connectionKey);
+    $tables = json_decode($tablesJson, true);
+    try {
+        $compiled = Q::from($tables)->select('*');
+        echo json_encode(['sql' => $compiled->getSql()]);
+    } catch (\Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+    break;
+			
+		case 'debug_schema':
+    $connectionKey = $_REQUEST['connectionId'] ?? '';
+    activateSessionConnection($connectionKey);
+    $map = SchemaMap::getMap();
+    echo json_encode([
+        'tables'        => array_keys($map['tables'] ?? []),
+        'from'          => $map['relationships']['from'] ?? [],
+        'to'            => $map['relationships']['to'] ?? [],
+    ]);
+    break;	
 
         default:
             http_response_code(400);

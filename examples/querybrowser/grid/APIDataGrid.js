@@ -25,7 +25,6 @@ class APIDataGrid extends GridBuilder {
         if (this.mode === 'infinite') this.enableInfiniteScroll();
         this.scrollCleanup = null;
 
-        // Click en headers para ordenar
         this.container.addEventListener('click', (e) => {
             const th = e.target.closest('th');
             if (th && th.dataset.column) this.sortBy(th.dataset.column);
@@ -81,7 +80,8 @@ class APIDataGrid extends GridBuilder {
     }
 
     enableInfiniteScroll() {
-        const sc = this.bodyContainer?.parentElement; if (!sc) return;
+        const sc = this.container.querySelector('.grid-scroll-wrapper');
+        if (!sc) return;
         const onScroll = () => {
             if (!this.hasMore || this.isLoading) return;
             if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 500) { this.currentPage++; this.fetchData(); }

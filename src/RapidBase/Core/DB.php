@@ -234,6 +234,10 @@ class DB implements DBInterface
             $gatewayPage = Q::page(1, 10);
         }
 
+		// Obtener el total real con COUNT (sin paginación)
+        $realTotal = Gateway::count($table, $conditions);
+
+
         $res = Gateway::selectCached(
             '*', $table, $conditions, [], [],
             is_string($sort) ? [$sort] : (is_array($sort) ? $sort : []),
@@ -241,8 +245,7 @@ class DB implements DBInterface
             ($class !== null && $class !== 'StdClass') ? $class : null
         );
 
-        // Obtener el total real con COUNT (sin paginación)
-        $realTotal = Gateway::count($table, $conditions);
+        
 
         $columnNames = $res['metadata']['cols'] ?? [];
         if (empty($columnNames) && !empty($res['data'])) {

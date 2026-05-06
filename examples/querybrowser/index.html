@@ -36,9 +36,29 @@
         .tab-pane { display: none; height: 100%; flex-direction: column; padding: 15px; overflow: hidden; }
         .tab-pane.active { display: flex; flex-direction: column; height: calc(100vh - 120px); }
         button { background: #1abc9c; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
-        .sql-editor { font-family: monospace; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; min-height: 40px; max-height: 120px; flex: 1; }
-        .sql-toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+        button:disabled { background: #95a5a6; cursor: default; }
+
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #1abc9c; border-radius: 22px; transition: .3s; }
+        .slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider { background: #e74c3c; }
+        input:checked + .slider::before { transform: translateX(22px); }
+
+        .sql-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .sql-mode-label { font-size: 0.8rem; color: #888; white-space: nowrap; }
+        .table-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+        .table-chip { background: #1abc9c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; }
+        .chip-remove { cursor: pointer; opacity: 0.7; font-size: 0.7rem; }
+        .chip-remove:hover { opacity: 1; }
+        .sql-editor { font-family: monospace; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; min-height: 30px; max-height: 80px; flex: 1; background: #e9ecef; color: #333; font-size: 0.85rem; margin-bottom: 4px; width: 100%; }
+        .sql-editor:not([readonly]) { background: white; }
+        .sql-error { display: none; padding: 4px 8px; background: #fdeded; color: #e74c3c; border-radius: 4px; font-size: 0.8rem; margin-bottom: 4px; }
+        .sql-debug { display: none; padding: 4px 8px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 0.7rem; margin-bottom: 4px; max-height: 60px; overflow: auto; font-family: monospace; white-space: pre-wrap; }
         .sql-run-btn { align-self: flex-start; padding: 8px 16px; }
+        .sql-editor.drag-over { border-color: #1abc9c; background: #e8f8f5; box-shadow: 0 0 0 2px rgba(26,188,156,0.3); }
+        .rel-selects { display: flex; gap: 8px; margin-bottom: 4px; }
+        .rel-selects select { flex: 1; font-size: 0.75rem; padding: 2px; border: 1px solid #ced4da; border-radius: 4px; background: white; }
 
         .grid-container { display: flex; flex-direction: column; height: 100%; min-height: 300px; background: white; border: 1px solid #e9ecef; border-radius: 6px; overflow: hidden; }
         .grid-scroll-wrapper { flex: 1; overflow: auto; min-height: 0; }
@@ -132,17 +152,11 @@ async function loadConnections() {
 }
 
 async function deleteConnection(id) { if (confirm('¿Eliminar?')) { await fetchJson(`api.php?action=remove_connection&id=${id}`); loadConnections(); } }
-
 async function connectSavedConnection(id) {
     try {
         const f = new FormData(); f.append('connId', id);
         const d = await fetchJson('api.php?action=connect_saved', { method: 'POST', body: f });
-        if (d.status === 'ok') {
-            currentConnectionId = d.connectionId;
-            document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
-            document.querySelector(`.connection-item[data-id="${id}"]`)?.classList.add('active');
-            await loadTables();
-        }
+        if (d.status === 'ok') { currentConnectionId = d.connectionId; document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active')); document.querySelector(`.connection-item[data-id="${id}"]`)?.classList.add('active'); await loadTables(); }
     } catch(e) { alert('Error: ' + e.message); }
 }
 
@@ -157,11 +171,8 @@ async function loadDatabases() {
 }
 
 async function connectDatabaseFile(db) {
-    try {
-        const f = new FormData(); f.append('db', db);
-        const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f });
-        if (d.status === 'ok') { currentConnectionId = d.connectionId; await loadTables(); }
-    } catch(e) { alert('Error: ' + e.message); }
+    try { const f = new FormData(); f.append('db', db); const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f }); if (d.status === 'ok') { currentConnectionId = d.connectionId; await loadTables(); } }
+    catch(e) { alert('Error: ' + e.message); }
 }
 
 async function loadTables() {
@@ -170,8 +181,11 @@ async function loadTables() {
         const d = await fetchJson(`api.php?action=list_tables&connectionId=${currentConnectionId}`);
         const div = document.getElementById('treeview');
         if (!d.tables.length) { div.innerHTML = '<div style="padding:10px;">No hay tablas.</div>'; return; }
-        div.innerHTML = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul>' + d.tables.map(t => `<li class="table-node" data-table="${escapeHtml(t)}">📄 ${escapeHtml(t)}</li>`).join('') + '</ul></li></ul>';
-        div.querySelectorAll('.table-node').forEach(el => el.addEventListener('click', () => openTab(el.dataset.table)));
+        div.innerHTML = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul>' + d.tables.map(t => `<li class="table-node" draggable="true" data-table="${escapeHtml(t)}">📄 ${escapeHtml(t)}</li>`).join('') + '</ul></li></ul>';
+        div.querySelectorAll('.table-node').forEach(el => {
+            el.addEventListener('click', () => openTab(el.dataset.table));
+            el.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', JSON.stringify({type:'table',name:el.dataset.table})); });
+        });
         const caret = div.querySelector('.caret'), childUl = caret?.parentElement.querySelector('ul');
         caret?.addEventListener('click', e => { e.stopPropagation(); childUl.style.display = childUl.style.display === 'none' ? '' : 'none'; caret.innerText = childUl.style.display === 'none' ? '▶' : '▼'; });
     } catch(e) { document.getElementById('treeview').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
@@ -180,8 +194,7 @@ async function loadTables() {
 function openTab(tableName) {
     for (let [tid, t] of tabs) if (t.tableName === tableName && t.connectionId === currentConnectionId) { activateTab(tid); return; }
     const tabId = `tab_${nextTabId++}`;
-    const defaultSql = `SELECT * FROM ${tableName} LIMIT 100`;
-    tabs.set(tabId, { tableName, connectionId: currentConnectionId });
+    tabs.set(tabId, { tableName, connectionId: currentConnectionId, tables: [tableName], mode: 'navigate' });
 
     const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
     btn.innerHTML = `<span>📋 ${escapeHtml(tableName)}</span><span class="tab-close">✖</span>`;
@@ -191,9 +204,18 @@ function openTab(tableName) {
     const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
     pane.innerHTML = `
         <div class="sql-toolbar">
-            <textarea class="sql-editor" id="sql_${tabId}">${escapeHtml(defaultSql)}</textarea>
-            <button class="sql-run-btn" id="run_${tabId}">▶ Ejecutar</button>
+            <label class="switch"><input type="checkbox" id="mode_${tabId}"><span class="slider"></span></label>
+            <span class="sql-mode-label" id="modelabel_${tabId}">Navegación</span>
         </div>
+        <div class="table-chips" id="chips_${tabId}"></div>
+        <div class="rel-selects">
+            <select id="from_${tabId}" title="Tablas FROM (hijas)"><option value="">FROM: cargando...</option></select>
+            <select id="to_${tabId}" title="Tablas TO (padres)"><option value="">TO: cargando...</option></select>
+        </div>
+        <textarea class="sql-editor" id="sql_${tabId}" readonly></textarea>
+        <div class="sql-error" id="error_${tabId}" style="display:none;"></div>
+        <div class="sql-debug" id="debug_${tabId}"></div>
+        <button class="sql-run-btn" id="run_${tabId}" style="display:none;">▶ Ejecutar</button>
         <div class="grid-container" id="grid_${tabId}">
             <div class="grid-controls"></div>
             <div class="grid-scroll-wrapper"><table class="grid-table"><thead class="grid-head"></thead><tbody class="grid-body"></tbody></table></div>
@@ -202,10 +224,184 @@ function openTab(tableName) {
     document.getElementById('tab-content').appendChild(pane);
     activateTab(tabId);
 
-    document.getElementById(`run_${tabId}`).addEventListener('click', () => executeTabSQL(tabId));
-    document.getElementById(`sql_${tabId}`).addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter') executeTabSQL(tabId); });
+    const modeCheck = document.getElementById(`mode_${tabId}`);
+    const sqlEditor = document.getElementById(`sql_${tabId}`);
+    const runBtn = document.getElementById(`run_${tabId}`);
+    const modeLabel = document.getElementById(`modelabel_${tabId}`);
 
-    executeTabSQL(tabId);
+    modeCheck.addEventListener('change', () => toggleMode(tabId));
+    runBtn.addEventListener('click', () => executeTabSQL(tabId));
+    sqlEditor.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter' && modeCheck.checked) runBtn.click(); });
+
+    sqlEditor.addEventListener('dragover', e => { if (modeCheck.checked) return; e.preventDefault(); sqlEditor.classList.add('drag-over'); });
+    sqlEditor.addEventListener('dragleave', () => sqlEditor.classList.remove('drag-over'));
+    sqlEditor.addEventListener('drop', async e => {
+        e.preventDefault(); sqlEditor.classList.remove('drag-over');
+        if (modeCheck.checked) return;
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (data.type === 'table') {
+            const tab = tabs.get(tabId);
+            if (!tab.tables.includes(data.name)) {
+                tab.tables.push(data.name);
+                updateTableChips(tabId);
+                loadNavigateGrid(tabId);
+            }
+        }
+    });
+
+    // Eventos para los selects de relaciones
+    document.getElementById(`from_${tabId}`).addEventListener('change', function() {
+        if (this.value) {
+            const tab = tabs.get(tabId);
+            if (!tab.tables.includes(this.value)) {
+                tab.tables.push(this.value);
+                updateTableChips(tabId);
+                loadNavigateGrid(tabId);
+            }
+            this.value = '';
+        }
+    });
+    document.getElementById(`to_${tabId}`).addEventListener('change', function() {
+        if (this.value) {
+            const tab = tabs.get(tabId);
+            if (!tab.tables.includes(this.value)) {
+                tab.tables.push(this.value);
+                updateTableChips(tabId);
+                loadNavigateGrid(tabId);
+            }
+            this.value = '';
+        }
+    });
+
+    updateTableChips(tabId);
+    loadRelationships(tabId);
+    loadNavigateGrid(tabId);
+}
+
+function updateTableChips(tabId) {
+    const tab = tabs.get(tabId);
+    const container = document.getElementById(`chips_${tabId}`);
+    if (!container) return;
+    container.innerHTML = tab.tables.map((t, i) => 
+        `<span class="table-chip">${escapeHtml(t)}${tab.tables.length > 1 ? `<span class="chip-remove" data-idx="${i}">✖</span>` : ''}</span>`
+    ).join(' ');
+    container.querySelectorAll('.chip-remove').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(el.dataset.idx);
+            tab.tables.splice(idx, 1);
+            if (tab.tables.length === 0) tab.tables = [tab.tableName];
+            updateTableChips(tabId);
+            loadNavigateGrid(tabId);
+        });
+    });
+}
+
+async function loadRelationships(tabId) {
+    const tab = tabs.get(tabId);
+    try {
+        const r = await fetch(`api.php?action=table_relations&connectionId=${tab.connectionId}&table=${tab.tableName}`);
+        const d = await r.json();
+        const fromSelect = document.getElementById(`from_${tabId}`);
+        const toSelect = document.getElementById(`to_${tabId}`);
+        if (fromSelect) {
+            fromSelect.innerHTML = '<option value="">FROM: ' + (d.from?.join(', ') || 'ninguna') + '</option>';
+            d.from?.forEach(t => { fromSelect.innerHTML += `<option>${t}</option>`; });
+        }
+        if (toSelect) {
+            toSelect.innerHTML = '<option value="">TO: ' + (d.to?.join(', ') || 'ninguna') + '</option>';
+            d.to?.forEach(t => { toSelect.innerHTML += `<option>${t}</option>`; });
+        }
+    } catch(e) {}
+}
+
+function toggleMode(tabId) {
+    const tab = tabs.get(tabId);
+    const check = document.getElementById(`mode_${tabId}`);
+    const sqlEditor = document.getElementById(`sql_${tabId}`);
+    const runBtn = document.getElementById(`run_${tabId}`);
+    const modeLabel = document.getElementById(`modelabel_${tabId}`);
+
+    if (check.checked) {
+        tab.mode = 'edit';
+        sqlEditor.readOnly = false;
+        sqlEditor.style.background = 'white';
+        runBtn.style.display = 'block';
+        modeLabel.textContent = 'Edición';
+    } else {
+        tab.mode = 'navigate';
+        sqlEditor.readOnly = true;
+        sqlEditor.style.background = '#e9ecef';
+        runBtn.style.display = 'none';
+        modeLabel.textContent = 'Navegación';
+        loadNavigateGrid(tabId);
+    }
+}
+
+function loadNavigateGrid(tabId) {
+    const tab = tabs.get(tabId);
+    const gridContainer = `#grid_${tabId}`;
+    const container = document.querySelector(gridContainer);
+    container.querySelector('.grid-head').innerHTML = '';
+    container.querySelector('.grid-body').innerHTML = '';
+    document.getElementById(`error_${tabId}`).style.display = 'none';
+    document.getElementById(`debug_${tabId}`).style.display = 'none';
+
+    const grid = new APIDataGrid(gridContainer, 'api.php?action=grid_data', { mode: 'infinite', pageSize: 30 });
+    grid.tabId = tabId;
+    grid.connectionId = tab.connectionId;
+    grid.tables = tab.tables;
+
+    const origBuildParams = grid.buildParams.bind(grid);
+    grid.buildParams = function() {
+        const p = origBuildParams();
+        p.set('connectionId', this.connectionId);
+        // Si hay múltiples tablas, enviar como JSON array
+        if (this.tables.length === 1) {
+            p.set('table', this.tables[0]);
+        } else {
+            p.set('table', JSON.stringify(this.tables));
+        }
+        return p;
+    };
+
+    // fetchData igual que antes, con captura de debug
+    grid.fetchData = async function() {
+        if (this.isLoading) return;
+        this.isLoading = true; this.showLoading(); this.hideError();
+        try {
+            const url = `${this.apiUrl.split('?')[0]}?${this.buildParams().toString()}`;
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const d = await r.json();
+            if (d.error) throw new Error(d.error);
+
+            const rows = d.data || [];
+            const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
+            this.footerContainer.textContent = `Total: ${(d.total || rows.length).toLocaleString()} registros | ${d.columns ? d.columns.length : rows[0]?.length || 0} columnas | Página ${d.page || this.currentPage} de ${d.last_page || '?'}`;
+
+            if (rows.length > 0) {
+                if (this.currentPage === 1) this.render(rows, meta);
+                else this.appendRows(rows);
+                this.hasMore = rows.length === this.pageSize;
+                if (!this.hasMore && this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; }
+            } else { this.hasMore = false; if (this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; } }
+
+            // Actualizar textarea con el SQL real ejecutado
+            if (d.debug) {
+                document.getElementById(`sql_${tabId}`).value = d.debug.sql || '';
+                const debugEl = document.getElementById(`debug_${tabId}`);
+                debugEl.textContent = `SQL: ${d.debug.sql}\nDuration: ${d.debug.duration}ms`;
+                debugEl.style.display = 'block';
+            }
+            document.getElementById(`error_${tabId}`).style.display = 'none';
+        } catch(e) {
+            document.getElementById(`error_${tabId}`).textContent = 'Error: ' + e.message;
+            document.getElementById(`error_${tabId}`).style.display = 'block';
+        } finally { this.isLoading = false; this.hideLoading(); }
+    };
+
+    grid.load();
 }
 
 async function executeTabSQL(tabId) {
@@ -217,31 +413,25 @@ async function executeTabSQL(tabId) {
     container.querySelector('.grid-head').innerHTML = '';
     container.querySelector('.grid-body').innerHTML = '';
 
-    const isSelect = /^\s*SELECT/i.test(sql);
-    if (!isSelect) {
-        const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
-        try {
-            const r = await fetchJson('api.php?action=execute_query', { method: 'POST', body: f });
-            alert(r.affected !== undefined ? `Filas afectadas: ${r.affected}` : 'Comando ejecutado.');
-        } catch(e) { alert('Error: ' + e.message); }
-        return;
-    }
-
-    // SELECT: cargar en grid
-    const grid = new APIDataGrid(gridContainer, 'api.php?action=execute_query', { mode: 'infinite', pageSize: 30 });
-    const origFetch = grid.fetchData.bind(grid);
-    grid.fetchData = async function() {
-        if (this.isLoading) return;
-        this.isLoading = true; this.showLoading(); this.hideError();
-        try {
-            const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
-            const r = await fetchJson('api.php?action=execute_query', { method: 'POST', body: f });
-            this.render(r.rows, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
-            this.hasMore = false;
-            this.footerContainer.textContent = `Total: ${r.rows.length} registros | ${r.columns.length} columnas`;
-        } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
-    };
-    grid.load();
+    const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
+    try {
+        const r = await fetchJson('api.php?action=execute_query', { method: 'POST', body: f });
+        if (r.columns) {
+            const grid = new APIDataGrid(gridContainer, 'api.php?action=execute_query', { mode: 'pagination', pageSize: 100 });
+            grid.fetchData = async function() {
+                if (this.isLoading) return;
+                this.isLoading = true; this.showLoading(); this.hideError();
+                try {
+                    this.render(r.rows, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
+                    this.hasMore = false;
+                    this.footerContainer.textContent = `Total: ${r.rows.length} registros | ${r.columns.length} columnas | ${r.elapsed || 0}s`;
+                } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
+            };
+            grid.load();
+        } else {
+            alert(`Filas afectadas: ${r.affected} | ${r.elapsed || 0}s`);
+        }
+    } catch(e) { alert('Error: ' + e.message); }
 }
 
 function activateTab(id) {

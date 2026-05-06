@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RapidBase\Core\SQL;
 
 use RapidBase\Core\SchemaMap;
-use RapidBase\Core\Conn;
 
 class JoinResolver
 {
@@ -13,7 +12,6 @@ class JoinResolver
     private array $schema;
     private string $quoteChar;
 
-    /** @var array Caches for join trees and FROM clauses */
     private static array $joinTreeCache = [];
     private static int $joinTreeCacheSize = 0;
     private static int $joinTreeCacheMaxSize = 500;
@@ -246,10 +244,10 @@ class JoinResolver
             $degrees[$t] = ['out' => $out, 'in' => $in];
         }
 
+        // Corregido: tablas sin FK (out=0) primero, luego por mayor número de referencias entrantes
         uasort($degrees, static function ($a, $b) {
-            if ($a['out'] !== $b['out']) return $b['out'] <=> $a['out'];
-            if ($a['in'] !== $b['in']) return $a['in'] <=> $b['in'];
-            return 0;
+            if ($a['out'] !== $b['out']) return $a['out'] <=> $b['out'];
+            return $b['in'] <=> $a['in'];
         });
 
         return array_keys($degrees);
@@ -270,6 +268,7 @@ class JoinResolver
             $graph[$t] = [];
         }
 
+        // Corregido: inversiones devuelven hasMany en lugar de belongsTo
         $findRelation = function (string $a, string $b): ?array {
             $from = $this->relMap['from'] ?? [];
             $to   = $this->relMap['to']   ?? [];
@@ -277,13 +276,13 @@ class JoinResolver
             if (isset($from[$a][$b])) return $from[$a][$b];
             if (isset($from[$b][$a])) {
                 $rel = $from[$b][$a];
+                return ['type' => 'hasMany', 'local_key' => $rel['foreign_key'], 'foreign_key' => $rel['local_key']];
+            }
+            if (isset($to[$a][$b])) {
+                $rel = $to[$a][$b];
                 return ['type' => 'belongsTo', 'local_key' => $rel['foreign_key'], 'foreign_key' => $rel['local_key']];
             }
-            if (isset($to[$a][$b])) return $to[$a][$b];
-            if (isset($to[$b][$a])) {
-                $rel = $to[$b][$a];
-                return ['type' => ($rel['type'] === 'belongsTo') ? 'hasMany' : 'belongsTo', 'local_key' => $rel['foreign_key'], 'foreign_key' => $rel['local_key']];
-            }
+            if (isset($to[$b][$a])) return $to[$b][$a];
             return null;
         };
 
