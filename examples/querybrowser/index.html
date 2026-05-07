@@ -4,100 +4,108 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RapidBase Query Browser</title>
-    <!-- vis‑network -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; background: #f5f7fb; overflow: hidden; }
-        .sidebar { width: 320px; min-width: 200px; max-width: 600px; background: #2c3e50; color: #ecf0f1; display: flex; flex-direction: column; overflow: hidden; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; position: relative; }
+        body { font-family: 'Inter', 'Segoe UI', Roboto, sans-serif; height: 100vh; display: flex; background: #f0f2f5; overflow: hidden; }
+        .sidebar { width: 300px; min-width: 220px; max-width: 600px; background: #ffffff; color: #333; display: flex; flex-direction: column; overflow: hidden; box-shadow: 2px 0 12px rgba(0,0,0,0.05); z-index: 10; position: relative; border-right: 1px solid #e0e0e0; }
+        .sidebar-header { padding: 24px 20px; background: #ffffff; border-bottom: 1px solid #eee; }
+        .sidebar-header h2 { font-size: 1.4rem; font-weight: 600; color: #1a73e8; margin-bottom: 4px; }
+        .sidebar-header p { font-size: 0.85rem; color: #777; }
         .sidebar-content { flex: 1; overflow-y: auto; overflow-x: hidden; }
-        .sidebar-resizer { position: absolute; top: 0; right: 0; bottom: 0; width: 5px; cursor: col-resize; background: transparent; z-index: 20; }
-        .sidebar-resizer:hover, .sidebar-resizer.resizing { background: #1abc9c; }
-        .sidebar-header { padding: 15px; background: #1a2a36; border-bottom: 1px solid #3d566e; }
-        .sidebar-header h2 { font-size: 1.3rem; margin-bottom: 5px; }
-        .connections-list { padding: 10px 0; border-bottom: 1px solid #3d566e; max-height: 200px; overflow-y: auto; }
-        .connection-item { padding: 6px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
-        .connection-item:hover { background: #3d566e; }
-        .connection-item.active { background: #1abc9c; }
+        .connections-list { padding: 12px 0; border-bottom: 1px solid #eee; max-height: 220px; overflow-y: auto; }
+        .connection-item { padding: 10px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s; font-size: 0.9rem; }
+        .connection-item:hover { background: #f5f7fa; }
+        .connection-item.active { background: #e8f0fe; color: #1a73e8; font-weight: 500; }
         .conn-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .conn-delete { color: #e74c3c; font-weight: bold; cursor: pointer; padding: 0 5px; opacity: 0.7; }
+        .conn-delete { color: #d93025; font-weight: bold; cursor: pointer; padding: 0 6px; opacity: 0.6; transition: opacity 0.2s; }
         .conn-delete:hover { opacity: 1; }
-        .btn-add { background: #1abc9c; border: none; color: white; padding: 6px 12px; margin: 10px; cursor: pointer; border-radius: 4px; font-weight: bold; width: calc(100% - 20px); }
-        .btn-add:hover { background: #16a085; }
-        .database-list, .treeview { padding: 10px; }
-        .database-item, .table-node { padding: 5px 10px; cursor: pointer; }
-        .database-item:hover, .table-node:hover { background: #3d566e; border-radius: 4px; }
-        .treeview ul { list-style: none; padding-left: 20px; }
-        .caret { cursor: pointer; user-select: none; margin-right: 5px; }
-        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: white; }
-        .tabs-header { display: flex; background: #f8f9fa; border-bottom: 1px solid #dee2e6; overflow-x: auto; }
-        .tab { padding: 10px 16px; background: #e9ecef; border-right: 1px solid #dee2e6; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
-        .tab.active { background: white; border-bottom: 2px solid #1abc9c; }
-        .tab-close { font-size: 1.2rem; opacity: 0.6; }
-        .tab-close:hover { opacity: 1; }
-        .tab-pane { display: none; height: 100%; flex-direction: column; padding: 15px; overflow: hidden; }
-        .tab-pane.active { display: flex; flex-direction: column; height: calc(100vh - 120px); }
-        button { background: #1abc9c; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
-        button:disabled { background: #95a5a6; cursor: default; }
-.sql-run-btn {
-    min-width: 130px;
-    text-align: center;
-    white-space: nowrap;
-}
-        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #1abc9c; border-radius: 22px; transition: .3s; }
-        .slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
-        input:checked + .slider { background: #e74c3c; }
-        input:checked + .slider::before { transform: translateX(22px); }
-
-        .sql-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .sql-mode-label { font-size: 0.8rem; color: #888; white-space: nowrap; }
-        .table-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; min-height: 24px; }
-        .table-chip { background: #1abc9c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; }
-        .chip-remove { cursor: pointer; opacity: 0.7; font-size: 0.7rem; }
-        .chip-remove:hover { opacity: 1; }
-        .rel-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; align-items: center; }
-        .rel-bar-label { font-size: 0.75rem; color: #888; margin-right: 4px; white-space: nowrap; }
-        .table-chip-to { background: #3498db; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s; }
-        .table-chip-to:hover { background: #2980b9; }
-        .table-chip-from { background: #e67e22; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s; }
-        .table-chip-from:hover { background: #d35400; }
-        .sql-editor { font-family: monospace; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; min-height: 60px; max-height: 120px; background: #e9ecef; color: #333; font-size: 0.85rem; margin-bottom: 4px; width: 100%; }
-        .sql-editor:not([readonly]) { background: white; }
-        .sql-error { display: none; padding: 4px 8px; background: #fdeded; color: #e74c3c; border-radius: 4px; font-size: 0.8rem; margin-bottom: 4px; }
-        .sql-debug { padding: 4px 8px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 0.7rem; margin-top: 4px; max-height: 60px; overflow: auto; font-family: monospace; white-space: pre-wrap; display: none; }
-        .sql-run-btn { align-self: flex-start; padding: 8px 16px; }
-        .sql-editor.drag-over { border-color: #1abc9c; background: #e8f8f5; box-shadow: 0 0 0 2px rgba(26,188,156,0.3); }
-
-        .grid-container { display: flex; flex-direction: column; height: 100%; min-height: 300px; background: white; border: 1px solid #e9ecef; border-radius: 6px; overflow: hidden; }
+        .btn-add { background: #1a73e8; border: none; color: white; padding: 10px 16px; margin: 16px 20px; cursor: pointer; border-radius: 8px; font-weight: 500; font-size: 0.9rem; transition: background 0.2s; }
+        .btn-add:hover { background: #1557b0; }
+        .database-list, .treeview { padding: 12px 20px; }
+        .database-item, .table-node { padding: 6px 10px; cursor: pointer; font-size: 0.85rem; border-radius: 6px; }
+        .database-item:hover, .table-node:hover { background: #f0f4ff; }
+        .treeview ul { list-style: none; padding-left: 16px; }
+        .caret { cursor: pointer; user-select: none; margin-right: 6px; font-size: 0.8rem; }
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fafbfc; }
+        .tabs-header { display: flex; background: #ffffff; border-bottom: 1px solid #e0e0e0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+        .tab { padding: 12px 20px; background: #ffffff; border-right: 1px solid #eee; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #555; transition: background 0.15s; }
+        .tab.active { background: #f0f4ff; border-bottom: 3px solid #1a73e8; color: #1a73e8; font-weight: 500; }
+        .tab-close { font-size: 1rem; opacity: 0.4; transition: opacity 0.2s; }
+        .tab-close:hover { opacity: 0.8; }
+        .tab-pane { display: none; height: 100%; flex-direction: column; padding: 20px; overflow: hidden; }
+        .tab-pane.active { display: flex; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; overflow-x: hidden; }
+        .dashboard { display: none; flex: 1; flex-direction: column; padding: 24px; overflow-y: auto; background: #fafbfc; }
+        .dashboard.active { display: flex; }
+        .dashboard h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; color: #333; }
+        .dashboard-section { background: #ffffff; border-radius: 10px; padding: 16px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); border: 1px solid #e5e8eb; }
+        .log-entry { font-family: monospace; font-size: 0.7rem; padding: 4px 0; border-bottom: 1px solid #f0f0f0; color: #555; }
+        .log-entry:last-child { border-bottom: none; }
+        .local-server { padding: 8px 0; }
+        .local-server strong { color: #1a73e8; }
+        .grid-container { display: flex; flex-direction: column; flex: 1; min-height: 350px; background: #ffffff; border: 1px solid #e5e8eb; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
         .grid-scroll-wrapper { flex: 1; overflow: auto; min-height: 0; }
         .grid-table { width: 100%; border-collapse: collapse; table-layout: auto; white-space: nowrap; }
         .grid-head { position: sticky; top: 0; z-index: 10; }
-        .grid-head th { padding: 10px 12px; font-weight: 600; cursor: pointer; user-select: none; border-right: 1px solid #dee2e6; background: #f8f9fa; border-bottom: 2px solid #dee2e6; text-align: left; min-width: 120px; }
-        .grid-head th:hover { background: #e9ecef; }
-        .grid-head th[data-sort="asc"]::after { content: " ▲"; }
-        .grid-head th[data-sort="desc"]::after { content: " ▼"; }
-        .grid-body td { padding: 8px 12px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #eee; border-bottom: 1px solid #eee; min-width: 120px; max-width: 300px; }
-        .grid-body tr:hover td { background: #f5f7fb; }
-        .grid-controls { display: flex; gap: 10px; padding: 10px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; align-items: center; }
-        .grid-search { padding: 6px 12px; border: 1px solid #ced4da; border-radius: 4px; min-width: 200px; }
-        .grid-footer { padding: 6px 12px; background: #f8f9fa; border-top: 1px solid #dee2e6; font-size: 0.8rem; color: #888; text-align: center; flex-shrink: 0; }
-        .grid-loading, .grid-error, .grid-empty { padding: 20px; text-align: center; color: #666; }
-        .grid-loading { display: none; color: #1abc9c; }
-        .grid-error { display: none; color: #e74c3c; background: #fdf2f2; border-radius: 4px; margin: 10px; }
+        .grid-head th { padding: 12px 16px; font-weight: 600; cursor: pointer; user-select: none; border-right: 1px solid #eee; background: #f8f9fb; border-bottom: 2px solid #e0e0e0; text-align: left; min-width: 120px; color: #444; font-size: 0.8rem; letter-spacing: 0.02em; }
+        .grid-head th:hover { background: #eef1f5; }
+        .grid-head th[data-sort="asc"]::after { content: " ▲"; font-size: 0.7rem; }
+        .grid-head th[data-sort="desc"]::after { content: " ▼"; font-size: 0.7rem; }
+        .grid-body td { padding: 10px 16px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #f2f2f2; border-bottom: 1px solid #f2f2f2; min-width: 120px; max-width: 320px; font-size: 0.8rem; color: #333; }
+        .grid-body tr:hover td { background: #f6f9fe; }
+        .grid-controls { display: flex; gap: 12px; padding: 12px; background: #ffffff; border-bottom: 1px solid #eee; align-items: center; }
+        .grid-search { padding: 8px 14px; border: 1px solid #dde1e6; border-radius: 8px; min-width: 200px; font-size: 0.85rem; transition: border-color 0.2s; }
+        .grid-search:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 2px rgba(26,115,232,0.15); }
+        .grid-footer { padding: 10px 16px; background: #ffffff; border-top: 1px solid #eee; font-size: 0.8rem; color: #888; text-align: center; flex-shrink: 0; }
+        .grid-loading, .grid-error, .grid-empty { padding: 30px; text-align: center; color: #888; font-size: 0.9rem; }
+        .grid-loading { display: none; color: #1a73e8; }
+        .grid-error { display: none; color: #d93025; background: #fef2f2; border-radius: 8px; margin: 16px; }
         .hidden { display: none; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 750px; max-width: 95%; border-radius: 8px; max-height: 85vh; overflow-y: auto; }
-        .modal-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.35); backdrop-filter: blur(3px); }
+        .modal-content { background: #ffffff; margin: 4% auto; padding: 28px; width: 700px; max-width: 95%; border-radius: 16px; max-height: 85vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.15); }
+        .modal-grid { display: flex; gap: 24px; flex-wrap: wrap; }
         .modal-column { flex: 1; min-width: 200px; }
-        .modal-content input, .modal-content select { width: 100%; padding: 8px; margin: 4px 0 12px 0; border: 1px solid #ccc; border-radius: 4px; }
-        .modal-content label { font-weight: 600; color: #2c3e50; font-size: 0.9rem; }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e9ecef; }
-        .error-message { color: #e74c3c; background: #fdeded; padding: 8px; border-radius: 4px; margin-top: 10px; }
-        .success-message { color: #27ae60; background: #eafaf1; padding: 8px; border-radius: 4px; margin-top: 10px; }
-        #schema-graph { border: 1px solid #e9ecef; border-radius: 6px; background: white; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 6px 0 16px 0; border: 1px solid #dde1e6; border-radius: 8px; font-size: 0.9rem; }
+        .modal-content label { font-weight: 600; color: #333; font-size: 0.85rem; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; }
+        .error-message { color: #d93025; background: #fce8e6; padding: 10px; border-radius: 6px; margin-top: 12px; font-size: 0.85rem; }
+        .success-message { color: #0d904f; background: #e6f4ea; padding: 10px; border-radius: 6px; margin-top: 12px; font-size: 0.85rem; }
+        .sidebar-resizer { position: absolute; top: 0; right: 0; bottom: 0; width: 4px; cursor: col-resize; background: transparent; z-index: 20; }
+        .sidebar-resizer:hover, .sidebar-resizer.resizing { background: #1a73e8; opacity: 0.5; }
+        button { background: #1a73e8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s; }
+        button:disabled { background: #c4c7cc; cursor: default; }
+        button img { width: 16px; height: 16px; vertical-align: middle; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #1a73e8; border-radius: 20px; transition: 0.25s; }
+        .slider::before { content: ""; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.25s; }
+        input:checked + .slider { background: #e67e22; }
+        input:checked + .slider::before { transform: translateX(20px); }
+        .sql-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .sql-mode-label { font-size: 0.8rem; color: #888; white-space: nowrap; }
+        .table-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 28px; }
+        .table-chip { background: #e8f0fe; color: #1a73e8; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d2e3fc; }
+        .chip-remove { cursor: pointer; opacity: 0.6; font-size: 0.7rem; color: #d93025; }
+        .chip-remove:hover { opacity: 1; }
+        .rel-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; align-items: center; }
+        .rel-bar-label { font-size: 0.75rem; color: #888; margin-right: 6px; white-space: nowrap; font-weight: 500; }
+        .table-chip-to { background: #e6f2ff; color: #1a73e8; padding: 3px 10px; border-radius: 16px; font-size: 0.75rem; cursor: pointer; border: 1px solid #b3d4fc; transition: background 0.15s; }
+        .table-chip-to:hover { background: #cce4ff; }
+        .table-chip-from { background: #fef3e2; color: #e67e22; padding: 3px 10px; border-radius: 16px; font-size: 0.75rem; cursor: pointer; border: 1px solid #fce0b4; transition: background 0.15s; }
+        .table-chip-from:hover { background: #fde6c0; }
+        .sql-editor { font-family: 'SF Mono', 'Fira Code', monospace; padding: 12px; border: 1px solid #dde1e6; border-radius: 8px; resize: vertical; min-height: 64px; max-height: 140px; background: #ffffff; color: #222; font-size: 0.85rem; margin-bottom: 8px; width: 100%; line-height: 1.5; }
+        .sql-editor:not([readonly]) { background: #ffffff; border-color: #1a73e8; }
+        .sql-error { display: none; padding: 8px 12px; background: #fce8e6; color: #d93025; border-radius: 6px; font-size: 0.8rem; margin-bottom: 8px; }
+        .sql-debug { padding: 8px 12px; background: #fef7e0; color: #9a7d0a; border-radius: 6px; font-size: 0.7rem; margin-top: 8px; max-height: 70px; overflow: auto; font-family: monospace; white-space: pre-wrap; display: none; border: 1px solid #faebaf; }
+        .sql-run-btn { align-self: flex-start; padding: 8px 20px; background: #1a73e8; border-radius: 6px; font-weight: 500; transition: background 0.2s; }
+        .sql-run-btn:hover { background: #1557b0; }
+        .sql-editor.drag-over { border-color: #1a73e8; background: #f0f6ff; box-shadow: 0 0 0 3px rgba(26,115,232,0.2); }
+        .schema-header { font-size: 1rem; font-weight: 600; color: #1a73e8; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0; }
+        .schema-controls { display: flex; gap: 8px; margin-top: 8px; justify-content: center; }
+        .schema-controls button { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+        .schema-controls button:hover { background: #1557b0; }
+        #schema-graph-tab { background: #f5f0e6; border-radius: 10px; overflow: hidden; }
     </style>
 </head>
 <body>
@@ -114,7 +122,26 @@
 <div class="main">
     <div class="tabs-header" id="tabs-header"></div>
     <div class="tab-content" id="tab-content"></div>
-    <div id="schema-graph" style="flex:1; display:none; background:white;"></div>
+    <div class="dashboard active" id="dashboard">
+        <h3>📋 Panel de inicio</h3>
+        <div class="dashboard-section">
+            <h4>🔍 Servidores locales</h4>
+            <button id="btn-discover-local" style="background:#6c757d;">Buscar servidores locales</button>
+            <div id="local-databases" style="margin-top:10px;"></div>
+        </div>
+        <div class="dashboard-section">
+            <h4>⏱️ Registro de consultas (mockup)</h4>
+            <div id="query-log" style="max-height:200px; overflow-y:auto;">
+                <div class="log-entry">[10:23:45] SELECT * FROM users</div>
+                <div class="log-entry">[10:23:46] INSERT INTO logs (action) VALUES ('login')</div>
+                <div class="log-entry">[10:23:47] UPDATE settings SET value = 'dark' WHERE key = 'theme'</div>
+            </div>
+        </div>
+        <div class="dashboard-section" id="schema-section" style="display:none;">
+            <h4>🕸️ Esquema de la base de datos actual</h4>
+            <button onclick="openSchemaGraph()">Ver grafo de relaciones</button>
+        </div>
+    </div>
 </div>
 
 <div id="modal-connection" class="modal">
@@ -143,8 +170,9 @@
 <script src="grid/querybrowser-grid-component.js"></script>
 
 <script>
-let currentConnectionId = null, tabs = new Map(), nextTabId = 0;
-let network = null;   // instancia de vis‑network
+let currentConnectionId = null, currentConnectionName = '';
+let tabs = new Map(), nextTabId = 0;
+let networks = {};
 
 async function fetchJson(url, options = {}) {
     const r = await fetch(url, options);
@@ -152,32 +180,60 @@ async function fetchJson(url, options = {}) {
     const j = await r.json(); if (j.error) throw new Error(j.error); return j;
 }
 
-// ------------------- Grafo de esquema -------------------
-function checkGraphVisibility() {
-    const graphDiv = document.getElementById('schema-graph');
-    if (!graphDiv) return;
-    
-    if (tabs.size === 0 && currentConnectionId) {
-        document.getElementById('tabs-header').style.display = 'none';
-        document.getElementById('tab-content').style.display = 'none';
-        graphDiv.style.display = 'block';
-        loadSchemaGraph();
-    } else {
-        graphDiv.style.display = 'none';
-        document.getElementById('tabs-header').style.display = 'flex';
-        document.getElementById('tab-content').style.display = '';
-        if (network) {
-            network.destroy();
-            network = null;
-            graphDiv.innerHTML = '';
-        }
-    }
+function showDashboard() {
+    document.getElementById('dashboard').classList.add('active');
+    document.getElementById('tabs-header').style.display = 'none';
+    document.getElementById('tab-content').style.display = 'none';
+    document.getElementById('schema-section').style.display = currentConnectionId ? 'block' : 'none';
 }
 
-async function loadSchemaGraph() {
-    const container = document.getElementById('schema-graph');
+function hideDashboard() {
+    document.getElementById('dashboard').classList.remove('active');
+    document.getElementById('tabs-header').style.display = 'flex';
+    document.getElementById('tab-content').style.display = '';
+}
+
+document.getElementById('btn-discover-local').addEventListener('click', () => {
+    document.getElementById('local-databases').innerHTML = '<p style="color:#888;">No se encontraron servidores locales (mockup).</p>';
+});
+
+function openSchemaGraph() {
+    if (!currentConnectionId) return;
+    openTab('__schema__');
+}
+
+function openSchemaGraphTab() {
+    const schemaId = 'schema_' + currentConnectionId;
+    const tabId = 'tab_' + schemaId;
+    if (tabs.has(tabId)) { activateTab(tabId); return; }
+
+    const connName = currentConnectionName || currentConnectionId;
+
+    tabs.set(tabId, { tableName: '__schema__', connectionId: currentConnectionId, tables: [], mode: 'navigate' });
+    const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
+    btn.innerHTML = `<span>🕸️ ${escapeHtml(connName)}</span><span class="tab-close">✖</span>`;
+    btn.addEventListener('click', e => { if (e.target.classList.contains('tab-close')) closeTab(tabId); else activateTab(tabId); });
+    document.getElementById('tabs-header').appendChild(btn);
+
+    const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
+    pane.innerHTML = `
+        <div class="schema-header">Esquema: ${escapeHtml(connName)}</div>
+        <div id="schema-graph-${schemaId}" style="flex:1; min-height:400px; background:#f5f0e6; border-radius:10px;"></div>
+        <div class="schema-controls">
+            <button onclick="zoomIn('${schemaId}')">➕</button>
+            <button onclick="zoomOut('${schemaId}')">➖</button>
+            <button onclick="resetZoom('${schemaId}')">↺ Reset</button>
+        </div>
+    `;
+    document.getElementById('tab-content').appendChild(pane);
+    activateTab(tabId);
+    hideDashboard();
+    loadSchemaGraph(schemaId);
+}
+
+async function loadSchemaGraph(schemaId) {
+    const container = document.getElementById('schema-graph-' + schemaId);
     if (!currentConnectionId || !container) return;
-    
     try {
         const resp = await fetch(`api.php?action=schema_graph&connectionId=${currentConnectionId}`);
         const data = await resp.json();
@@ -185,45 +241,44 @@ async function loadSchemaGraph() {
             container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">No hay relaciones disponibles</div>';
             return;
         }
-        
-        const maxDegree = Math.max(...data.nodes.map(n => 
-            data.edges.filter(e => e.from === n.id || e.to === n.id).length
-        ), 1);
-        
+        const maxDegree = Math.max(...data.nodes.map(n => data.edges.filter(e => e.from === n.id || e.to === n.id).length), 1);
         const nodes = data.nodes.map(n => {
             const degree = data.edges.filter(e => e.from === n.id || e.to === n.id).length;
             const intensity = Math.floor(200 - (degree / maxDegree) * 150);
-            return { ...n, color: `rgb(${intensity},${intensity},255)` };
+            return { ...n, color: { background: '#a8d0e6', border: '#1a73e8', highlight: { background: '#7bb3d9' } }, font: { color: '#333' } };
         });
-        
         const edges = data.edges.map(e => ({
             ...e,
             arrows: 'to',
-            color: { opacity: 0.4 }
+            color: { color: '#888', opacity: 0.4 }
         }));
-        
         const networkData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
         const options = {
             layout: { improvedLayout: true },
             physics: { solver: 'forceAtlas2Based', forceAtlas2Based: { gravitationalConstant: -50 } },
-            interaction: { hover: true, navigationButtons: true },
+            interaction: { hover: true, navigationButtons: false },
             nodes: { shape: 'box', font: { size: 12 } }
         };
-        
         container.innerHTML = '';
-        network = new vis.Network(container, networkData, options);
-        network.on('click', function(params) {
-            if (params.nodes.length > 0) {
-                const tableName = params.nodes[0];
-                openTab(tableName);
-            }
-        });
-    } catch(e) {
-        container.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c;">Error al cargar el grafo</div>';
-    }
+        const network = new vis.Network(container, networkData, options);
+        networks[schemaId] = network;
+        network.on('click', function(params) { if (params.nodes.length > 0) { const tableName = params.nodes[0]; openTab(tableName); } });
+    } catch(e) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c;">Error al cargar el grafo</div>'; }
 }
 
-// ------------------- Conexiones y UI -------------------
+function zoomIn(schemaId) {
+    const network = networks[schemaId];
+    if (network) network.moveTo({ scale: network.getScale() * 1.2 });
+}
+function zoomOut(schemaId) {
+    const network = networks[schemaId];
+    if (network) network.moveTo({ scale: network.getScale() * 0.8 });
+}
+function resetZoom(schemaId) {
+    const network = networks[schemaId];
+    if (network) network.fit({ animation: true });
+}
+
 async function loadConnections() {
     try {
         const data = await fetchJson('api.php?action=list_connections');
@@ -242,7 +297,16 @@ async function connectSavedConnection(id) {
     try {
         const f = new FormData(); f.append('connId', id);
         const d = await fetchJson('api.php?action=connect_saved', { method: 'POST', body: f });
-        if (d.status === 'ok') { currentConnectionId = d.connectionId; document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active')); document.querySelector(`.connection-item[data-id="${id}"]`)?.classList.add('active'); await loadTables(); checkGraphVisibility(); }
+        if (d.status === 'ok') {
+            currentConnectionId = d.connectionId;
+            const connItem = document.querySelector(`.connection-item[data-id="${id}"]`);
+            currentConnectionName = connItem ? connItem.querySelector('.conn-name').textContent.replace('📁 ', '') : currentConnectionId;
+            document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
+            connItem?.classList.add('active');
+            await loadTables();
+            hideDashboard();
+            if (tabs.size === 0) { openSchemaGraph(); }
+        }
     } catch(e) { alert('Error: ' + e.message); }
 }
 
@@ -257,7 +321,7 @@ async function loadDatabases() {
 }
 
 async function connectDatabaseFile(db) {
-    try { const f = new FormData(); f.append('db', db); const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f }); if (d.status === 'ok') { currentConnectionId = d.connectionId; await loadTables(); checkGraphVisibility(); } }
+    try { const f = new FormData(); f.append('db', db); const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f }); if (d.status === 'ok') { currentConnectionId = d.connectionId; currentConnectionName = db; await loadTables(); hideDashboard(); if (tabs.size === 0) { openSchemaGraph(); } } }
     catch(e) { alert('Error: ' + e.message); }
 }
 
@@ -278,15 +342,14 @@ async function loadTables() {
 }
 
 function openTab(tableName) {
+    if (tableName === '__schema__') { openSchemaGraphTab(); return; }
     for (let [tid, t] of tabs) if (t.tableName === tableName && t.connectionId === currentConnectionId) { activateTab(tid); return; }
     const tabId = `tab_${nextTabId++}`;
     tabs.set(tabId, { tableName, connectionId: currentConnectionId, tables: [tableName], mode: 'navigate' });
-
     const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
     btn.innerHTML = `<span>📋 ${escapeHtml(tableName)}</span><span class="tab-close">✖</span>`;
     btn.addEventListener('click', e => { if (e.target.classList.contains('tab-close')) closeTab(tabId); else activateTab(tabId); });
     document.getElementById('tabs-header').appendChild(btn);
-
     const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
     pane.innerHTML = `
         <div class="sql-toolbar">
@@ -307,58 +370,47 @@ function openTab(tableName) {
         <div class="sql-debug" id="debug_${tabId}"></div>`;
     document.getElementById('tab-content').appendChild(pane);
     activateTab(tabId);
-
     const modeCheck = document.getElementById(`mode_${tabId}`);
     const sqlEditor = document.getElementById(`sql_${tabId}`);
     const runBtn = document.getElementById(`run_${tabId}`);
     const modeLabel = document.getElementById(`modelabel_${tabId}`);
-
     modeCheck.addEventListener('change', () => toggleMode(tabId));
     runBtn.addEventListener('click', () => executeTabSQL(tabId));
     sqlEditor.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter' && modeCheck.checked) runBtn.click(); });
-
     sqlEditor.addEventListener('dragover', e => { if (modeCheck.checked) return; e.preventDefault(); sqlEditor.classList.add('drag-over'); });
     sqlEditor.addEventListener('dragleave', () => sqlEditor.classList.remove('drag-over'));
     sqlEditor.addEventListener('drop', async e => {
-    e.preventDefault(); sqlEditor.classList.remove('drag-over');
-    if (modeCheck.checked) return;
-    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-    if (data.type === 'table') {
-        const tab = tabs.get(tabId);
-        if (tab.tables.includes(data.name)) return;
-
-        // Verificar si hay relación con al menos una de las tablas actuales
-        const r = await fetch(`api.php?action=related_tables&connectionId=${tab.connectionId}&tables=${encodeURIComponent(JSON.stringify(tab.tables))}`);
-        const related = await r.json();
-        const allRelated = [...(related.to || []), ...(related.from || [])];
-
-        if (!allRelated.includes(data.name)) {
-            document.getElementById(`error_${tabId}`).textContent = 
-                `No hay relaciones entre las tablas seleccionadas y ${data.name}.`;
-            document.getElementById(`error_${tabId}`).style.display = 'block';
-            return;
+        e.preventDefault(); sqlEditor.classList.remove('drag-over');
+        if (modeCheck.checked) return;
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (data.type === 'table') {
+            const tab = tabs.get(tabId);
+            if (tab.tables.includes(data.name)) return;
+            const r = await fetch(`api.php?action=related_tables&connectionId=${tab.connectionId}&tables=${encodeURIComponent(JSON.stringify(tab.tables))}`);
+            const related = await r.json();
+            const allRelated = [...(related.to || []), ...(related.from || [])];
+            if (!allRelated.includes(data.name)) {
+                document.getElementById(`error_${tabId}`).textContent = `No hay relaciones entre las tablas seleccionadas y ${data.name}.`;
+                document.getElementById(`error_${tabId}`).style.display = 'block';
+                return;
+            }
+            tab.tables.push(data.name);
+            updateTableChips(tabId);
+            loadNavigateGrid(tabId);
         }
-
-        tab.tables.push(data.name);
-        updateTableChips(tabId);
-        loadNavigateGrid(tabId);
-    }
-});
-
+    });
     updateTableChips(tabId);
     loadNavigateGrid(tabId);
-    checkGraphVisibility();
+    hideDashboard();
 }
 
 function updateTableChips(tabId) {
     const tab = tabs.get(tabId);
     const fromContainer = document.getElementById(`chips_from_${tabId}`);
     if (!fromContainer) return;
-
-    fromContainer.innerHTML = tab.tables.map((t, i) => 
+    fromContainer.innerHTML = tab.tables.map((t, i) =>
         `<span class="table-chip" title="${escapeHtml(t)}">${escapeHtml(t)}${tab.tables.length > 1 ? `<span class="chip-remove" data-idx="${i}">✖</span>` : ''}</span>`
     ).join(' ');
-
     fromContainer.querySelectorAll('.chip-remove').forEach(el => {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -369,7 +421,6 @@ function updateTableChips(tabId) {
             loadNavigateGrid(tabId);
         });
     });
-
     loadRelatedBars(tabId);
 }
 
@@ -378,13 +429,11 @@ async function loadRelatedBars(tabId) {
     const barTo = document.getElementById(`bar_to_${tabId}`);
     const barFrom = document.getElementById(`bar_from_${tabId}`);
     if (!barTo && !barFrom) return;
-    
     try {
         const r = await fetch(`api.php?action=related_tables&connectionId=${tab.connectionId}&tables=${encodeURIComponent(JSON.stringify(tab.tables))}`);
         const related = await r.json();
-        
         if (barTo) {
-            barTo.innerHTML = '<span class="rel-bar-label">belongsTo:</span>' + 
+            barTo.innerHTML = '<span class="rel-bar-label">belongsTo:</span>' +
                 (related.to || []).map(t => `<span class="table-chip-to" data-table="${escapeHtml(t)}" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
             barTo.querySelectorAll('.table-chip-to').forEach(chip => {
                 chip.addEventListener('click', () => {
@@ -396,9 +445,8 @@ async function loadRelatedBars(tabId) {
                 });
             });
         }
-        
         if (barFrom) {
-            barFrom.innerHTML = '<span class="rel-bar-label">hasMany:</span>' + 
+            barFrom.innerHTML = '<span class="rel-bar-label">hasMany:</span>' +
                 (related.from || []).map(t => `<span class="table-chip-from" data-table="${escapeHtml(t)}" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
             barFrom.querySelectorAll('.table-chip-from').forEach(chip => {
                 chip.addEventListener('click', () => {
@@ -419,7 +467,6 @@ function toggleMode(tabId) {
     const sqlEditor = document.getElementById(`sql_${tabId}`);
     const runBtn = document.getElementById(`run_${tabId}`);
     const modeLabel = document.getElementById(`modelabel_${tabId}`);
-
     if (check.checked) {
         tab.mode = 'edit';
         sqlEditor.readOnly = false;
@@ -444,12 +491,10 @@ function loadNavigateGrid(tabId) {
     container.querySelector('.grid-body').innerHTML = '';
     document.getElementById(`error_${tabId}`).style.display = 'none';
     document.getElementById(`debug_${tabId}`).style.display = 'none';
-
     const grid = new APIDataGrid(gridContainer, 'api.php?action=grid_data', { mode: 'infinite', pageSize: 30 });
     grid.tabId = tabId;
     grid.connectionId = tab.connectionId;
     grid.tables = tab.tables;
-
     const origBuildParams = grid.buildParams.bind(grid);
     grid.buildParams = function() {
         const p = origBuildParams();
@@ -461,7 +506,6 @@ function loadNavigateGrid(tabId) {
         }
         return p;
     };
-
     grid.fetchData = async function() {
         if (this.isLoading) return;
         this.isLoading = true; this.showLoading(); this.hideError();
@@ -471,19 +515,16 @@ function loadNavigateGrid(tabId) {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const d = await r.json();
             if (d.error) throw new Error(d.error);
-
             const rows = d.data || [];
             const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
             const duration = d.debug?.duration ? (Number(d.debug.duration) / 1000).toFixed(7) + 's' : 'N/A';
             this.footerContainer.innerHTML = `📄 Total: ${(d.total || rows.length).toLocaleString()} registros | ${d.columns ? d.columns.length : rows[0]?.length || 0} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
-
             if (rows.length > 0) {
                 if (this.currentPage === 1) this.render(rows, meta);
                 else this.appendRows(rows);
                 this.hasMore = rows.length === this.pageSize;
                 if (!this.hasMore && this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; }
             } else { this.hasMore = false; if (this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; } }
-
             if (d.debug) {
                 document.getElementById(`sql_${tabId}`).value = d.debug.sql || '';
                 const debugEl = document.getElementById(`debug_${tabId}`);
@@ -499,109 +540,65 @@ function loadNavigateGrid(tabId) {
             debugEl.style.display = 'block';
         } finally { this.isLoading = false; this.hideLoading(); }
     };
-
     grid.load();
 }
 
-
-
-// Función auxiliar para animar el botón con caracteres braille
 function animateButton(button, promise) {
-    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-    let frame = 0;
-    let animationId;
-
-    const originalText = button.textContent;
+    const img = document.createElement('img');
+    img.src = 'assets/icon/reloj.gif';
+    img.alt = 'Ejecutando...';
+    const originalContent = button.innerHTML;
+    button.innerHTML = '';
+    button.appendChild(img);
+    button.appendChild(document.createTextNode(' Ejecutando...'));
     button.disabled = true;
-
-    // Usamos requestAnimationFrame para que la animación fluya incluso durante carga pesada
-    function step() {
-        button.textContent = frames[frame] + ' Ejecutando...';
-        frame = (frame + 1) % frames.length;
-        animationId = requestAnimationFrame(step);
-    }
-    // Forzamos un repintado inicial
-    requestAnimationFrame(() => {
-        button.textContent = frames[0] + ' Ejecutando...';
-        animationId = requestAnimationFrame(step);
-    });
-
-    // Devolvemos una promesa que maneja el resultado de la consulta y limpia la animación
-    return new Promise((resolve, reject) => {
-        promise.then(result => {
-            cancelAnimationFrame(animationId);
-            button.textContent = originalText;
-            button.disabled = false;
-            resolve(result);
-        }).catch(err => {
-            cancelAnimationFrame(animationId);
-            button.textContent = originalText;
-            button.disabled = false;
-            reject(err);
-        });
+    button.style.backgroundColor = 'white';
+    button.style.color = '#555';
+    return promise.then(result => {
+        button.innerHTML = originalContent;
+        button.disabled = false;
+        button.style.backgroundColor = '';
+        button.style.color = '';
+        return result;
+    }).catch(err => {
+        button.innerHTML = originalContent;
+        button.disabled = false;
+        button.style.backgroundColor = '';
+        button.style.color = '';
+        throw err;
     });
 }
 
-// Dentro de executeTabSQL, reemplaza el bloque try/catch por esto:
 async function executeTabSQL(tabId) {
     const sql = document.getElementById(`sql_${tabId}`).value.trim();
     if (!sql) return;
     const tab = tabs.get(tabId);
     const gridContainer = `#grid_${tabId}`;
     const container = document.querySelector(gridContainer);
-
-    // Limpiar grid
     container.querySelector('.grid-head').innerHTML = '';
     container.querySelector('.grid-body').innerHTML = '';
-
-    const f = new FormData();
-    f.append('connectionId', tab.connectionId);
-    f.append('sql', sql);
-
+    const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
     const runBtn = document.getElementById(`run_${tabId}`);
-    if (!runBtn) {
-        alert('Error: Botón no encontrado');
-        return;
-    }
-
+    if (!runBtn) { alert('Error: Botón no encontrado'); return; }
     try {
-        // Envolvemos la consulta con la animación braille
-        const r = await animateButton(
-            runBtn,
-            fetchJson('api.php?action=execute_query', { method: 'POST', body: f })
-        );
-
+        const r = await animateButton(runBtn, fetchJson('api.php?action=execute_query', { method: 'POST', body: f }));
         if (r.columns) {
-            // SELECT / DESCRIBE / SHOW...
             const grid = new APIDataGrid(gridContainer, 'api.php?action=execute_query', { mode: 'pagination', pageSize: 100 });
             grid.fetchData = async function() {
                 if (this.isLoading) return;
                 this.isLoading = true; this.showLoading(); this.hideError();
                 try {
-                    this.render(r.rows, {
-                        columns: r.columns,
-                        titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
-                    });
+                    this.render(r.rows, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
                     this.hasMore = false;
                     this.footerContainer.innerHTML = `📄 Total: ${r.rows.length} registros | ${r.columns.length} columnas | ⏱️ ${r.elapsed || 0}s`;
-                } catch(e) {
-                    this.showError(e.message);
-                } finally {
-                    this.isLoading = false; this.hideLoading();
-                }
+                } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
             };
             grid.load();
         } else {
-            // INSERT, UPDATE, DELETE...
             alert(`Filas afectadas: ${r.affected} | ⏱️ ${r.elapsed || 0}s`);
         }
-    } catch (e) {
-        alert('Error: ' + e.message);
-    }
+    } catch(e) { alert('Error: ' + e.message); }
 }
-
-
-
 
 function activateTab(id) {
     document.querySelectorAll('.tab,.tab-pane').forEach(el => el.classList.remove('active'));
@@ -613,14 +610,12 @@ function closeTab(id) {
     document.querySelector(`.tab[data-tab-id="${id}"]`)?.remove();
     document.getElementById(`pane_${id}`)?.remove();
     tabs.delete(id);
-    if (!tabs.size) { document.getElementById('tabs-header').innerHTML = ''; document.getElementById('tab-content').innerHTML = ''; }
+    if (!tabs.size) { document.getElementById('tabs-header').innerHTML = ''; document.getElementById('tab-content').innerHTML = ''; showDashboard(); }
     else activateTab(tabs.keys().next().value);
-    checkGraphVisibility();
 }
 
 function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// Modal
 const modal = document.getElementById('modal-connection');
 document.getElementById('btn-add-connection').addEventListener('click', () => {
     modal.style.display = 'block'; document.getElementById('modal-message').innerHTML = '';
@@ -657,7 +652,9 @@ function getConnectionData() {
     return { name: document.getElementById('conn-name').value.trim(), driver: d, host: document.getElementById('conn-host').value.trim(), port: +document.getElementById('conn-port').value || 3306, database: document.getElementById('conn-dbname').value.trim(), username: document.getElementById('conn-user').value.trim(), password: document.getElementById('conn-pass').value };
 }
 
-loadConnections(); loadDatabases();
+loadConnections();
+loadDatabases();
+showDashboard();
 
 const sidebar = document.querySelector('.sidebar'), resizer = document.getElementById('sidebar-resizer');
 let isResizing = false;
