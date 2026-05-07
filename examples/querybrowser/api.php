@@ -257,6 +257,7 @@ try {
             break;
 
         case 'grid_data':
+			
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             $table = $_REQUEST['table'] ?? '';
             $page = max(1, (int)($_REQUEST['page'] ?? 1));
@@ -280,10 +281,10 @@ try {
                 $d = is_string($filter) ? json_decode($filter, true) : $filter;
                 if (is_array($d)) $conditions = $d;
             }
-
+            try{
             $response = DB::grid($table, $conditions, [$page, $limit], $sort);
             $status = DB::status();
-
+             
             echo json_encode([
                 'data'      => $response->data,
                 'total'     => $response->total,
@@ -293,10 +294,15 @@ try {
                 'page'      => $page,
                 'last_page' => $response->state['last_page'],
                 'debug'     => [
-                    'sql'      => $status['sql'] ?? '',
+                     'sql'      => $status['sql'] ?? '',
                     'duration' => $status['duration'] ?? 0,
                 ],
             ]);
+			
+			}catch(Exception $e){
+				echo json_encode(['error' => $e->getMessage()]);
+				
+			} 
             break;
 			
 			case 'test_join':
@@ -315,7 +321,36 @@ try {
         echo json_encode(['error' => $e->getMessage()]);
     }
     break;
-			
+	
+case 'related_tables':
+    $connectionKey = $_REQUEST['connectionId'] ?? '';
+    $tablesJson = $_REQUEST['tables'] ?? '[]';
+    if (!$connectionKey) { echo json_encode(['to' => [], 'from' => []]); break; }
+    activateSessionConnection($connectionKey);
+    $tables = json_decode($tablesJson, true) ?: [];
+    $map = SchemaMap::getMap();
+    $relsFrom = $map['relationships']['from'] ?? []; // $tabla -> a quién apunto (belongsTo)
+    $relsTo   = $map['relationships']['to']   ?? []; // $tabla -> quién me apunta (hasMany)
+
+    $toList = [];   // belongsTo: tablas a las que apuntan las seleccionadas
+    $fromList = []; // hasMany: tablas que apuntan a las seleccionadas
+
+    foreach ($tables as $t) {
+        // BelongsTo: la tabla actual tiene FK hacia estas
+        foreach ($relsFrom[$t] ?? [] as $target => $rel) {
+            if (!in_array($target, $tables)) $toList[$target] = true;
+        }
+        // HasMany: otras tablas tienen FK hacia la actual
+        foreach ($relsTo[$t] ?? [] as $target => $rel) {
+            if (!in_array($target, $tables)) $fromList[$target] = true;
+        }
+    }
+
+    echo json_encode([
+        'to'   => array_keys($toList),   // belongsTo
+        'from' => array_keys($fromList)  // hasMany
+    ]);
+    break;			
 		case 'debug_schema':
     $connectionKey = $_REQUEST['connectionId'] ?? '';
     activateSessionConnection($connectionKey);
@@ -326,6 +361,42 @@ try {
         'to'            => $map['relationships']['to'] ?? [],
     ]);
     break;	
+	
+	case 'schema_graph':
+    $connectionKey = $_REQUEST['connectionId'] ?? '';
+    if (!$connectionKey) { echo json_encode([]); break; }
+    activateSessionConnection($connectionKey);
+    $map = SchemaMap::getMap();
+    $tables = $map['tables'] ?? [];
+    $rels   = $map['relationships']['from'] ?? [];
+    
+    $nodes = [];
+    $edges = [];
+    $nodeIndex = [];
+    
+    foreach ($tables as $tableName => $info) {
+        $nodes[] = [
+            'id'    => $tableName,
+            'label' => $tableName,
+            'title' => $tableName
+        ];
+        $nodeIndex[$tableName] = true;
+    }
+    
+    foreach ($rels as $source => $targets) {
+        foreach ($targets as $target => $rel) {
+            $edges[] = [
+                'from'  => $source,
+                'to'    => $target,
+                'label' => $rel['local_key'] . ' → ' . $rel['foreign_key'],
+                'arrows'=> 'to',
+                'title' => $rel['type'] ?? ''
+            ];
+        }
+    }
+    
+    echo json_encode(['nodes' => $nodes, 'edges' => $edges]);
+    break;
 
         default:
             http_response_code(400);

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RapidBase Query Browser</title>
+    <!-- vis‑network -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; background: #f5f7fb; overflow: hidden; }
@@ -37,7 +40,11 @@
         .tab-pane.active { display: flex; flex-direction: column; height: calc(100vh - 120px); }
         button { background: #1abc9c; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
         button:disabled { background: #95a5a6; cursor: default; }
-
+.sql-run-btn {
+    min-width: 130px;
+    text-align: center;
+    white-space: nowrap;
+}
         .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #1abc9c; border-radius: 22px; transition: .3s; }
@@ -47,18 +54,22 @@
 
         .sql-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .sql-mode-label { font-size: 0.8rem; color: #888; white-space: nowrap; }
-        .table-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+        .table-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; min-height: 24px; }
         .table-chip { background: #1abc9c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; }
         .chip-remove { cursor: pointer; opacity: 0.7; font-size: 0.7rem; }
         .chip-remove:hover { opacity: 1; }
-        .sql-editor { font-family: monospace; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; min-height: 30px; max-height: 80px; flex: 1; background: #e9ecef; color: #333; font-size: 0.85rem; margin-bottom: 4px; width: 100%; }
+        .rel-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; align-items: center; }
+        .rel-bar-label { font-size: 0.75rem; color: #888; margin-right: 4px; white-space: nowrap; }
+        .table-chip-to { background: #3498db; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s; }
+        .table-chip-to:hover { background: #2980b9; }
+        .table-chip-from { background: #e67e22; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s; }
+        .table-chip-from:hover { background: #d35400; }
+        .sql-editor { font-family: monospace; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical; min-height: 60px; max-height: 120px; background: #e9ecef; color: #333; font-size: 0.85rem; margin-bottom: 4px; width: 100%; }
         .sql-editor:not([readonly]) { background: white; }
         .sql-error { display: none; padding: 4px 8px; background: #fdeded; color: #e74c3c; border-radius: 4px; font-size: 0.8rem; margin-bottom: 4px; }
-        .sql-debug { display: none; padding: 4px 8px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 0.7rem; margin-bottom: 4px; max-height: 60px; overflow: auto; font-family: monospace; white-space: pre-wrap; }
+        .sql-debug { padding: 4px 8px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 0.7rem; margin-top: 4px; max-height: 60px; overflow: auto; font-family: monospace; white-space: pre-wrap; display: none; }
         .sql-run-btn { align-self: flex-start; padding: 8px 16px; }
         .sql-editor.drag-over { border-color: #1abc9c; background: #e8f8f5; box-shadow: 0 0 0 2px rgba(26,188,156,0.3); }
-        .rel-selects { display: flex; gap: 8px; margin-bottom: 4px; }
-        .rel-selects select { flex: 1; font-size: 0.75rem; padding: 2px; border: 1px solid #ced4da; border-radius: 4px; background: white; }
 
         .grid-container { display: flex; flex-direction: column; height: 100%; min-height: 300px; background: white; border: 1px solid #e9ecef; border-radius: 6px; overflow: hidden; }
         .grid-scroll-wrapper { flex: 1; overflow: auto; min-height: 0; }
@@ -86,6 +97,7 @@
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e9ecef; }
         .error-message { color: #e74c3c; background: #fdeded; padding: 8px; border-radius: 4px; margin-top: 10px; }
         .success-message { color: #27ae60; background: #eafaf1; padding: 8px; border-radius: 4px; margin-top: 10px; }
+        #schema-graph { border: 1px solid #e9ecef; border-radius: 6px; background: white; }
     </style>
 </head>
 <body>
@@ -102,6 +114,7 @@
 <div class="main">
     <div class="tabs-header" id="tabs-header"></div>
     <div class="tab-content" id="tab-content"></div>
+    <div id="schema-graph" style="flex:1; display:none; background:white;"></div>
 </div>
 
 <div id="modal-connection" class="modal">
@@ -131,6 +144,7 @@
 
 <script>
 let currentConnectionId = null, tabs = new Map(), nextTabId = 0;
+let network = null;   // instancia de vis‑network
 
 async function fetchJson(url, options = {}) {
     const r = await fetch(url, options);
@@ -138,6 +152,78 @@ async function fetchJson(url, options = {}) {
     const j = await r.json(); if (j.error) throw new Error(j.error); return j;
 }
 
+// ------------------- Grafo de esquema -------------------
+function checkGraphVisibility() {
+    const graphDiv = document.getElementById('schema-graph');
+    if (!graphDiv) return;
+    
+    if (tabs.size === 0 && currentConnectionId) {
+        document.getElementById('tabs-header').style.display = 'none';
+        document.getElementById('tab-content').style.display = 'none';
+        graphDiv.style.display = 'block';
+        loadSchemaGraph();
+    } else {
+        graphDiv.style.display = 'none';
+        document.getElementById('tabs-header').style.display = 'flex';
+        document.getElementById('tab-content').style.display = '';
+        if (network) {
+            network.destroy();
+            network = null;
+            graphDiv.innerHTML = '';
+        }
+    }
+}
+
+async function loadSchemaGraph() {
+    const container = document.getElementById('schema-graph');
+    if (!currentConnectionId || !container) return;
+    
+    try {
+        const resp = await fetch(`api.php?action=schema_graph&connectionId=${currentConnectionId}`);
+        const data = await resp.json();
+        if (!data.nodes || data.nodes.length === 0) {
+            container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">No hay relaciones disponibles</div>';
+            return;
+        }
+        
+        const maxDegree = Math.max(...data.nodes.map(n => 
+            data.edges.filter(e => e.from === n.id || e.to === n.id).length
+        ), 1);
+        
+        const nodes = data.nodes.map(n => {
+            const degree = data.edges.filter(e => e.from === n.id || e.to === n.id).length;
+            const intensity = Math.floor(200 - (degree / maxDegree) * 150);
+            return { ...n, color: `rgb(${intensity},${intensity},255)` };
+        });
+        
+        const edges = data.edges.map(e => ({
+            ...e,
+            arrows: 'to',
+            color: { opacity: 0.4 }
+        }));
+        
+        const networkData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+        const options = {
+            layout: { improvedLayout: true },
+            physics: { solver: 'forceAtlas2Based', forceAtlas2Based: { gravitationalConstant: -50 } },
+            interaction: { hover: true, navigationButtons: true },
+            nodes: { shape: 'box', font: { size: 12 } }
+        };
+        
+        container.innerHTML = '';
+        network = new vis.Network(container, networkData, options);
+        network.on('click', function(params) {
+            if (params.nodes.length > 0) {
+                const tableName = params.nodes[0];
+                openTab(tableName);
+            }
+        });
+    } catch(e) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c;">Error al cargar el grafo</div>';
+    }
+}
+
+// ------------------- Conexiones y UI -------------------
 async function loadConnections() {
     try {
         const data = await fetchJson('api.php?action=list_connections');
@@ -156,7 +242,7 @@ async function connectSavedConnection(id) {
     try {
         const f = new FormData(); f.append('connId', id);
         const d = await fetchJson('api.php?action=connect_saved', { method: 'POST', body: f });
-        if (d.status === 'ok') { currentConnectionId = d.connectionId; document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active')); document.querySelector(`.connection-item[data-id="${id}"]`)?.classList.add('active'); await loadTables(); }
+        if (d.status === 'ok') { currentConnectionId = d.connectionId; document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active')); document.querySelector(`.connection-item[data-id="${id}"]`)?.classList.add('active'); await loadTables(); checkGraphVisibility(); }
     } catch(e) { alert('Error: ' + e.message); }
 }
 
@@ -171,7 +257,7 @@ async function loadDatabases() {
 }
 
 async function connectDatabaseFile(db) {
-    try { const f = new FormData(); f.append('db', db); const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f }); if (d.status === 'ok') { currentConnectionId = d.connectionId; await loadTables(); } }
+    try { const f = new FormData(); f.append('db', db); const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f }); if (d.status === 'ok') { currentConnectionId = d.connectionId; await loadTables(); checkGraphVisibility(); } }
     catch(e) { alert('Error: ' + e.message); }
 }
 
@@ -207,20 +293,18 @@ function openTab(tableName) {
             <label class="switch"><input type="checkbox" id="mode_${tabId}"><span class="slider"></span></label>
             <span class="sql-mode-label" id="modelabel_${tabId}">Navegación</span>
         </div>
-        <div class="table-chips" id="chips_${tabId}"></div>
-        <div class="rel-selects">
-            <select id="from_${tabId}" title="Tablas FROM (hijas)"><option value="">FROM: cargando...</option></select>
-            <select id="to_${tabId}" title="Tablas TO (padres)"><option value="">TO: cargando...</option></select>
-        </div>
-        <textarea class="sql-editor" id="sql_${tabId}" readonly></textarea>
+        <div class="table-chips" id="chips_from_${tabId}"></div>
+        <div class="rel-bar" id="bar_to_${tabId}"><span class="rel-bar-label">belongsTo:</span></div>
+        <div class="rel-bar" id="bar_from_${tabId}"><span class="rel-bar-label">hasMany:</span></div>
+        <textarea class="sql-editor" id="sql_${tabId}" readonly rows="3"></textarea>
         <div class="sql-error" id="error_${tabId}" style="display:none;"></div>
-        <div class="sql-debug" id="debug_${tabId}"></div>
         <button class="sql-run-btn" id="run_${tabId}" style="display:none;">▶ Ejecutar</button>
         <div class="grid-container" id="grid_${tabId}">
             <div class="grid-controls"></div>
             <div class="grid-scroll-wrapper"><table class="grid-table"><thead class="grid-head"></thead><tbody class="grid-body"></tbody></table></div>
             <div class="grid-loading">Cargando datos...</div><div class="grid-error"></div>
-        </div>`;
+        </div>
+        <div class="sql-debug" id="debug_${tabId}"></div>`;
     document.getElementById('tab-content').appendChild(pane);
     activateTab(tabId);
 
@@ -236,56 +320,46 @@ function openTab(tableName) {
     sqlEditor.addEventListener('dragover', e => { if (modeCheck.checked) return; e.preventDefault(); sqlEditor.classList.add('drag-over'); });
     sqlEditor.addEventListener('dragleave', () => sqlEditor.classList.remove('drag-over'));
     sqlEditor.addEventListener('drop', async e => {
-        e.preventDefault(); sqlEditor.classList.remove('drag-over');
-        if (modeCheck.checked) return;
-        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-        if (data.type === 'table') {
-            const tab = tabs.get(tabId);
-            if (!tab.tables.includes(data.name)) {
-                tab.tables.push(data.name);
-                updateTableChips(tabId);
-                loadNavigateGrid(tabId);
-            }
-        }
-    });
+    e.preventDefault(); sqlEditor.classList.remove('drag-over');
+    if (modeCheck.checked) return;
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (data.type === 'table') {
+        const tab = tabs.get(tabId);
+        if (tab.tables.includes(data.name)) return;
 
-    // Eventos para los selects de relaciones
-    document.getElementById(`from_${tabId}`).addEventListener('change', function() {
-        if (this.value) {
-            const tab = tabs.get(tabId);
-            if (!tab.tables.includes(this.value)) {
-                tab.tables.push(this.value);
-                updateTableChips(tabId);
-                loadNavigateGrid(tabId);
-            }
-            this.value = '';
+        // Verificar si hay relación con al menos una de las tablas actuales
+        const r = await fetch(`api.php?action=related_tables&connectionId=${tab.connectionId}&tables=${encodeURIComponent(JSON.stringify(tab.tables))}`);
+        const related = await r.json();
+        const allRelated = [...(related.to || []), ...(related.from || [])];
+
+        if (!allRelated.includes(data.name)) {
+            document.getElementById(`error_${tabId}`).textContent = 
+                `No hay relaciones entre las tablas seleccionadas y ${data.name}.`;
+            document.getElementById(`error_${tabId}`).style.display = 'block';
+            return;
         }
-    });
-    document.getElementById(`to_${tabId}`).addEventListener('change', function() {
-        if (this.value) {
-            const tab = tabs.get(tabId);
-            if (!tab.tables.includes(this.value)) {
-                tab.tables.push(this.value);
-                updateTableChips(tabId);
-                loadNavigateGrid(tabId);
-            }
-            this.value = '';
-        }
-    });
+
+        tab.tables.push(data.name);
+        updateTableChips(tabId);
+        loadNavigateGrid(tabId);
+    }
+});
 
     updateTableChips(tabId);
-    loadRelationships(tabId);
     loadNavigateGrid(tabId);
+    checkGraphVisibility();
 }
 
 function updateTableChips(tabId) {
     const tab = tabs.get(tabId);
-    const container = document.getElementById(`chips_${tabId}`);
-    if (!container) return;
-    container.innerHTML = tab.tables.map((t, i) => 
-        `<span class="table-chip">${escapeHtml(t)}${tab.tables.length > 1 ? `<span class="chip-remove" data-idx="${i}">✖</span>` : ''}</span>`
+    const fromContainer = document.getElementById(`chips_from_${tabId}`);
+    if (!fromContainer) return;
+
+    fromContainer.innerHTML = tab.tables.map((t, i) => 
+        `<span class="table-chip" title="${escapeHtml(t)}">${escapeHtml(t)}${tab.tables.length > 1 ? `<span class="chip-remove" data-idx="${i}">✖</span>` : ''}</span>`
     ).join(' ');
-    container.querySelectorAll('.chip-remove').forEach(el => {
+
+    fromContainer.querySelectorAll('.chip-remove').forEach(el => {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             const idx = parseInt(el.dataset.idx);
@@ -295,22 +369,46 @@ function updateTableChips(tabId) {
             loadNavigateGrid(tabId);
         });
     });
+
+    loadRelatedBars(tabId);
 }
 
-async function loadRelationships(tabId) {
+async function loadRelatedBars(tabId) {
     const tab = tabs.get(tabId);
+    const barTo = document.getElementById(`bar_to_${tabId}`);
+    const barFrom = document.getElementById(`bar_from_${tabId}`);
+    if (!barTo && !barFrom) return;
+    
     try {
-        const r = await fetch(`api.php?action=table_relations&connectionId=${tab.connectionId}&table=${tab.tableName}`);
-        const d = await r.json();
-        const fromSelect = document.getElementById(`from_${tabId}`);
-        const toSelect = document.getElementById(`to_${tabId}`);
-        if (fromSelect) {
-            fromSelect.innerHTML = '<option value="">FROM: ' + (d.from?.join(', ') || 'ninguna') + '</option>';
-            d.from?.forEach(t => { fromSelect.innerHTML += `<option>${t}</option>`; });
+        const r = await fetch(`api.php?action=related_tables&connectionId=${tab.connectionId}&tables=${encodeURIComponent(JSON.stringify(tab.tables))}`);
+        const related = await r.json();
+        
+        if (barTo) {
+            barTo.innerHTML = '<span class="rel-bar-label">belongsTo:</span>' + 
+                (related.to || []).map(t => `<span class="table-chip-to" data-table="${escapeHtml(t)}" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
+            barTo.querySelectorAll('.table-chip-to').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    if (!tab.tables.includes(chip.dataset.table)) {
+                        tab.tables.push(chip.dataset.table);
+                        updateTableChips(tabId);
+                        loadNavigateGrid(tabId);
+                    }
+                });
+            });
         }
-        if (toSelect) {
-            toSelect.innerHTML = '<option value="">TO: ' + (d.to?.join(', ') || 'ninguna') + '</option>';
-            d.to?.forEach(t => { toSelect.innerHTML += `<option>${t}</option>`; });
+        
+        if (barFrom) {
+            barFrom.innerHTML = '<span class="rel-bar-label">hasMany:</span>' + 
+                (related.from || []).map(t => `<span class="table-chip-from" data-table="${escapeHtml(t)}" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
+            barFrom.querySelectorAll('.table-chip-from').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    if (!tab.tables.includes(chip.dataset.table)) {
+                        tab.tables.push(chip.dataset.table);
+                        updateTableChips(tabId);
+                        loadNavigateGrid(tabId);
+                    }
+                });
+            });
         }
     } catch(e) {}
 }
@@ -356,7 +454,6 @@ function loadNavigateGrid(tabId) {
     grid.buildParams = function() {
         const p = origBuildParams();
         p.set('connectionId', this.connectionId);
-        // Si hay múltiples tablas, enviar como JSON array
         if (this.tables.length === 1) {
             p.set('table', this.tables[0]);
         } else {
@@ -365,7 +462,6 @@ function loadNavigateGrid(tabId) {
         return p;
     };
 
-    // fetchData igual que antes, con captura de debug
     grid.fetchData = async function() {
         if (this.isLoading) return;
         this.isLoading = true; this.showLoading(); this.hideError();
@@ -378,7 +474,8 @@ function loadNavigateGrid(tabId) {
 
             const rows = d.data || [];
             const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
-            this.footerContainer.textContent = `Total: ${(d.total || rows.length).toLocaleString()} registros | ${d.columns ? d.columns.length : rows[0]?.length || 0} columnas | Página ${d.page || this.currentPage} de ${d.last_page || '?'}`;
+            const duration = d.debug?.duration ? (Number(d.debug.duration) / 1000).toFixed(7) + 's' : 'N/A';
+            this.footerContainer.innerHTML = `📄 Total: ${(d.total || rows.length).toLocaleString()} registros | ${d.columns ? d.columns.length : rows[0]?.length || 0} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
 
             if (rows.length > 0) {
                 if (this.currentPage === 1) this.render(rows, meta);
@@ -387,52 +484,124 @@ function loadNavigateGrid(tabId) {
                 if (!this.hasMore && this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; }
             } else { this.hasMore = false; if (this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; } }
 
-            // Actualizar textarea con el SQL real ejecutado
             if (d.debug) {
                 document.getElementById(`sql_${tabId}`).value = d.debug.sql || '';
                 const debugEl = document.getElementById(`debug_${tabId}`);
-                debugEl.textContent = `SQL: ${d.debug.sql}\nDuration: ${d.debug.duration}ms`;
+                debugEl.textContent = `SQL: ${d.debug.sql}\nDuration: ${duration}`;
                 debugEl.style.display = 'block';
             }
             document.getElementById(`error_${tabId}`).style.display = 'none';
         } catch(e) {
             document.getElementById(`error_${tabId}`).textContent = 'Error: ' + e.message;
             document.getElementById(`error_${tabId}`).style.display = 'block';
+            const debugEl = document.getElementById(`debug_${tabId}`);
+            debugEl.textContent = 'Error: ' + e.message;
+            debugEl.style.display = 'block';
         } finally { this.isLoading = false; this.hideLoading(); }
     };
 
     grid.load();
 }
 
+
+
+// Función auxiliar para animar el botón con caracteres braille
+function animateButton(button, promise) {
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let frame = 0;
+    let animationId;
+
+    const originalText = button.textContent;
+    button.disabled = true;
+
+    // Usamos requestAnimationFrame para que la animación fluya incluso durante carga pesada
+    function step() {
+        button.textContent = frames[frame] + ' Ejecutando...';
+        frame = (frame + 1) % frames.length;
+        animationId = requestAnimationFrame(step);
+    }
+    // Forzamos un repintado inicial
+    requestAnimationFrame(() => {
+        button.textContent = frames[0] + ' Ejecutando...';
+        animationId = requestAnimationFrame(step);
+    });
+
+    // Devolvemos una promesa que maneja el resultado de la consulta y limpia la animación
+    return new Promise((resolve, reject) => {
+        promise.then(result => {
+            cancelAnimationFrame(animationId);
+            button.textContent = originalText;
+            button.disabled = false;
+            resolve(result);
+        }).catch(err => {
+            cancelAnimationFrame(animationId);
+            button.textContent = originalText;
+            button.disabled = false;
+            reject(err);
+        });
+    });
+}
+
+// Dentro de executeTabSQL, reemplaza el bloque try/catch por esto:
 async function executeTabSQL(tabId) {
     const sql = document.getElementById(`sql_${tabId}`).value.trim();
     if (!sql) return;
     const tab = tabs.get(tabId);
     const gridContainer = `#grid_${tabId}`;
     const container = document.querySelector(gridContainer);
+
+    // Limpiar grid
     container.querySelector('.grid-head').innerHTML = '';
     container.querySelector('.grid-body').innerHTML = '';
 
-    const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
+    const f = new FormData();
+    f.append('connectionId', tab.connectionId);
+    f.append('sql', sql);
+
+    const runBtn = document.getElementById(`run_${tabId}`);
+    if (!runBtn) {
+        alert('Error: Botón no encontrado');
+        return;
+    }
+
     try {
-        const r = await fetchJson('api.php?action=execute_query', { method: 'POST', body: f });
+        // Envolvemos la consulta con la animación braille
+        const r = await animateButton(
+            runBtn,
+            fetchJson('api.php?action=execute_query', { method: 'POST', body: f })
+        );
+
         if (r.columns) {
+            // SELECT / DESCRIBE / SHOW...
             const grid = new APIDataGrid(gridContainer, 'api.php?action=execute_query', { mode: 'pagination', pageSize: 100 });
             grid.fetchData = async function() {
                 if (this.isLoading) return;
                 this.isLoading = true; this.showLoading(); this.hideError();
                 try {
-                    this.render(r.rows, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
+                    this.render(r.rows, {
+                        columns: r.columns,
+                        titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+                    });
                     this.hasMore = false;
-                    this.footerContainer.textContent = `Total: ${r.rows.length} registros | ${r.columns.length} columnas | ${r.elapsed || 0}s`;
-                } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
+                    this.footerContainer.innerHTML = `📄 Total: ${r.rows.length} registros | ${r.columns.length} columnas | ⏱️ ${r.elapsed || 0}s`;
+                } catch(e) {
+                    this.showError(e.message);
+                } finally {
+                    this.isLoading = false; this.hideLoading();
+                }
             };
             grid.load();
         } else {
-            alert(`Filas afectadas: ${r.affected} | ${r.elapsed || 0}s`);
+            // INSERT, UPDATE, DELETE...
+            alert(`Filas afectadas: ${r.affected} | ⏱️ ${r.elapsed || 0}s`);
         }
-    } catch(e) { alert('Error: ' + e.message); }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
 }
+
+
+
 
 function activateTab(id) {
     document.querySelectorAll('.tab,.tab-pane').forEach(el => el.classList.remove('active'));
@@ -446,6 +615,7 @@ function closeTab(id) {
     tabs.delete(id);
     if (!tabs.size) { document.getElementById('tabs-header').innerHTML = ''; document.getElementById('tab-content').innerHTML = ''; }
     else activateTab(tabs.keys().next().value);
+    checkGraphVisibility();
 }
 
 function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
