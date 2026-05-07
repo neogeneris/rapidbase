@@ -12,6 +12,7 @@ class JoinResolver
     private array $schema;
     private string $quoteChar;
 
+    /** @var array Caches for join trees and FROM clauses */
     private static array $joinTreeCache = [];
     private static int $joinTreeCacheSize = 0;
     private static int $joinTreeCacheMaxSize = 500;
@@ -268,23 +269,45 @@ class JoinResolver
             $graph[$t] = [];
         }
 
-        // Corregido: inversiones devuelven hasMany en lugar de belongsTo
-        $findRelation = function (string $a, string $b): ?array {
-            $from = $this->relMap['from'] ?? [];
-            $to   = $this->relMap['to']   ?? [];
+        // ========== CORREGIDO: fk_table en todas las relaciones ==========
+ $findRelation = function (string $a, string $b): ?array {
+    $from = $this->relMap['from'] ?? [];
+    $to   = $this->relMap['to']   ?? [];
 
-            if (isset($from[$a][$b])) return $from[$a][$b];
-            if (isset($from[$b][$a])) {
-                $rel = $from[$b][$a];
-                return ['type' => 'hasMany', 'local_key' => $rel['foreign_key'], 'foreign_key' => $rel['local_key']];
-            }
-            if (isset($to[$a][$b])) {
-                $rel = $to[$a][$b];
-                return ['type' => 'belongsTo', 'local_key' => $rel['foreign_key'], 'foreign_key' => $rel['local_key']];
-            }
-            if (isset($to[$b][$a])) return $to[$b][$a];
-            return null;
-        };
+    // a -> b directa en from (FK en a)
+    if (isset($from[$a][$b])) {
+        $rel = $from[$a][$b];
+        $rel['fk_table'] = $a;
+        return $rel;
+    }
+    // b -> a en from (FK en b) → invertimos dirección pero mantenemos claves originales
+    if (isset($from[$b][$a])) {
+        $rel = $from[$b][$a];
+        return [
+            'type'        => 'hasMany',
+            'local_key'   => $rel['local_key'],   // FK sigue siendo la misma
+            'foreign_key' => $rel['foreign_key'], // PK sigue siendo la misma
+            'fk_table'    => $b,
+        ];
+    }
+    // a -> b en to (FK en a) → invertimos dirección y tipo
+    if (isset($to[$a][$b])) {
+        $rel = $to[$a][$b];
+        return [
+            'type'        => 'belongsTo',
+            'local_key'   => $rel['local_key'],   // FK en a
+            'foreign_key' => $rel['foreign_key'],
+            'fk_table'    => $a,
+        ];
+    }
+    // b -> a en to (FK en b) → relación directa
+    if (isset($to[$b][$a])) {
+        $rel = $to[$b][$a];
+        $rel['fk_table'] = $b;
+        return $rel;
+    }
+    return null;
+};      // ================================================================
 
         for ($i = 0, $len = count($tableNames); $i < $len; $i++) {
             for ($j = $i + 1; $j < $len; $j++) {
@@ -353,23 +376,26 @@ class JoinResolver
     ): string {
         $localKey   = $relation['local_key']   ?? '';
         $foreignKey = $relation['foreign_key'] ?? '';
-        $fromToMap = isset($relation['_direction']) && $relation['_direction'] === 'to';
+        $fkTable    = $relation['fk_table']    ?? '';
 
-        if ($fromToMap) {
-            $definingTable   = $relation['_defining_table']   ?? '';
-            $referencedTable = $relation['_referenced_table'] ?? '';
-            if ($parentReal === $definingTable) {
-                return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey) . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
-            } else {
-                return "ON " . $this->quote($childAlias) . "." . $this->quote($localKey) . " = " . $this->quote($parentAlias) . "." . $this->quote($foreignKey);
-            }
+        // Si sabemos qué tabla tiene la FK, la condición es directa
+        if ($fkTable === $parentReal) {
+            return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey)
+                 . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
+        }
+        if ($fkTable === $childReal) {
+            return "ON " . $this->quote($childAlias) . "." . $this->quote($localKey)
+                 . " = " . $this->quote($parentAlias) . "." . $this->quote($foreignKey);
         }
 
+        // Fallback (no debería ocurrir con las correcciones actuales)
         $type = $relation['type'] ?? 'hasMany';
         if ($type === 'belongsTo') {
-            return "ON " . $this->quote($childAlias) . "." . $this->quote($localKey) . " = " . $this->quote($parentAlias) . "." . $this->quote($foreignKey);
+            return "ON " . $this->quote($childAlias) . "." . $this->quote($localKey)
+                 . " = " . $this->quote($parentAlias) . "." . $this->quote($foreignKey);
         }
-        return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey) . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
+        return "ON " . $this->quote($parentAlias) . "." . $this->quote($localKey)
+             . " = " . $this->quote($childAlias) . "." . $this->quote($foreignKey);
     }
 
     private function buildFromLinear(array $tables): array
