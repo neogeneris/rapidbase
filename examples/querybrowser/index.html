@@ -207,21 +207,18 @@ function openSchemaGraph() {
 }
 
 function openSchemaGraphTab() {
-    const schemaId = 'schema_' + currentConnectionId;
-    const tabId = 'tab_' + schemaId;
-    if (tabs.has(tabId)) { activateTab(tabId); return; }
-
-    const connName = currentConnectionName || currentConnectionId;
-
+    const schemaId = 'schema_' + currentConnectionId + '_' + Date.now();
+    const tabId = 'tab_schema_' + (nextTabId++);
+    
     tabs.set(tabId, { tableName: '__schema__', connectionId: currentConnectionId, tables: [], mode: 'navigate' });
     const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
-    btn.innerHTML = `<span>🕸️ ${escapeHtml(connName)}</span><span class="tab-close">✖</span>`;
+    btn.innerHTML = `<span>🕸️ ${escapeHtml(currentConnectionName || currentConnectionId)}</span><span class="tab-close">✖</span>`;
     btn.addEventListener('click', e => { if (e.target.classList.contains('tab-close')) closeTab(tabId); else activateTab(tabId); });
     document.getElementById('tabs-header').appendChild(btn);
 
     const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
     pane.innerHTML = `
-        <div class="schema-header">Esquema: ${escapeHtml(connName)}</div>
+        <div class="schema-header">Esquema: ${escapeHtml(currentConnectionName || currentConnectionId)}</div>
         <div id="schema-graph-${schemaId}" style="flex:1; min-height:400px; background:#f5f0e6; border-radius:10px;"></div>
         <div class="schema-controls">
             <button onclick="zoomIn('${schemaId}')">➕</button>
@@ -232,14 +229,15 @@ function openSchemaGraphTab() {
     document.getElementById('tab-content').appendChild(pane);
     activateTab(tabId);
     hideDashboard();
-    loadSchemaGraph(schemaId);
+    loadSchemaGraph(schemaId, tabId);
 }
 
-async function loadSchemaGraph(schemaId) {
+async function loadSchemaGraph(schemaId, tabId) {
     const container = document.getElementById('schema-graph-' + schemaId);
-    if (!currentConnectionId || !container) return;
+    const connId = tabs.get(tabId).connectionId;
+    if (!connId || !container) return;
     try {
-        const resp = await fetch(`api.php?action=schema_graph&connectionId=${currentConnectionId}`);
+        const resp = await fetch(`api.php?action=schema_graph&connectionId=${connId}`);
         const data = await resp.json();
         if (!data.nodes || data.nodes.length === 0) {
             container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">No hay relaciones disponibles</div>';
@@ -262,7 +260,12 @@ async function loadSchemaGraph(schemaId) {
         container.innerHTML = '';
         const network = new vis.Network(container, networkData, options);
         networks[schemaId] = network;
-        network.on('click', function(params) { if (params.nodes.length > 0) { const tableName = params.nodes[0]; openTab(tableName); } });
+        network.on('click', function(params) {
+            if (params.nodes.length > 0) {
+                const tableName = params.nodes[0];
+                openTab(tableName, connId);
+            }
+        });
     } catch(e) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c;">Error al cargar el grafo</div>'; }
 }
 
@@ -334,7 +337,7 @@ async function loadTables() {
         if (!d.tables.length) { div.innerHTML = '<div style="padding:10px;">No hay tablas.</div>'; return; }
         div.innerHTML = '<ul><li><span class="caret">▼</span> 📁 Tablas<ul>' + d.tables.map(t => `<li class="table-node" draggable="true" data-table="${escapeHtml(t)}">📄 ${escapeHtml(t)}</li>`).join('') + '</ul></li></ul>';
         div.querySelectorAll('.table-node').forEach(el => {
-            el.addEventListener('click', () => openTab(el.dataset.table));
+            el.addEventListener('click', () => openTab(el.dataset.table, currentConnectionId));
             el.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', JSON.stringify({type:'table',name:el.dataset.table})); });
         });
         const caret = div.querySelector('.caret'), childUl = caret?.parentElement.querySelector('ul');
@@ -343,15 +346,26 @@ async function loadTables() {
 }
 
 // ==================== TABS Y FUNCIONES AUXILIARES ====================
-function openTab(tableName) {
+function openTab(tableName, connId) {
+    const effectiveConn = connId || currentConnectionId;
+    
     if (tableName === '__schema__') { openSchemaGraphTab(); return; }
-    for (let [tid, t] of tabs) if (t.tableName === tableName && t.connectionId === currentConnectionId) { activateTab(tid); return; }
+    
+    for (let [tid, t] of tabs) {
+        if (t.tableName === tableName && t.connectionId === effectiveConn) {
+            activateTab(tid);
+            return;
+        }
+    }
+    
     const tabId = `tab_${nextTabId++}`;
-    tabs.set(tabId, { tableName, connectionId: currentConnectionId, tables: [tableName], mode: 'navigate' });
+    tabs.set(tabId, { tableName, connectionId: effectiveConn, tables: [tableName], mode: 'navigate' });
+
     const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
     btn.innerHTML = `<span>📋 ${escapeHtml(tableName)}</span><span class="tab-close">✖</span>`;
     btn.addEventListener('click', e => { if (e.target.classList.contains('tab-close')) closeTab(tabId); else activateTab(tabId); });
     document.getElementById('tabs-header').appendChild(btn);
+
     const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
     pane.innerHTML = `
         <div class="sql-toolbar">
@@ -372,13 +386,16 @@ function openTab(tableName) {
         <div class="sql-debug" id="debug_${tabId}"></div>`;
     document.getElementById('tab-content').appendChild(pane);
     activateTab(tabId);
+
     const modeCheck = document.getElementById(`mode_${tabId}`);
     const sqlEditor = document.getElementById(`sql_${tabId}`);
     const runBtn = document.getElementById(`run_${tabId}`);
     const modeLabel = document.getElementById(`modelabel_${tabId}`);
+
     modeCheck.addEventListener('change', () => toggleMode(tabId));
     runBtn.addEventListener('click', () => executeTabSQL(tabId));
     sqlEditor.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter' && modeCheck.checked) runBtn.click(); });
+
     sqlEditor.addEventListener('dragover', e => { if (modeCheck.checked) return; e.preventDefault(); sqlEditor.classList.add('drag-over'); });
     sqlEditor.addEventListener('dragleave', () => sqlEditor.classList.remove('drag-over'));
     sqlEditor.addEventListener('drop', async e => {
@@ -401,6 +418,7 @@ function openTab(tableName) {
             loadNavigateGrid(tabId);
         }
     });
+
     updateTableChips(tabId);
     loadNavigateGrid(tabId);
     hideDashboard();
@@ -519,7 +537,6 @@ function loadNavigateGrid(tabId) {
             if (d.error) throw new Error(d.error);
             const rows = d.data || [];
             const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
-            // CORREGIDO: usa d.stats.duration en lugar de d.debug.duration
             const duration = d.stats?.duration ? (Number(d.stats.duration) / 1000).toFixed(7) + 's' : 'N/A';
             this.footerContainer.innerHTML = `📄 Total: ${(d.total || rows.length).toLocaleString()} registros | ${d.columns ? d.columns.length : rows[0]?.length || 0} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
             if (rows.length > 0) {
@@ -600,9 +617,11 @@ async function executeTabSQL(tabId) {
                 if (this.isLoading) return;
                 this.isLoading = true; this.showLoading(); this.hideError();
                 try {
-                    this.render(r.data, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
+                    this.render(r.data, {
+                        columns: r.columns,
+                        titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+                    });
                     this.hasMore = false;
-                    
                     this.footerContainer.innerHTML = `Total: ${r.data.length} registros | ${r.columns.length} columnas | Duracion: ${r.durationMs || r.elapsed || '0'}s`;
                 } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
             };

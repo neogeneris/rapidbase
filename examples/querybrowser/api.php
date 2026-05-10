@@ -1,22 +1,20 @@
 <?php
 /**
- * RapidBase API – Query Browser (refactorizado con X + XResponse)
+ * RapidBase API – Query Browser (optimizado con X::cached)
+ * Incluye todos los endpoints originales + mejoras de caché.
  */
 
 session_start();
 
-
 require_once __DIR__ . '/RapidBase.php';
 require_once 'config.php';
 
-ini_set('display_errors', 0);
-error_reporting(0);
-
 use RapidBase\Core\X;
-use RapidBase\Core\XResponse;
 use RapidBase\Core\Gateway;
 use RapidBase\Core\SchemaMap;
 use RapidBase\Core\SQL\Q;
+use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\Cache\CountCache;
 use RapidBase\Meta\Discovery\DiscoveryFactory;
 use RapidBase\Meta\Discovery\FeatureDetector;
 
@@ -25,8 +23,32 @@ use Exception;
 
 header('Content-Type: application/json; charset=utf-8');
 
-$action = $_REQUEST['action'] ?? '';
+// Configuración (puede venir de config.php)
+if (!defined('MAX_CACHE_TTL')) {
+    define('MAX_CACHE_TTL', 3600);
+}
+if (!defined('CACHE_CLEAR_KEY')) {
+    define('CACHE_CLEAR_KEY', 'default-key-change-me');
+}
 
+function jsonResponse($data, $status = 200): void
+{
+    http_response_code($status);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK);
+    exit;
+}
+
+function errorResponse(string $message, int $status = 400, ?Throwable $e = null): void
+{
+    $resp = ['error' => $message];
+    if ($e && ($_ENV['APP_DEBUG'] ?? false)) {
+        $resp['file'] = $e->getFile();
+        $resp['line'] = $e->getLine();
+    }
+    jsonResponse($resp, $status);
+}
+
+// --- Conexiones DB (almacenamiento) ---
 function initConnectionsDB(): void
 {
     $dbFile = CONNECTIONS_DB;
@@ -107,64 +129,68 @@ function activateConnection(string $connectionKey): void
     \RapidBase\Core\SQL\ConditionMatrix::setDriver($c['map']['driver']);
 }
 
-// ── Router ─────────────────────────────────────────────────
+// --- Router ---
+$action = $_REQUEST['action'] ?? '';
+
 try {
     switch ($action) {
-
+        // ------------------------------------------------------------------
+        // ENDPOINTS ORIGINALES (MANTENIDOS)
+        // ------------------------------------------------------------------
         case 'list_connections':
             $res = X::con('main')->from('connections')->select();
-            echo json_encode(['connections' => $res->data]);
+            jsonResponse(['connections' => $res->data]);
             break;
 
         case 'test_connection':
             $data = json_decode(file_get_contents('php://input'), true);
-            echo json_encode(['success' => testConnection($data)]);
+            jsonResponse(['success' => testConnection($data)]);
             break;
 
         case 'add_connection':
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['name']) || empty($data['driver']) || empty($data['database'])) {
-                throw new Exception('Missing required fields');
+                errorResponse('Missing required fields');
             }
-            if (!testConnection($data)) throw new Exception('Could not connect to database.');
+            if (!testConnection($data)) errorResponse('Could not connect to database.');
             $res = X::con('main')->from('connections')->insert([
                 'name' => $data['name'], 'driver' => $data['driver'],
                 'host' => $data['host'] ?? null, 'port' => $data['port'] ?? null,
                 'database' => $data['database'], 'username' => $data['username'] ?? null,
                 'password' => $data['password'] ?? null,
             ]);
-            echo json_encode(['success' => true, 'id' => $res->lastId]);
+            jsonResponse(['success' => true, 'id' => $res->lastId]);
             break;
 
         case 'remove_connection':
             $id = $_REQUEST['id'] ?? 0;
             if ($id) X::con('main')->from('connections', ['id' => $id])->delete();
-            echo json_encode(['success' => true]);
+            jsonResponse(['success' => true]);
             break;
 
         case 'list_databases':
             if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0777, true);
-            echo json_encode(['databases' => array_map('basename', glob(DATA_PATH . '/*.sqlite'))]);
+            jsonResponse(['databases' => array_map('basename', glob(DATA_PATH . '/*.sqlite'))]);
             break;
 
         case 'connect':
             $dbFile = $_POST['db'] ?? '';
-            if (empty($dbFile)) throw new Exception('Database name required');
+            if (empty($dbFile)) errorResponse('Database name required');
             $fullPath = DATA_PATH . '/' . basename($dbFile);
-            if (!file_exists($fullPath)) throw new Exception('Database file not found');
+            if (!file_exists($fullPath)) errorResponse('Database file not found');
             $connectionKey = md5($fullPath);
             if (!isset($_SESSION['connections'][$connectionKey])) {
                 $map = discoverSchema("sqlite:$fullPath", '', '', $connectionKey, ['driver' => 'sqlite', 'database' => $fullPath]);
                 $_SESSION['connections'][$connectionKey] = ['dsn' => "sqlite:$fullPath", 'map' => $map, 'user' => '', 'pass' => ''];
             }
             activateConnection($connectionKey);
-            echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
+            jsonResponse(['status' => 'ok', 'connectionId' => $connectionKey]);
             break;
 
         case 'connect_saved':
             $connId = $_POST['connId'] ?? 0;
             $connRow = X::con('main')->from('connections', ['id' => $connId])->first();
-            if (!$connRow) throw new Exception('Connection not found');
+            if (!$connRow) errorResponse('Connection not found');
             $connectionKey = "saved_{$connId}";
             $dsn = buildDSN($connRow);
             $map = discoverSchema($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connectionKey, $connRow);
@@ -173,23 +199,23 @@ try {
                 'user' => $connRow['username'] ?? '', 'pass' => $connRow['password'] ?? '',
             ];
             activateConnection($connectionKey);
-            echo json_encode(['status' => 'ok', 'connectionId' => $connectionKey]);
+            jsonResponse(['status' => 'ok', 'connectionId' => $connectionKey]);
             break;
 
         case 'list_tables':
             activateConnection($_REQUEST['connectionId'] ?? '');
             $tables = array_keys(SchemaMap::getMap()['tables'] ?? []);
-            echo json_encode(['tables' => $tables, 'views' => []]);
+            jsonResponse(['tables' => $tables, 'views' => []]);
             break;
 
         case 'table_relations':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             $tableName = $_REQUEST['table'] ?? '';
-            if (!$connectionKey || !$tableName) { echo json_encode(['from' => [], 'to' => []]); break; }
+            if (!$connectionKey || !$tableName) { jsonResponse(['from' => [], 'to' => []]); break; }
             activateConnection($connectionKey);
             $map = SchemaMap::getMap();
             $rels = $map['relationships'] ?? [];
-            echo json_encode([
+            jsonResponse([
                 'from' => array_keys($rels['from'][$tableName] ?? []),
                 'to'   => array_keys($rels['to'][$tableName] ?? []),
             ]);
@@ -198,21 +224,43 @@ try {
         case 'auto_query':
             $connectionKey = $_POST['connectionId'] ?? '';
             $tablesJson = $_POST['tables'] ?? '';
-            if (!$connectionKey || !$tablesJson) throw new Exception('connectionId and tables required');
+            if (!$connectionKey || !$tablesJson) errorResponse('connectionId and tables required');
             $tables = json_decode($tablesJson, true);
-            if (count($tables) < 1) throw new Exception('At least one table required');
+            if (count($tables) < 1) errorResponse('At least one table required');
             activateConnection($connectionKey);
-            $sql = X::con($connectionKey)->toSQL( Q::from($tables)->select() );
-            echo json_encode(['sql' => $sql]);
+            $sql = X::con($connectionKey)->toSQL(Q::from($tables)->select());
+            jsonResponse(['sql' => $sql]);
             break;
 
         case 'execute_query':
             $connectionKey = $_POST['connectionId'] ?? '';
             $sql = $_POST['sql'] ?? '';
-            if (!$connectionKey || !$sql) throw new Exception('connectionId and sql required');
+            $cacheTtl = isset($_POST['cache_ttl']) ? (int)$_POST['cache_ttl'] : 0;
+            if ($cacheTtl < 0) $cacheTtl = 0;
+            if ($cacheTtl > MAX_CACHE_TTL) $cacheTtl = MAX_CACHE_TTL;
+
+            if (!$connectionKey || !$sql) errorResponse('connectionId and sql required');
+
+            $isSelect = preg_match('/^\s*SELECT/i', trim($sql));
+            if ($isSelect && $cacheTtl > 0) {
+                $cacheKey = 'sql_' . md5($sql . '_' . $connectionKey);
+                $cached = CacheService::get($cacheKey);
+                if ($cached !== null) {
+                    jsonResponse(['source' => 'cache'] + $cached);
+                }
+            }
+
             activateConnection($connectionKey);
             $res = X::con($connectionKey)->raw($sql);
-            echo json_encode($res);
+            $response = $res->jsonSerialize();
+            if ($isSelect && $cacheTtl > 0) {
+                CacheService::set($cacheKey, $response, $cacheTtl);
+                $response['source'] = 'database';
+                $response['cache_ttl'] = $cacheTtl;
+            } else {
+                $response['source'] = 'database';
+            }
+            jsonResponse($response);
             break;
 
         case 'grid_sql':
@@ -221,15 +269,15 @@ try {
             $page = max(1, (int)($_REQUEST['page'] ?? 1));
             $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
             $sort = $_REQUEST['sort'] ?? null;
-
-            if (!$connectionKey || !$table) { echo json_encode(['sql' => '']); break; }
+            if (!$connectionKey || !$table) { jsonResponse(['sql' => '']); break; }
             activateConnection($connectionKey);
             $sql = X::con($connectionKey)->toSQL(
                 Q::from($table)->select('*', Q::page($page, $limit), $sort)
             );
-            echo json_encode(['sql' => $sql]);
+            jsonResponse(['sql' => $sql]);
             break;
 
+        // MEJORADO: grid_data con caché configurable
         case 'grid_data':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             $table = $_REQUEST['table'] ?? '';
@@ -237,12 +285,11 @@ try {
             $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
             $sort = $_REQUEST['sort'] ?? [];
             $filter = $_REQUEST['filter'] ?? null;
+            $cacheTtl = isset($_REQUEST['cache_ttl']) ? (int)$_REQUEST['cache_ttl'] : 0;
+            if ($cacheTtl < 0) $cacheTtl = 0;
+            if ($cacheTtl > MAX_CACHE_TTL) $cacheTtl = MAX_CACHE_TTL;
 
-            if (!$connectionKey || !$table) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Required parameters: connectionId and table']);
-                break;
-            }
+            if (!$connectionKey || !$table) errorResponse('Required parameters: connectionId and table');
 
             $decoded = json_decode($table, true);
             if (is_array($decoded)) $table = $decoded;
@@ -254,14 +301,20 @@ try {
             }
 
             activateConnection($connectionKey);
-            $res = X::con($connectionKey)->from($table, $conditions)->grid('*', $page, $limit, $sort);
-            echo json_encode($res);
+            $x = X::con($connectionKey)->from($table, $conditions);
+            if ($cacheTtl > 0) {
+                $x->cached($cacheTtl);
+            }
+            $gridData = $x->grid('*', $page, $limit, $sort, 300);
+            $gridData['cached'] = $cacheTtl > 0;
+            $gridData['cache_ttl'] = $cacheTtl;
+            jsonResponse($gridData);
             break;
 
         case 'related_tables':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             $tablesJson = $_REQUEST['tables'] ?? '[]';
-            if (!$connectionKey) { echo json_encode(['to' => [], 'from' => []]); break; }
+            if (!$connectionKey) { jsonResponse(['to' => [], 'from' => []]); break; }
             activateConnection($connectionKey);
             $tables = json_decode($tablesJson, true) ?: [];
             $map = SchemaMap::getMap();
@@ -278,7 +331,7 @@ try {
                     if (!in_array($target, $tables)) $fromList[$target] = true;
                 }
             }
-            echo json_encode([
+            jsonResponse([
                 'to'   => array_keys($toList),
                 'from' => array_keys($fromList)
             ]);
@@ -286,7 +339,7 @@ try {
 
         case 'schema_graph':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
-            if (!$connectionKey) { echo json_encode([]); break; }
+            if (!$connectionKey) { jsonResponse([]); break; }
             activateConnection($connectionKey);
             $map = SchemaMap::getMap();
             $tables = $map['tables'] ?? [];
@@ -308,18 +361,30 @@ try {
                     ];
                 }
             }
-            echo json_encode(['nodes' => $nodes, 'edges' => $edges]);
+            jsonResponse(['nodes' => $nodes, 'edges' => $edges]);
+            break;
+
+        // NUEVO: invalidar caché de una tabla específica
+        case 'invalidate_cache':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $table = $_REQUEST['table'] ?? '';
+            if (!$connectionKey || !$table) errorResponse('connectionId and table required');
+            activateConnection($connectionKey);
+            CacheService::clearByPrefix("db_select_{$table}_");
+            CountCache::invalidate($table);
+            jsonResponse(['success' => true, 'message' => "Cache invalidated for table '$table'"]);
+            break;
+
+        // OPCIONAL: limpiar toda la caché (protegido por clave)
+        case 'clear_all_cache':
+            if (!isset($_REQUEST['key']) || $_REQUEST['key'] !== CACHE_CLEAR_KEY) errorResponse('Unauthorized', 401);
+            CacheService::clear();
+            jsonResponse(['success' => true, 'message' => 'All cache cleared']);
             break;
 
         default:
-            http_response_code(400);
-            echo json_encode(['error' => "Invalid action: $action"]);
+            errorResponse("Invalid action: $action", 400);
     }
 } catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode([
-        'error' => $e->getMessage(),
-        'file'  => $e->getFile(),
-        'line'  => $e->getLine(),
-    ]);
+    errorResponse($e->getMessage(), 500, $e);
 }
