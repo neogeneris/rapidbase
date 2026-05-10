@@ -3,14 +3,11 @@
 namespace RapidBase\Core;
 
 use RapidBase\Core\Cache\CountCache;
+use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SQL\CompiledQuery;
 use PDO;
 
-/**
- * X – Ejecutor fluido que delega en Gateway (eventos + cache) y devuelve XResponse.
- * Optimizado: select() ya NO ejecuta COUNT(*) automático.
- */
 class X
 {
     private string $connectionId;
@@ -101,24 +98,42 @@ class X
         return $result;
     }
 
-    public function grid(
-        string|array $fields = '*',
-        int $page = 1,
-        int $limit = 30,
-        array|string $sort = [],
-        int $countTtl = 300
-    ): array {
-        $xRes = $this->executeSelect($fields, Q::page($page, $limit), $sort, true, $countTtl);
+    /**
+     * Grid con paginación flexible.
+     *
+     * @param string|array $fields
+     * @param int|array|null $pagination  Número de página (int) o array [page, perPage], o null (usa 1,30)
+     * @param string|array|null $sort     Orden: ej. '-id' o ['-id', 'name'] o 'id ASC'
+     * @param int $countTtl               TTL para el total (solo cuando se recalcula)
+     * @return array
+     */
+    public function grid($fields = '*', $pagination = null, $sort = null, int $countTtl = 300): array
+    {
+        // Normalizar paginación usando Q::page (ya soporta int o array)
+        if ($pagination === null) {
+            $pagination = [1, 30];
+        }
+        [$offset, $limit] = Q::page($pagination);
+
+        // Normalizar sort: si es string, lo dejamos como viene (Gateway lo entiende)
+        if (is_string($sort) && str_contains($sort, ',')) {
+            $sort = array_map('trim', explode(',', $sort));
+        }
+
+        $res = $this->executeSelect($fields, [$offset, $limit], $sort, true, $countTtl);
+
+        $page = $limit > 0 ? (int)($offset / $limit) + 1 : 1;
+
         return [
-            'data'      => $xRes->data,
-            'total'     => $xRes->total,
-            'columns'   => $xRes->columns,
-            'titles'    => $xRes->titles,
+            'data'      => $res->data,
+            'total'     => $res->total,
+            'columns'   => $res->columns,
+            'titles'    => $res->titles,
             'limit'     => $limit,
             'page'      => $page,
-            'last_page' => $limit > 0 ? (int) ceil($xRes->total / $limit) : 1,
-            'debug'     => ['sql' => $xRes->sql],
-            'stats'     => ['duration' => $xRes->durationMs],
+            'last_page' => $limit > 0 ? (int) ceil($res->total / $limit) : 1,
+            'debug'     => ['sql' => $res->sql],
+            'stats'     => ['duration' => $res->durationMs],
         ];
     }
 
@@ -212,6 +227,9 @@ class X
         return $this->totalStrategy;
     }
 
+    /**
+     * Ejecuta la consulta y devuelve XResponse.
+     */
     private function executeSelect(
         string|array $fields,
         mixed $pagination,
@@ -222,8 +240,8 @@ class X
         $this->useConnection();
         $strategy = $this->resolveStrategy();
 
+        // Sin total: consulta directa (con o sin caché)
         if (!$withTotal) {
-            // Sin total: consulta directa (con o sin caché)
             if ($this->useCache) {
                 $result = Gateway::selectCached(
                     $fields, $this->table, $this->filter, [], [], (array)$sort,
@@ -259,11 +277,22 @@ class X
 
         // --- Con total ---
         if ($strategy === 'window') {
+            // Expandir * a columnas reales para evitar '*' en la proyección
+            $selectFields = $fields;
+            if ($fields === '*') {
+                $map = SchemaMap::getMap();
+                $tableSchema = $map['tables'][$this->resolveTable()] ?? null;
+                if ($tableSchema) {
+                    $selectFields = array_keys($tableSchema);
+                }
+            }
+
             $query = Q::from($this->table, $this->filter);
-            $compiled = $query->select($fields, $pagination, (array)$sort, null, [], true);
+            $compiled = $query->select($selectFields, $pagination, (array)$sort, null, [], true);
             $result = $compiled->run(PDO::FETCH_NUM);
             $rows = $result['rows'] ?? [];
             $projectionMap = $compiled->getProjectionMap();
+
             $total = 0;
             if (!empty($rows) && isset($projectionMap['_total'])) {
                 $totalIndex = $projectionMap['_total'];
@@ -277,6 +306,28 @@ class X
             } else {
                 $total = count($rows);
             }
+
+            // Reordenar proyección si expandimos *
+            if ($selectFields !== '*' && is_array($selectFields)) {
+                $orderedMap = [];
+                $i = 0;
+                foreach ($selectFields as $field) {
+                    if (isset($projectionMap[$field])) {
+                        $orderedMap[$field] = $i++;
+                    }
+                }
+                $projectionMap = $orderedMap;
+            }
+
+            // Eliminar posibles '*' residuales
+            if (isset($projectionMap['*'])) {
+                unset($projectionMap['*']);
+                $i = 0;
+                foreach ($projectionMap as $k => $v) {
+                    $projectionMap[$k] = $i++;
+                }
+            }
+
             $cols = array_keys($projectionMap);
             $sql = $compiled->getSql();
             $duration = $result['metadata']['execution_time'] ?? 0;

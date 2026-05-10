@@ -62,9 +62,9 @@ class CountCache
     /**
      * Construye una clave única usando el hash nativo de CacheService.
      */
-    private static function buildKey(string $table, array $conditions): string
-    {
-        $data = json_encode([$table, $conditions]);
-        return 'cnt_' . CacheService::hash($data);
-    }
+	public static function buildKey(string $table, array $conditions): string
+	{
+		$data = json_encode([$table, $conditions]);
+		return 'cnt_' . CacheService::hash($data);
+	}
 }
