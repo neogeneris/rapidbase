@@ -2,10 +2,14 @@
 
 namespace RapidBase\Core;
 
+use RapidBase\Core\Cache\CountCache;
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SQL\CompiledQuery;
 use PDO;
 
+/**
+ * X – Ejecutor fluido que delega en Gateway (eventos + cache) y devuelve XResponse.
+ */
 class X
 {
     private string $connectionId;
@@ -29,6 +33,12 @@ class X
         return $this;
     }
 
+    private function useConnection(): void
+    {
+        Conn::get($this->connectionId);   // valida existencia
+        Conn::select($this->connectionId);
+    }
+
     // ─── Lectura ────────────────────────────────────────
 
     public function select(
@@ -39,49 +49,55 @@ class X
         return $this->executeSelect($fields, $pagination, $sort);
     }
 
+    /**
+     * Devuelve la primera fila como array asociativo, o null si no hay.
+     */
     public function first(): ?array
-{
-    Conn::select($this->connectionId);
-    $result = Gateway::select(
-        '*',
-        $this->table,
-        $this->filter,
-        [],
-        [],
-        [],
-        [0, 1],
-        PDO::FETCH_ASSOC   // ← Devuelve array asociativo
-    );
-    return $result['data'][0] ?? null;
-}
+    {
+        $this->useConnection();
+        $result = Gateway::select(
+            '*',
+            $this->table,
+            $this->filter,
+            [],
+            [],
+            [],
+            [0, 1],
+            PDO::FETCH_ASSOC
+        );
+        return $result['data'][0] ?? null;
+    }
 
     public function count(): int
     {
-        Conn::select($this->connectionId);
+        $this->useConnection();
         return Gateway::count($this->table, $this->filter);
     }
 
-    /** Alias específico para grids, devuelve array listo para el frontend */
-public function grid(
-    string|array $fields = '*',
-    int $page = 1,
-    int $limit = 30,
-    array|string $sort = []   // ← debe estar así. Neo
-): array {
+    public function grid(
+        string|array $fields = '*',
+        int $page = 1,
+        int $limit = 30,
+        array|string $sort = []
+    ): array {
+        $total = CountCache::remember(
+            $this->resolveTable(),
+            $this->filter,
+            fn() => $this->count()
+        );
 
-	$res = $this->select($fields, Q::page($page, $limit), $sort);
+        $res = $this->select($fields, Q::page($page, $limit), $sort);
+
         return [
             'data'      => $res->data,
-            'total'     => $res->total,
+            'total'     => $total,
             'columns'   => $res->columns,
             'titles'    => $res->titles,
-            'limit'     => $res->limit,
-            'page'      => $res->page,
-            'last_page' => $res->lastPage,
-            'debug'     => [
-                'sql'      => $res->sql,
-                'duration' => $res->durationMs,
-            ],
+            'limit'     => $limit,
+            'page'      => $page,
+            'last_page' => $limit > 0 ? (int) ceil($total / $limit) : 1,
+            'debug'     => ['sql' => $res->sql],
+            'stats'     => ['duration' => $res->durationMs],
         ];
     }
 
@@ -89,7 +105,7 @@ public function grid(
 
     public function insert(array $data): XResponse
     {
-        Conn::select($this->connectionId);
+        $this->useConnection();
         $affected = Gateway::insert($this->resolveTable(), $data);
         $status = Gateway::status();
         return new XResponse(
@@ -104,18 +120,17 @@ public function grid(
 
     public function update(array $data, ?int $limit = null): XResponse
     {
-        Conn::select($this->connectionId);
+        $this->useConnection();
         $table = $this->resolveTable();
         if ($limit !== null) {
             $compiled = Q::from($table, $this->filter)->update($data, $limit);
             $result = $compiled->run();
-            $affected = $result['count'] ?? 0;
             return new XResponse(
                 data: [],
                 sql: $compiled->getSql(),
                 durationMs: 0,
-                success: $affected > 0,
-                affected: $affected
+                success: ($result['count'] ?? 0) > 0,
+                affected: $result['count'] ?? 0
             );
         }
         $affected = Gateway::update($table, $data, $this->filter);
@@ -131,17 +146,16 @@ public function grid(
 
     public function delete(?int $limit = null): XResponse
     {
-        Conn::select($this->connectionId);
+        $this->useConnection();
         $table = $this->resolveTable();
         $compiled = Q::from($table, $this->filter)->delete($limit);
         $result = $compiled->run();
-        $affected = $result['count'] ?? 0;
         return new XResponse(
             data: [],
             sql: $compiled->getSql(),
             durationMs: 0,
-            success: $affected > 0,
-            affected: $affected
+            success: ($result['count'] ?? 0) > 0,
+            affected: $result['count'] ?? 0
         );
     }
 
@@ -149,7 +163,7 @@ public function grid(
 
     public function raw(string $sql): XResponse
     {
-        Conn::select($this->connectionId);
+        $this->useConnection();
         $start = microtime(true);
         $upper = strtoupper(trim($sql));
         $isSelect = str_starts_with($upper, 'SELECT') || str_starts_with($upper, 'DESCRIBE')
@@ -197,8 +211,7 @@ public function grid(
 
     private function executeSelect(string|array $fields, mixed $pagination, string|array $sort): XResponse
     {
-        Conn::select($this->connectionId);
-        $start = microtime(true);
+        $this->useConnection();
         $result = Gateway::select(
             $fields,
             $this->table,
@@ -209,20 +222,37 @@ public function grid(
             $pagination,
             PDO::FETCH_NUM
         );
-        $durationMs = round((microtime(true) - $start) * 1000, 4);
 
-        $rows    = $result['data']          ?? [];
-        $total   = $result['total']         ?? count($rows);
-        $cols    = $result['metadata']['cols'] ?? [];
-        $page    = $result['page']          ?? 1;
-        $limit   = $result['limit']         ?? 30;
-        $sql     = $result['metadata']['sql'] ?? '';
-        $titles  = array_map(fn($c) => ucwords(str_replace('_', ' ', $c)), $cols);
+        $rows     = $result['data']          ?? [];
+        $cols     = $result['metadata']['cols'] ?? [];
+        $sql      = $result['metadata']['sql'] ?? '';
+        $duration = $result['metadata']['execution_time'] ?? 0;  // ya en ms
+
+        // Normalizar page/limit
+        $rawPage  = $result['page']  ?? 0;
+        $rawLimit = $result['limit'] ?? 0;
+
+        if ($pagination !== null) {
+            $page  = max(1, $rawPage);
+            $limit = max(1, $rawLimit);
+        } else {
+            $page  = 1;
+            $limit = max(1, $rawLimit ?: 30);  // siempre positivo
+        }
+
+        // Total real con CountCache
+        $total = CountCache::remember(
+            $this->resolveTable(),
+            $this->filter,
+            fn() => $this->count()
+        );
+
+        $titles = array_map(fn($c) => ucwords(str_replace('_', ' ', $c)), $cols);
 
         return new XResponse(
             data: $rows,
             sql: $sql,
-            durationMs: $durationMs,
+            durationMs: $duration,
             total: $total,
             page: $page,
             limit: $limit,

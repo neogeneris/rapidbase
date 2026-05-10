@@ -5,6 +5,7 @@ namespace RapidBase\Core;
 use \Exception;
 use \PDO;
 use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\Cache\CountCache;
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SQL\CompiledQuery;
 
@@ -159,6 +160,7 @@ class Gateway
 
             if ($result['success']) {
                 self::clearCacheForTable($tableName);
+				CountCache::invalidate($tableName); 
             }
 
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $result, $type, $tableName, $duration);

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RapidBase Query Browser</title>
+    <!-- vis‑network -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
     <style>
@@ -180,6 +181,7 @@ async function fetchJson(url, options = {}) {
     const j = await r.json(); if (j.error) throw new Error(j.error); return j;
 }
 
+// ==================== DASHBOARD ====================
 function showDashboard() {
     document.getElementById('dashboard').classList.add('active');
     document.getElementById('tabs-header').style.display = 'none';
@@ -193,10 +195,12 @@ function hideDashboard() {
     document.getElementById('tab-content').style.display = '';
 }
 
+// Mockup de escaneo local
 document.getElementById('btn-discover-local').addEventListener('click', () => {
     document.getElementById('local-databases').innerHTML = '<p style="color:#888;">No se encontraron servidores locales (mockup).</p>';
 });
 
+// ==================== GRAFO DE ESQUEMA ====================
 function openSchemaGraph() {
     if (!currentConnectionId) return;
     openTab('__schema__');
@@ -247,11 +251,7 @@ async function loadSchemaGraph(schemaId) {
             const intensity = Math.floor(200 - (degree / maxDegree) * 150);
             return { ...n, color: { background: '#a8d0e6', border: '#1a73e8', highlight: { background: '#7bb3d9' } }, font: { color: '#333' } };
         });
-        const edges = data.edges.map(e => ({
-            ...e,
-            arrows: 'to',
-            color: { color: '#888', opacity: 0.4 }
-        }));
+        const edges = data.edges.map(e => ({ ...e, arrows: 'to', color: { color: '#888', opacity: 0.4 } }));
         const networkData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
         const options = {
             layout: { improvedLayout: true },
@@ -279,6 +279,7 @@ function resetZoom(schemaId) {
     if (network) network.fit({ animation: true });
 }
 
+// ==================== CONEXIONES Y UI ====================
 async function loadConnections() {
     try {
         const data = await fetchJson('api.php?action=list_connections');
@@ -341,6 +342,7 @@ async function loadTables() {
     } catch(e) { document.getElementById('treeview').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
 }
 
+// ==================== TABS Y FUNCIONES AUXILIARES ====================
 function openTab(tableName) {
     if (tableName === '__schema__') { openSchemaGraphTab(); return; }
     for (let [tid, t] of tabs) if (t.tableName === tableName && t.connectionId === currentConnectionId) { activateTab(tid); return; }
@@ -517,7 +519,8 @@ function loadNavigateGrid(tabId) {
             if (d.error) throw new Error(d.error);
             const rows = d.data || [];
             const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
-            const duration = d.debug?.duration ? (Number(d.debug.duration) / 1000).toFixed(7) + 's' : 'N/A';
+            // CORREGIDO: usa d.stats.duration en lugar de d.debug.duration
+            const duration = d.stats?.duration ? (Number(d.stats.duration) / 1000).toFixed(7) + 's' : 'N/A';
             this.footerContainer.innerHTML = `📄 Total: ${(d.total || rows.length).toLocaleString()} registros | ${d.columns ? d.columns.length : rows[0]?.length || 0} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
             if (rows.length > 0) {
                 if (this.currentPage === 1) this.render(rows, meta);
@@ -543,6 +546,7 @@ function loadNavigateGrid(tabId) {
     grid.load();
 }
 
+// ==================== EJECUCIÓN SQL (con reloj y estilo cambiante) ====================
 function animateButton(button, promise) {
     const img = document.createElement('img');
     img.src = 'assets/icon/reloj.gif';
@@ -577,27 +581,38 @@ async function executeTabSQL(tabId) {
     const container = document.querySelector(gridContainer);
     container.querySelector('.grid-head').innerHTML = '';
     container.querySelector('.grid-body').innerHTML = '';
-    const f = new FormData(); f.append('connectionId', tab.connectionId); f.append('sql', sql);
+
+    const f = new FormData();
+    f.append('connectionId', tab.connectionId);
+    f.append('sql', sql);
+
     const runBtn = document.getElementById(`run_${tabId}`);
     if (!runBtn) { alert('Error: Botón no encontrado'); return; }
+
     try {
-        const r = await animateButton(runBtn, fetchJson('api.php?action=execute_query', { method: 'POST', body: f }));
+        const r = await animateButton(runBtn,
+            fetchJson('api.php?action=execute_query', { method: 'POST', body: f })
+        );
+
         if (r.columns) {
             const grid = new APIDataGrid(gridContainer, 'api.php?action=execute_query', { mode: 'pagination', pageSize: 100 });
             grid.fetchData = async function() {
                 if (this.isLoading) return;
                 this.isLoading = true; this.showLoading(); this.hideError();
                 try {
-                    this.render(r.rows, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
+                    this.render(r.data, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
                     this.hasMore = false;
-                    this.footerContainer.innerHTML = `📄 Total: ${r.rows.length} registros | ${r.columns.length} columnas | ⏱️ ${r.elapsed || 0}s`;
+                    
+                    this.footerContainer.innerHTML = `Total: ${r.data.length} registros | ${r.columns.length} columnas | Duracion: ${r.durationMs || r.elapsed || '0'}s`;
                 } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
             };
             grid.load();
         } else {
-            alert(`Filas afectadas: ${r.affected} | ⏱️ ${r.elapsed || 0}s`);
+            alert(`Filas afectadas: ${r.affected} | Duracion: ${r.durationMs || '0'}s`);
         }
-    } catch(e) { alert('Error: ' + e.message); }
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
 }
 
 function activateTab(id) {
@@ -616,6 +631,7 @@ function closeTab(id) {
 
 function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+// Modal y eventos
 const modal = document.getElementById('modal-connection');
 document.getElementById('btn-add-connection').addEventListener('click', () => {
     modal.style.display = 'block'; document.getElementById('modal-message').innerHTML = '';
@@ -652,10 +668,12 @@ function getConnectionData() {
     return { name: document.getElementById('conn-name').value.trim(), driver: d, host: document.getElementById('conn-host').value.trim(), port: +document.getElementById('conn-port').value || 3306, database: document.getElementById('conn-dbname').value.trim(), username: document.getElementById('conn-user').value.trim(), password: document.getElementById('conn-pass').value };
 }
 
+// Inicialización
 loadConnections();
 loadDatabases();
 showDashboard();
 
+// Sidebar resizer
 const sidebar = document.querySelector('.sidebar'), resizer = document.getElementById('sidebar-resizer');
 let isResizing = false;
 resizer.addEventListener('mousedown', e => { isResizing = true; resizer.classList.add('resizing'); document.body.style.cursor = 'col-resize'; e.preventDefault(); });

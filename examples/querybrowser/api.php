@@ -1,17 +1,16 @@
 <?php
 /**
- * RapidBase API – Query Browser (con X + XResponse)
+ * RapidBase API – Query Browser (refactorizado con X + XResponse)
  */
 
 session_start();
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+
+require_once __DIR__ . '/RapidBase.php';
 require_once 'config.php';
 
 ini_set('display_errors', 0);
 error_reporting(0);
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
 
 use RapidBase\Core\X;
 use RapidBase\Core\XResponse;
@@ -183,6 +182,19 @@ try {
             echo json_encode(['tables' => $tables, 'views' => []]);
             break;
 
+        case 'table_relations':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $tableName = $_REQUEST['table'] ?? '';
+            if (!$connectionKey || !$tableName) { echo json_encode(['from' => [], 'to' => []]); break; }
+            activateConnection($connectionKey);
+            $map = SchemaMap::getMap();
+            $rels = $map['relationships'] ?? [];
+            echo json_encode([
+                'from' => array_keys($rels['from'][$tableName] ?? []),
+                'to'   => array_keys($rels['to'][$tableName] ?? []),
+            ]);
+            break;
+
         case 'auto_query':
             $connectionKey = $_POST['connectionId'] ?? '';
             $tablesJson = $_POST['tables'] ?? '';
@@ -244,19 +256,6 @@ try {
             activateConnection($connectionKey);
             $res = X::con($connectionKey)->from($table, $conditions)->grid('*', $page, $limit, $sort);
             echo json_encode($res);
-            break;
-
-        case 'table_relations':
-            $connectionKey = $_REQUEST['connectionId'] ?? '';
-            $tableName = $_REQUEST['table'] ?? '';
-            if (!$connectionKey || !$tableName) { echo json_encode(['from' => [], 'to' => []]); break; }
-            activateConnection($connectionKey);
-            $map = SchemaMap::getMap();
-            $rels = $map['relationships'] ?? [];
-            echo json_encode([
-                'from' => array_keys($rels['from'][$tableName] ?? []),
-                'to'   => array_keys($rels['to'][$tableName] ?? []),
-            ]);
             break;
 
         case 'related_tables':
