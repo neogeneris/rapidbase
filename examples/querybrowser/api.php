@@ -284,7 +284,7 @@ try {
             break;
 
         // ==================== ESQUEMA Y TABLAS ====================
-case 'list_tables':
+        case 'list_tables':
     $connectionId = $_REQUEST['connectionId'] ?? '';
     if (!$connectionId) errorResponse('Falta connectionId');
 
@@ -319,22 +319,54 @@ case 'list_tables':
 
     // IMPORTANTE: la llave correcta es 'dbname' (sin guion bajo)
     $realDbName = $meta['dbname'] ?? 'Unknown';
-
     $driver = $meta['driver'] ?? 'unknown';
 
-    // Build schema_tables: [ { name, columns: [{name, type, nullable, primary}] } ]
+    // Obtener PDO directo para consultar columnas reales con PRAGMA
+    $pdo = \RapidBase\Core\DB::pdo($connectionId);
+    
+    // Build schema_tables consultando columnas reales desde la BD
     $rawTables = $map['tables'] ?? [];
     $schemaTables = [];
     foreach ($rawTables as $tableName => $tableMeta) {
         $cols = [];
-        foreach ($tableMeta['columns'] ?? [] as $colName => $colMeta) {
-            $cols[] = [
-                'name'     => $colName,
-                'type'     => strtolower($colMeta['type'] ?? 'text'),
-                'nullable' => (bool)($colMeta['nullable'] ?? true),
-                'primary'  => (bool)($colMeta['primary'] ?? false),
-            ];
+        
+        // Consultar columnas reales usando PRAGMA table_info para SQLite
+        if ($driver === 'sqlite') {
+            try {
+                $stmt = $pdo->query("PRAGMA table_info('$tableName')");
+                $colInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($colInfo as $col) {
+                    $cols[] = [
+                        'name'     => $col['name'],
+                        'type'     => strtolower($col['type'] ?? 'text'),
+                        'nullable' => !(bool)$col['notnull'],
+                        'primary'  => (bool)$col['pk'],
+                    ];
+                }
+            } catch (\Exception $e) {
+                // Fallback to schema_map if PRAGMA fails
+                foreach ($tableMeta['columns'] ?? [] as $colName => $colMeta) {
+                    $cols[] = [
+                        'name'     => $colName,
+                        'type'     => strtolower($colMeta['type'] ?? 'text'),
+                        'nullable' => (bool)($colMeta['nullable'] ?? true),
+                        'primary'  => (bool)($colMeta['primary'] ?? false),
+                    ];
+                }
+            }
+        } else {
+            // Para MySQL/PostgreSQL usar schema_map por ahora
+            foreach ($tableMeta['columns'] ?? [] as $colName => $colMeta) {
+                $cols[] = [
+                    'name'     => $colName,
+                    'type'     => strtolower($colMeta['type'] ?? 'text'),
+                    'nullable' => (bool)($colMeta['nullable'] ?? true),
+                    'primary'  => (bool)($colMeta['primary'] ?? false),
+                ];
+            }
         }
+        
         $schemaTables[] = ['name' => $tableName, 'columns' => $cols];
     }
 

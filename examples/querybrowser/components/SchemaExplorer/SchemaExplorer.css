@@ -7,11 +7,18 @@
 }
 .schema-explorer-sidebar.closed { transform: translateX(100%); }
 
+/* Embedded mode - when used inside a container */
 .se-embedded {
-    width: 100%; height: 100%;
-    background: #ffffff;
+    position: relative !important;
+    right: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
     display: flex; flex-direction: column;
-    overflow: hidden; /* Prevent content from pushing parent */
+    overflow: hidden;
 }
 
 /* Fix for embedded mode to prevent overflow */
@@ -35,6 +42,11 @@
 
 .se-content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 5px 0; }
 #se-tree { min-width: 100%; }
+
+/* Fix for embedded mode - ensure content is visible */
+#schema-explorer-box .se-content {
+    max-height: calc(100% - 80px); /* Account for header and search */
+}
 
 .se-table { margin-bottom: 2px; }
 .se-table summary { 
