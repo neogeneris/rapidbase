@@ -412,41 +412,116 @@ class X
         }
         return is_string($this->table[0] ?? '') ? $this->table[0] : '';
     }
-	
-	/**
-	 * Realiza una prueba de conexión (ping) sobre la instancia actual.
-	 * * @param int $retries Número de reintentos en caso de fallo (0 = un solo intento).
-	 * @param int $delayMs Tiempo de espera en milisegundos entre reintentos.
-	 * @return array Resultado detallado: [success, latency, error, attempts]
-	 */
-// En src/RapidBase/Core/X.php
 
-/**
- * Realiza un ping a la conexión activa.
- * Solo funciona si la conexión ya fue añadida a Conn (activada).
- *
- * @param int $retries No usado, se mantiene por compatibilidad
- * @param int $delayMs No usado
- * @return array [success, latency, error]
- */
-public function ping(int $retries = 1, int $delayMs = 100): array
-{
-    try {
-        $pdo = Conn::get($this->connectionId);
-        $start = microtime(true);
-        $pdo->query('SELECT 1');
-        $latency = round((microtime(true) - $start) * 1000, 2);
-        return [
-            'success' => true,
-            'latency' => $latency,
-            'error'   => null,
-        ];
-    } catch (\Throwable $e) {
-        return [
-            'success' => false,
-            'latency' => null,
-            'error'   => $e->getMessage(),
-        ];
-    }
-}
+	/**
+	 * Realiza un ping a la conexión activa.
+	 * Solo funciona si la conexión ya fue añadida a Conn (activada).
+	 *
+	 * @param int $retries No usado, se mantiene por compatibilidad
+	 * @param int $delayMs No usado
+	 * @return array [success, latency, error]
+	 */
+
+	public function ping(int $retries = 1, int $delayMs = 100): array
+	{
+		try {
+			$pdo = Conn::get($this->connectionId);
+			$start = microtime(true);
+			$pdo->query('SELECT 1');
+			$latency = round((microtime(true) - $start) * 1000, 2);
+			return [
+				'success' => true,
+				'latency' => $latency,
+				'error'   => null,
+			];
+		} catch (\Throwable $e) {
+			return [
+				'success' => false,
+				'latency' => null,
+				'error'   => $e->getMessage(),
+			];
+		}
+	}
+
+
+	/**
+	 * Returns the schema description (columns, primary keys, relations)
+	 * for the tables currently selected via from().
+	 *
+	 * If no table has been set, returns the description for all tables
+	 * present in the SchemaMap.
+	 *
+	 * @return array  Associative array keyed by table name.
+	 */
+	public function description(): array
+	{
+		$this->useConnection();
+
+		$tables = $this->table;
+		if (empty($tables)) {
+			$tables = array_keys(SchemaMap::getMap()['tables'] ?? []);
+		} elseif (is_string($tables)) {
+			$tables = [$tables];
+		}
+
+		$map      = SchemaMap::getMap();
+		$result   = [];
+
+		foreach ($tables as $table) {
+			$tableInfo = $map['tables'][$table] ?? null;
+
+			if (!$tableInfo) {
+				$result[$table] = [
+					'columns'   => [],
+					'pks'       => [],
+					'relations' => [],
+				];
+				continue;
+			}
+
+			// --- Columns and Primary Keys ---
+			$columns = [];
+			$pks     = [];
+			foreach ($tableInfo as $colName => $def) {
+				$columns[$colName] = $def['type'] ?? 'string';
+				if ($def['primary'] ?? false) {
+					$pks[] = $colName;
+				}
+			}
+
+			// --- Relations ---
+			$relations = [];
+
+			// Outgoing relations (this table points to another)
+			foreach ($map['relationships']['from'][$table] ?? [] as $target => $rel) {
+				$relations[] = [
+					'direction'    => 'out',
+					'local_col'    => $rel['local_key'],
+					'target_table' => $target,
+					'target_col'   => $rel['foreign_key'],
+					'type'         => $rel['type'] ?? 'belongsTo',
+				];
+			}
+
+			// Incoming relations (other tables point to this one)
+			foreach ($map['relationships']['to'][$table] ?? [] as $source => $rel) {
+				$relations[] = [
+					'direction'    => 'in',
+					'local_col'    => $rel['foreign_key'],
+					'target_table' => $source,
+					'target_col'   => $rel['local_key'],
+					'type'         => $rel['type'] ?? 'hasMany',
+				];
+			}
+
+			$result[$table] = [
+				'columns'   => $columns,
+				'pks'       => $pks,
+				'relations' => $relations,
+			];
+		}
+
+		return $result;
+	}
+
 }

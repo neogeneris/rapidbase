@@ -1,3 +1,5 @@
+
+
 /* Grid Component Styles */
 .grid-container {
     display: flex;
@@ -25,7 +27,7 @@
     padding: 6px 12px 6px 32px;
     border: 1px solid #cbd5e0;
     border-radius: 6px;
-    width: 200px;
+    width: 300px;
     font-size: 0.8rem;
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>');
     background-repeat: no-repeat;
@@ -43,13 +45,14 @@
     flex: 1;
     overflow: auto;
     min-height: 0;
+	width:1020px;
 }
 
 .grid-table {
-    width: max-content; /* Allow table to be wider than container */
-    min-width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed; /* Better for resizing */
+    /*width: max-content;  Allow table to be wider than container */
+    width-max: 25%;
+    /*border-collapse: collapse;*/
+    table-layout: auto; /* Changed from fixed to allow proper horizontal scroll */
 }
 
 .grid-head {
@@ -68,6 +71,7 @@
     border-bottom: 1px solid #e2e8f0;
     text-align: left;
     min-width: 100px;
+    max-width: none; /* Allow columns to expand */
     color: #475569;
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -80,11 +84,12 @@
     position: absolute;
     top: 0;
     right: 0;
-    width: 4px;
+    width: 2px;
     height: 100%;
     cursor: col-resize;
     z-index: 11;
     transition: background 0.2s;
+	background: gray;
 }
 
 .grid-resizer:hover, .grid-resizing {
@@ -100,15 +105,16 @@
 .grid-body td {
     padding: 10px 16px;
     border-bottom: 1px solid #f1f5f9;
+    border-left: 2px solid #f1f5f9;
     font-size: 0.8rem;
     color: #334155;
     white-space: nowrap;
-    max-width: 300px;
+    
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.grid-body tr:hover td { background: #f8fafc; }
+.grid-body tr:hover td { background: #f8fafc; 	}
 
 .grid-footer {
     padding: 8px 16px;
