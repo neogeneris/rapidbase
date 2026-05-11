@@ -27,12 +27,16 @@ class SchemaExplorer {
         `;
         const target = this.options.containerId ? document.getElementById(this.options.containerId) : document.body;
         if (this.options.containerId) {
-            this.container.classList.remove('closed');
-            this.container.style.position = 'relative';
-            this.container.style.width = '100%';
-            this.container.style.height = '100%';
-            this.container.style.borderLeft = 'none';
-            this.container.style.boxShadow = 'none';
+            // Embedded mode - remove sidebar classes and styles
+            this.container.classList.remove('closed', 'schema-explorer-sidebar');
+            this.container.classList.add('se-embedded');
+        } else {
+            // Sidebar mode - keep default styles
+            this.container.style.position = 'fixed';
+            this.container.style.right = '0';
+            this.container.style.top = '0';
+            this.container.style.width = '330px';
+            this.container.style.height = '100vh';
         }
         target.appendChild(this.container);
     }
