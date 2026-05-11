@@ -207,7 +207,8 @@ input:checked + .qb-slider:before { transform: translateX(14px); }
 /* Grid */
 .qb-grid-pane {
     flex: 1;
-    overflow: hidden;
+    overflow: auto; /* Allow horizontal scroll */
+    min-width: 0; /* Allow shrinking below content size */
     background: #ffffff;
 }
 
