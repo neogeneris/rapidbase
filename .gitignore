@@ -1,41 +1,66 @@
+```
 # Compiled and build artifacts
 *.pyc
 __pycache__/
-*.o
-*.obj
-*.class
-*.dll
-*.so
-*.a
-*.exe
-*.out
 
 # Dependencies
-node_modules/
-venv/
 .venv/
-.env
-.env.local
-.env.*
-
-# Build directories
+venv/
+node_modules/
 dist/
 build/
 target/
+
+# Logs and temp files
 *.log
 *.tmp
 *.swp
 
+# Environment
+.env
+.env.local
+*.env.*
+
 # Editors
 .vscode/
 .idea/
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
 
 # Coverage
 coverage/
 htmlcov/
 .coverage
 
-# Compression
+# Python specific
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+
+# Web specific
+*.min.js
+*.min.css
+*.bundle.js
+
+# Java specific
+*.class
+*.jar
+*.war
+*.ear
+
+# C/C++ specific
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -58,29 +83,4 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-
-# Python specific
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-.Python
-*.so
-.pytest_cache/
-.mypy_cache/
-
-# System files
-.DS_Store
-Thumbs.db
-# Temporales de pruebas
-cookies.txt
-tmp/
-schema_map_*.php
-src/schema_map_*.php
-examples/querybrowser/connections.sqlite
-examples/querybrowser/data/connections.sqlite
-tests/tmp/benchmark.sqlite
-tests/tmp/bench_schema.php
-tests/tmp/cache/
-tests/Unit/Core/cookies.txt
-tests/mysql-test-config.local.php
+```

@@ -48,14 +48,35 @@ class SchemaExplorer {
         if (!data) return;
 
         let tablesArray = [];
+        
         if (data.schema_tables) {
             // New API format: { success: true, schema_tables: [...] }
             tablesArray = data.schema_tables;
         } else if (Array.isArray(data)) {
             // Array format
             tablesArray = data;
+        } else if (typeof data === 'object' && !data.columns) {
+            // X::description() format: { "table1": { "columns": {"col": "type"}, "pks": [...], "relations": [...] }, ... }
+            tablesArray = Object.keys(data).map(tableName => {
+                const tableData = data[tableName];
+                const columnsObj = tableData.columns || {};
+                
+                // Convert { "id": "integer", "name": "text" } to [{ name: "id", type: "integer" }, ...]
+                const columns = Object.entries(columnsObj).map(([colName, colType]) => ({
+                    name: colName,
+                    type: colType,
+                    primary: tableData.pks && tableData.pks.includes(colName)
+                }));
+                
+                return {
+                    name: tableName,
+                    columns: columns,
+                    pks: tableData.pks || [],
+                    relations: tableData.relations || []
+                };
+            });
         } else {
-            // Old format: { "table1": { "columns": [...] }, ... }
+            // Old format: { "table1": { "columns": [{ name, type }], ... }, ... }
             tablesArray = Object.keys(data).map(name => ({
                 name: name,
                 columns: data[name].columns || []

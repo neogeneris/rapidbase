@@ -371,6 +371,27 @@ case 'list_tables':
             jsonResponse(['sql' => $sql]);
             break;
 
+        case 'table_description':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $tablesJson = $_REQUEST['tables'] ?? '';
+            if (!$connectionKey) errorResponse('connectionId required');
+            
+            $tables = $tablesJson ? json_decode($tablesJson, true) : [];
+            if (empty($tables)) {
+                errorResponse('tables parameter required (JSON array)');
+            }
+            
+            activateConnection($connectionKey);
+            
+            // Usar X::description() que devuelve el formato: { "table1": { "columns": {...}, "pks": [...], "relations": [...] }, ... }
+            $description = X::con($connectionKey)->from($tables)->description();
+            
+            jsonResponse([
+                'success' => true,
+                'description' => $description
+            ]);
+            break;
+
         case 'schema_graph':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             if (!$connectionKey) { jsonResponse([]); break; }
