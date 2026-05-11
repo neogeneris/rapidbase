@@ -223,7 +223,25 @@ class QueryBuilder {
             
             this._renderRelList('qb-rel-to', data.to || []);
             this._renderRelList('qb-rel-from', data.from || []);
+            
+            // Cargar descripción de las tablas para SchemaExplorer
+            this._loadTableDescription();
         } catch (e) { console.error("Error loading relations", e); }
+    }
+
+    async _loadTableDescription() {
+        try {
+            const resp = await fetch(`api.php?action=table_description&connectionId=${this.connectionId}&tables=${encodeURIComponent(JSON.stringify(this.tables))}`);
+            const data = await resp.json();
+            
+            if (data.success && data.description) {
+                // Guardar en app.activeSchemaData si existe el contexto global
+                if (window.app && window.app.schemaExplorer) {
+                    window.app.activeSchemaData = data.description;
+                    window.app.schemaExplorer.update(data.description, this.tables);
+                }
+            }
+        } catch (e) { console.error("Error loading table description", e); }
     }
 
     _renderRelList(containerId, list) {
