@@ -11,6 +11,13 @@
     width: 100%; height: 100%;
     background: #ffffff;
     display: flex; flex-direction: column;
+    overflow: hidden; /* Prevent content from pushing parent */
+}
+
+/* Fix for embedded mode to prevent overflow */
+#schema-explorer-box .se-embedded {
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .se-header { 
