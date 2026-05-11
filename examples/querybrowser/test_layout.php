@@ -251,6 +251,12 @@
             // Inicializar SchemaExplorer (Aside derecho)
             app.schemaExplorer = new SchemaExplorer({ 
                 containerId: 'schema-explorer-box',
+                grid: {
+                    updateQuery: (selected) => {
+                        console.log("Columnas seleccionadas para query:", selected);
+                        // Aquí podrías actualizar el QueryBuilder si es necesario
+                    }
+                },
                 onSelectionChange: (selected) => {
                     console.log("Columnas seleccionadas:", selected);
                 }
@@ -261,7 +267,10 @@
             app.tableList.populate = (connId, data) => {
                 app.activeSchemaData = data;
                 origPopulate(connId, data);
-                // Si hay un grafo abierto de esta conexión, tal vez no queramos sobreescribir el Aside aún
+                // Actualizar SchemaExplorer con los datos del schema
+                if (app.schemaExplorer && data) {
+                    app.schemaExplorer.update(data, []);
+                }
             };
 
             initResizable(document.getElementById('resizer-h-left'), document.getElementById('conn-manager-box'), 'h');
