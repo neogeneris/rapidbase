@@ -39,7 +39,17 @@ class SchemaExplorer {
 
     update(schemaData, activeTables = []) {
         this.options.schemaData = schemaData;
-        this.options.activeTables = Array.isArray(activeTables) ? activeTables : [activeTables];
+        // Normalize activeTables: if it's a string or JSON array, convert to array
+        if (typeof activeTables === 'string') {
+            try {
+                const parsed = JSON.parse(activeTables);
+                this.options.activeTables = Array.isArray(parsed) ? parsed : [parsed];
+            } catch (e) {
+                this.options.activeTables = [activeTables];
+            }
+        } else {
+            this.options.activeTables = Array.isArray(activeTables) ? activeTables : (activeTables ? [activeTables] : []);
+        }
         this.loadSchema();
     }
 
@@ -62,7 +72,7 @@ class SchemaExplorer {
             }));
         }
 
-        // Filter only active tables if requested
+        // Filter only active tables if requested (on-demand loading)
         if (this.options.activeTables && this.options.activeTables.length > 0) {
             tablesArray = tablesArray.filter(t => this.options.activeTables.includes(t.name));
         }

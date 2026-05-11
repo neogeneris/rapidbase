@@ -150,7 +150,7 @@
         }
 
         // --- SPLITTERS ---
-        function initResizable(resizer, target, direction) {
+        function initResizable(resizer, target, direction, sidebarElement = null) {
             resizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 const onMouseMove = (event) => {
@@ -161,10 +161,21 @@
                         }
                     } else if (direction === 'v-left') {
                         const newWidth = event.clientX;
-                        if (newWidth > 150 && newWidth < 600) target.style.width = newWidth + 'px';
+                        if (newWidth > 150 && newWidth < 600) {
+                            target.style.width = newWidth + 'px';
+                            // Fix: Force reflow for grid horizontal scroll
+                            if (sidebarElement) {
+                                sidebarElement.style.width = newWidth + 'px';
+                            }
+                        }
                     } else if (direction === 'v-right') {
                         const newWidth = window.innerWidth - event.clientX;
-                        if (newWidth > 150 && newWidth < 600) target.style.width = newWidth + 'px';
+                        if (newWidth > 150 && newWidth < 600) {
+                            target.style.width = newWidth + 'px';
+                            if (sidebarElement) {
+                                sidebarElement.style.width = newWidth + 'px';
+                            }
+                        }
                     }
                 };
                 const onMouseUp = () => document.removeEventListener('mousemove', onMouseMove);
@@ -254,8 +265,8 @@
             };
 
             initResizable(document.getElementById('resizer-h-left'), document.getElementById('conn-manager-box'), 'h');
-            initResizable(document.getElementById('resizer-v-left'), document.getElementById('left-sidebar'), 'v-left');
-            initResizable(document.getElementById('resizer-v-right'), document.getElementById('right-sidebar'), 'v-right');
+            initResizable(document.getElementById('resizer-v-left'), document.getElementById('left-sidebar'), 'v-left', document.getElementById('left-sidebar'));
+            initResizable(document.getElementById('resizer-v-right'), document.getElementById('right-sidebar'), 'v-right', document.getElementById('right-sidebar'));
 
             // NOTA: No inicializamos el footer con ID 1 por defecto para evitar el error 400 
             // si la DB está vacía. Se cargará cuando hagas clic en una conexión de la lista.

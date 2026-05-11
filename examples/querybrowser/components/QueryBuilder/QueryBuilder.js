@@ -208,6 +208,11 @@ class QueryBuilder {
                 this.grid.resetAndFetch();
             };
         });
+        
+        // Update SchemaExplorer with active tables when chips change
+        if (window.app?.schemaExplorer && window.app?.activeSchemaData) {
+            window.app.schemaExplorer.update(window.app.activeSchemaData, this.tables);
+        }
     }
 
     async _loadRelations() {
@@ -235,6 +240,11 @@ class QueryBuilder {
                 }
             };
         });
+        
+        // Update SchemaExplorer with active tables when relations change
+        if (window.app?.schemaExplorer && window.app?.activeSchemaData) {
+            window.app.schemaExplorer.update(window.app.activeSchemaData, this.tables);
+        }
     }
 
     async _updateSQL() {
@@ -249,7 +259,7 @@ class QueryBuilder {
         } catch (e) {}
     }
 
-    async _executeSQL() {
+    _executeSQL() {
         const sql = this.parentElement.querySelector('#qb-sql').value.trim();
         if (!sql) return;
 
@@ -258,35 +268,45 @@ class QueryBuilder {
 
         const btn = this.parentElement.querySelector('#qb-run');
         const origBtnHtml = btn.innerHTML;
+        const origBtnDisabled = btn.disabled;
         btn.disabled = true;
-        btn.innerHTML = '<img src="images/clock.gif" style="height:16px;vertical-align:middle;margin-right:8px;"> Ejecutando...';
+        // Use correct path to clock.gif
+        btn.innerHTML = '<img src="assets/icon/reloj.gif" style="height:16px;vertical-align:middle;margin-right:8px;"> Ejecutando...';
 
         try {
             const f = new FormData();
             f.append('connectionId', this.connectionId);
             f.append('sql', sql);
-            const resp = await fetch(`api.php?action=execute_query`, { method: 'POST', body: f });
-            const data = await resp.json();
+            fetch(`api.php?action=execute_query`, { method: 'POST', body: f })
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
 
-            if (data.error) throw new Error(data.error);
-
-            if (data.columns) {
-                // If it's a SELECT, update grid
-                this.grid.render(data.data, { 
-                    columns: data.columns, 
-                    titles: data.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) 
+                    if (data.columns) {
+                        // If it's a SELECT, update grid
+                        this.grid.render(data.data, { 
+                            columns: data.columns, 
+                            titles: data.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) 
+                        });
+                        this.grid.hasMore = false;
+                        this.grid.footerContainer.textContent = `Total: ${data.data.length} registros | Duración: ${data.durationMs || 'N/A'}ms`;
+                    } else {
+                        alert(`Filas afectadas: ${data.affected || 0}`);
+                    }
+                })
+                .catch(e => {
+                    errorEl.textContent = e.message;
+                    errorEl.style.display = 'block';
+                })
+                .finally(() => {
+                    btn.innerHTML = origBtnHtml;
+                    btn.disabled = origBtnDisabled;
                 });
-                this.grid.hasMore = false;
-                this.grid.footerContainer.textContent = `Total: ${data.data.length} registros | Duración: ${data.durationMs || 'N/A'}ms`;
-            } else {
-                alert(`Filas afectadas: ${data.affected || 0}`);
-            }
         } catch (e) {
             errorEl.textContent = e.message;
             errorEl.style.display = 'block';
-        } finally {
             btn.innerHTML = origBtnHtml;
-            btn.disabled = false;
+            btn.disabled = origBtnDisabled;
         }
     }
 
