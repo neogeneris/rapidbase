@@ -1,0 +1,153 @@
+/* Grid Component Styles */
+.grid-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Force fill height for infinite scroll */
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.grid-controls {
+    display: flex;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.grid-search {
+    padding: 6px 12px 6px 32px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    width: 200px;
+    font-size: 0.8rem;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>');
+    background-repeat: no-repeat;
+    background-position: 10px center;
+    background-size: 14px;
+}
+
+.grid-search:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+}
+
+.grid-scroll-wrapper {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+}
+
+.grid-table {
+    width: max-content; /* Allow table to be wider than container */
+    min-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Better for resizing */
+}
+
+.grid-head {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f8fafc;
+}
+
+.grid-head th {
+    padding: 10px 16px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    border-right: 1px solid #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    min-width: 100px;
+    color: #475569;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    position: relative; /* Added for resizer positioning */
+}
+
+.grid-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 11;
+    transition: background 0.2s;
+}
+
+.grid-resizer:hover, .grid-resizing {
+    background: #3b82f6;
+    opacity: 0.5;
+}
+
+.grid-head th:hover { background: #f1f5f9; }
+
+.grid-head th[data-sort="asc"]::after { content: " ▲"; color: #3b82f6; font-size: 0.7rem; }
+.grid-head th[data-sort="desc"]::after { content: " ▼"; color: #3b82f6; font-size: 0.7rem; }
+
+.grid-body td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.8rem;
+    color: #334155;
+    white-space: nowrap;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.grid-body tr:hover td { background: #f8fafc; }
+
+.grid-footer {
+    padding: 8px 16px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.7rem;
+    color: #64748b;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.grid-loading {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background: rgba(59, 130, 246, 0.9);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    pointer-events: none;
+}
+
+.grid-error {
+    padding: 10px 16px;
+    background: #fff5f5;
+    color: #c53030;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin: 12px;
+    border: 1px solid #fed7d7;
+}
+
+.grid-empty {
+    padding: 40px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.85rem;
+}

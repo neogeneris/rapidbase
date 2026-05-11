@@ -1,0 +1,67 @@
+/* GraphViewer Styles */
+.gv-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fdfdfd;
+}
+
+.gv-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.gv-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.gv-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.gv-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+}
+
+.gv-btn:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+    border-color: #cbd5e1;
+}
+
+.gv-network {
+    flex: 1;
+    position: relative;
+    background: #fcfcfc;
+}
+
+.gv-loading, .gv-empty, .gv-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #94a3b8;
+    font-size: 13px;
+    text-align: center;
+}
+
+.gv-error { color: #ef4444; }

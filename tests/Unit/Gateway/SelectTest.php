@@ -1,92 +1,115 @@
 <?php
 
 /**
- * Gateway SelectTest – Integración con GroupBy y verificación de metadatos.
- *
- * Usa Q, Conn y Gateway. Comprueba que la respuesta incluya columns.
+ * Gateway SelectTest - Integration with GroupBy, metadata verification,
+ * and both pagination modes (Q::page and [offset, limit]).
  */
 
 require_once __DIR__ . '/../../../vendor/autoload.php';
 
 use RapidBase\Core\Conn;
 use RapidBase\Core\Gateway;
-use RapidBase\Core\SQL\ConditionMatrix;   // ← namespace correcto
+use RapidBase\Core\SQL\Q;
+use RapidBase\Core\SQL\ConditionMatrix;
 
-// ── Preparar entorno ────────────────────────────────
+// -- Setup --
 $tempDb = tempnam(sys_get_temp_dir(), "rapidbase_test_") . ".sqlite";
 Conn::setup("sqlite:$tempDb", "", "", "main");
 $pdo = Conn::get("main");
 $pdo->exec("CREATE TABLE leads (id INTEGER PRIMARY KEY, source TEXT, status TEXT)");
 $pdo->exec("INSERT INTO leads (source, status) VALUES ('Facebook', 'pending'), ('Facebook', 'approved'), ('Google', 'pending')");
 
-// Configurar el driver para ConditionMatrix (necesario para Q)
 ConditionMatrix::setDriver('sqlite');
 
-// ── Funciones de aserción ──────────────────────────
+// -- Assertion helper --
 function assert_select($name, $assertion, $details = "") {
     if ($assertion) {
         echo "  [OK] $name\n";
     } else {
         echo "  [FAIL] $name\n";
-        if ($details) echo "    Detalle: $details\n";
+        if ($details) echo "    Detail: $details\n";
         $status = Gateway::status();
-        echo "    SQL generado: " . ($status["sql"] ?? "N/A") . "\n";
+        echo "    Generated SQL: " . ($status["sql"] ?? "N/A") . "\n";
         exit(1);
     }
 }
 
-echo "=== Gateway Select con GroupBy ===\n";
+echo "=== Gateway Select with GroupBy ===\n";
 
-// ── Consulta con GROUP BY ──────────────────────────
+// -- 1. GROUP BY without pagination --
 $result = Gateway::select(
     "source, COUNT(*) as total",
     "leads",
     [],
-    ["source"],    // groupBy
-    [],             // having
-    [],             // sort
-    1,              // page (1 = sin límite? En realidad page=1 con perPage=10 por defecto; para todas las filas usar page=0)
-    false,          // withTotal
-    \PDO::FETCH_ASSOC
+    ["source"],
+    [], [], null, false, \PDO::FETCH_ASSOC
 );
 
-
-//print_r($result);
-
 $data = $result["data"] ?? [];
-assert_select("Conteo agrupado por source", count($data) === 2, "Esperados 2 grupos");
+assert_select("GroupBy count by source", count($data) === 2, "Expected 2 groups");
 
 $facebook = array_filter($data, fn($r) => $r["source"] === "Facebook");
 $facebook = reset($facebook);
-assert_select("Validación de datos (Facebook)", $facebook && $facebook["total"] == 2);
+assert_select("Data validation (Facebook)", $facebook && $facebook["total"] == 2);
 
-// ── Consulta con WHERE y GROUP BY ──────────────────
+// -- 2. GROUP BY with WHERE --
 $resultFiltered = Gateway::select(
     "source, COUNT(*) as total",
     "leads",
     ["status" => "pending"],
     ["source"],
-    [], [], 1, false, \PDO::FETCH_ASSOC
+    [], [], null, false, \PDO::FETCH_ASSOC
 );
 
 $dataFiltered = $resultFiltered["data"] ?? [];
-assert_select("Group By con filtro WHERE", count($dataFiltered) === 2);
+assert_select("GroupBy with WHERE filter", count($dataFiltered) === 2);
+$statusGroupBy = Gateway::status();
 $totalPending = array_sum(array_column($dataFiltered, "total"));
-assert_select("Suma total de registros filtrados", $totalPending == 2);
+assert_select("Total pending records", $totalPending == 2);
 
-// ── Verificación de metadatos (columnas) ──────────
+// -- 3. Pagination with Q::page() --
+echo "\n--- Pagination with Q::page() ---\n";
+$resultPaged = Gateway::select(
+    "*",
+    "leads",
+    [],
+    [], [], [], Q::page(1, 2), false, \PDO::FETCH_ASSOC
+);
+
+$dataPaged = $resultPaged["data"] ?? [];
+assert_select("Page 1 returns 2 records", count($dataPaged) === 2);
+assert_select("Page 1 has LIMIT 2", $resultPaged["limit"] === 2);
+assert_select("Page number is 1", $resultPaged["page"] === 1);
+
+// -- 4. Pagination with [offset, limit] (infinite scroll style) --
+echo "\n--- Pagination with [offset, limit] ---\n";
+$resultOffset = Gateway::select(
+    "*",
+    "leads",
+    [], [], [], [], [1, 2], false, \PDO::FETCH_ASSOC
+);
+
+$dataOffset = $resultOffset["data"] ?? [];
+assert_select("Offset 1 returns 2 records", count($dataOffset) === 2);
+assert_select("Limit is 2", $resultOffset["limit"] === 2);
+// Offset 1, limit 2 -> page = floor(1/2) + 1 = 1
+assert_select("Page calculated from offset is 1", $resultOffset["page"] === 1);
+
+// -- 5. Metadata verification (columns) --
 $metadata = $resultFiltered['metadata'] ?? [];
-assert_select("Metadata contiene columnas", !empty($metadata['cols']), "cols está vacío");
-assert_select("Columnas correctas", $metadata['cols'] === ['source', 'total'], "Se obtuvo: " . json_encode($metadata['cols']));
+assert_select("Metadata contains columns", !empty($metadata['cols']), "cols is empty");
+assert_select("Correct columns", $metadata['cols'] === ['source', 'total'], "Got: " . json_encode($metadata['cols']));
 
-// ── Verificación de SQL generado ──────────────────
+// -- 6. SQL syntax verification --
 $status = Gateway::status();
-assert_select("Sintaxis SQL (Cláusula GROUP BY)", str_contains(strtoupper($status["sql"]), "GROUP BY"));
-assert_select("Parámetros en el estado", isset($status["params"][0]) && $status["params"][0] === "pending");
+$status = $statusGroupBy;
 
-echo "\n✅ Gateway::select maneja agrupamientos, filtros y metadatos correctamente.\n";
+assert_select("SQL contains GROUP BY", str_contains(strtoupper($status["sql"]), "GROUP BY"));
+assert_select("Parameters in status", isset($status["params"][0]) && $status["params"][0] === "pending");
 
-// ── Limpiar ───────────────────────────────────────
+echo "\nGateway::select handles grouping, filters, pagination and metadata correctly.\n";
+
+// -- Cleanup --
 if (isset($tempDb) && file_exists($tempDb)) {
     @unlink($tempDb);
     @unlink($tempDb . "-wal");

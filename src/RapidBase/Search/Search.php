@@ -3,7 +3,7 @@
 namespace RapidBase\Search;
 
 use RapidBase\Core\SchemaMap;
-use RapidBase\Core\SQL\ConditionMatrix;
+use RapidBase\Core\Cache\CacheService;
 
 class Search
 {
@@ -46,7 +46,6 @@ class Search
 
     /**
      * Devuelve el array de condiciones listo para usar en Q::from() o X::from().
-     * Si hay varias tablas, califica las columnas con el alias correspondiente.
      */
     public function get(): array
     {
@@ -70,10 +69,6 @@ class Search
         return ['|' => $conditions];
     }
 
-    /**
-     * Resuelve las columnas a buscar. Si no se especificaron, obtiene todas
-     * las columnas de texto del esquema, calificándolas con el alias (si hay varias tablas).
-     */
     private function resolveColumns(): array
     {
         if (!empty($this->columns)) {
@@ -89,7 +84,6 @@ class Search
                 continue;
             }
 
-            // Determinar alias: si se proporcionó en $tableAliases, usarlo; si no, el nombre de la tabla
             $alias = $this->tableAliases[$idx] ?? $table;
 
             $textTypes = ['text', 'varchar', 'char', 'tinytext', 'mediumtext', 'longtext', 'string'];

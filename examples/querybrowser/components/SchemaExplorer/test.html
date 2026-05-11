@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sandbox: SchemaExplorer Pro</title>
+    <link rel="stylesheet" href="SchemaExplorer.css">
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        .work-area { flex: 1; padding: 40px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .drop-zone { 
+            border: 2px dashed #cbd5e0; padding: 60px; text-align: center; 
+            background: #fff; border-radius: 12px; color: #718096;
+            transition: all 0.2s; font-size: 1.1rem;
+        }
+        .drop-zone.over { border-color: #3182ce; background: #ebf8ff; color: #3182ce; transform: scale(1.01); }
+
+        .sql-output { 
+            background: #1a202c; color: #e2e8f0; padding: 20px; 
+            border-radius: 8px; font-family: 'Consolas', monospace; white-space: pre;
+            min-height: 120px; border-left: 5px solid #3182ce; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn-main { background: #3182ce; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; width: fit-content; }
+        .btn-main:hover { background: #2b6cb0; }
+    </style>
+</head>
+<body>
+
+    <div class="work-area">
+        <h1>SchemaExplorer Pro Sandbox</h1>
+        <p>Arrastra columnas para construir la consulta o selecciona checkboxes para ver el ordenamiento.</p>
+        
+        <button class="btn-main" onclick="explorer.toggle()">Abrir Explorador</button>
+
+        <div id="drop-target" class="drop-zone">
+            Arrastra columnas aquí para ver el SQL
+        </div>
+
+        <div id="sql-preview" class="sql-output">-- Selección actual: Ninguna</div>
+    </div>
+
+    <script src="SchemaExplorer.js"></script>
+
+    <script>
+        // JSON de prueba simple (Sin AJAX)
+        const SCHEMA_MAP = {
+            "users": {
+                "columns": [
+                    { "name": "id", "type": "INT", "primary": true },
+                    { "name": "username", "type": "VARCHAR(50)", "primary": false },
+                    { "name": "email", "type": "VARCHAR(100)", "primary": false },
+                    { "name": "role", "type": "ENUM", "primary": false }
+                ]
+            },
+            "orders": {
+                "columns": [
+                    { "name": "id", "type": "INT", "primary": true },
+                    { "name": "total", "type": "DECIMAL", "primary": false },
+                    { "name": "status", "type": "VARCHAR", "primary": false }
+                ]
+            }
+        };
+
+        const explorer = new SchemaExplorer({
+            schemaData: SCHEMA_MAP,
+            grid: {
+                updateQuery: (data) => {
+                    const output = document.getElementById('sql-preview');
+                    if(data.length === 0) { output.innerText = "-- Selección actual: Ninguna"; return; }
+                    
+                    const cols = data.map(d => d.column).join(', ');
+                    const orders = data.filter(d => d.sort !== 'NONE').map(d => `${d.column} ${d.sort}`).join(', ');
+                    output.innerText = `SELECT ${cols}\nFROM ...${orders ? '\nORDER BY ' + orders : ''}`;
+                }
+            }
+        });
+
+        // Lógica visual del Drop Zone
+        const target = document.getElementById('drop-target');
+        target.ondragover = (e) => { e.preventDefault(); target.classList.add('over'); };
+        target.ondragleave = () => target.classList.remove('over');
+        target.ondrop = (e) => {
+            e.preventDefault();
+            target.classList.remove('over');
+            const data = e.dataTransfer.getData("text/plain");
+            target.innerHTML = `Columna recibida: <b style="color:#2b6cb0; font-size: 1.4rem;">${data}</b>`;
+        };
+    </script>
+</body>
+</html>

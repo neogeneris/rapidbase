@@ -1,7 +1,7 @@
 <?php
 /**
- * RapidBase API – Query Browser (optimizado con X::cached)
- * Incluye todos los endpoints originales + mejoras de caché.
+ * RapidBase API – Query Browser (optimizado con X::cached y Search)
+ * Estrategia de total: 'separate' para SQLite, 'window' para MySQL
  */
 
 session_start();
@@ -15,6 +15,7 @@ use RapidBase\Core\SchemaMap;
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\Cache\CacheService;
 use RapidBase\Core\Cache\CountCache;
+use RapidBase\Search\Search;
 use RapidBase\Meta\Discovery\DiscoveryFactory;
 use RapidBase\Meta\Discovery\FeatureDetector;
 
@@ -23,7 +24,7 @@ use Exception;
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Configuración (puede venir de config.php)
+// Configuración
 if (!defined('MAX_CACHE_TTL')) {
     define('MAX_CACHE_TTL', 3600);
 }
@@ -56,7 +57,13 @@ function initConnectionsDB(): void
     if (!is_dir($dir)) mkdir($dir, 0777, true);
     if (!file_exists($dbFile)) {
         $pdo = new PDO("sqlite:$dbFile");
-        $pdo->exec("CREATE TABLE connections (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, driver TEXT NOT NULL, host TEXT, port INTEGER, database TEXT, username TEXT, password TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+        $pdo->exec("CREATE TABLE connections (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, driver TEXT NOT NULL, host TEXT, port INTEGER, database TEXT, username TEXT, password TEXT, description TEXT, status TEXT DEFAULT 'dev', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+    } else {
+        // Migrate: add columns if they don't exist yet
+        $pdo = new PDO("sqlite:$dbFile");
+        $cols = array_column($pdo->query("PRAGMA table_info(connections)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+        if (!in_array('description', $cols)) $pdo->exec("ALTER TABLE connections ADD COLUMN description TEXT");
+        if (!in_array('status', $cols))      $pdo->exec("ALTER TABLE connections ADD COLUMN status TEXT DEFAULT 'dev'");
     }
 }
 
@@ -73,15 +80,35 @@ function buildDSN(array $conn): string
     };
 }
 
-function testConnection(array $conn): bool
+/**
+ * Valida una conexión y persiste el estado en sesión si tiene ID.
+ * Retorna array [success, latency, error] en lugar de booleano.
+ */
+function testConnection(string|array $target): array
 {
-    try {
-        $pdo = new PDO(buildDSN($conn), $conn['username'] ?? '', $conn['password'] ?? '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        $pdo->query("SELECT 1");
-        return true;
-    } catch (Exception $e) {
-        return false;
+    // Si es un string (connectionKey ya activo) → usar X::ping
+    if (is_string($target)) {
+        $res = X::con($target)->ping(1);
+        if ($res['success']) {
+            $_SESSION['active_conns'][$target] = [
+                'status'  => 'online',
+                'latency' => $res['latency'],
+                'at'      => time()
+            ];
+        }
+        return $res;
     }
+
+    // Si es un array (credenciales nuevas o guardadas no activas)
+    $dsn = buildDSN($target);
+    $config = [
+        'dsn'  => $dsn,
+        'user' => $target['username'] ?? '',
+        'pass' => $target['password'] ?? ''
+    ];
+    $res = Gateway::ping($target['driver'] ?? 'mysql', $config, 1);
+
+    return $res;
 }
 
 function discoverSchema(string $dsn, string $user, string $pass, string $connectionKey, array $connRow): array
@@ -134,17 +161,40 @@ $action = $_REQUEST['action'] ?? '';
 
 try {
     switch ($action) {
-        // ------------------------------------------------------------------
-        // ENDPOINTS ORIGINALES (MANTENIDOS)
-        // ------------------------------------------------------------------
+        // ==================== CONEXIONES ====================
         case 'list_connections':
             $res = X::con('main')->from('connections')->select();
             jsonResponse(['connections' => $res->data]);
             break;
 
         case 'test_connection':
-            $data = json_decode(file_get_contents('php://input'), true);
-            jsonResponse(['success' => testConnection($data)]);
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            // ¿Es una conexión guardada?
+            if (isset($input['id'])) {
+                $id = (int) $input['id'];
+                $connectionKey = "saved_{$id}";
+                
+                // Si ya está activa (en sesión), usamos X::ping directamente
+                if (isset($_SESSION['connections'][$connectionKey])) {
+                    activateConnection($connectionKey);
+                    $result = testConnection($connectionKey);
+                } else {
+                    // No activa → obtener credenciales de la BD de control y probar
+                    $connRow = X::con('main')->from('connections', ['id' => $id])->first();
+                    if (!$connRow) errorResponse('Conexión no encontrada');
+                    $result = testConnection($connRow); // array con los datos
+                }
+                jsonResponse($result);
+                break;
+            }
+            
+            // Sin ID → probar credenciales directamente (modal de nueva conexión)
+            if (empty($input['driver']) || empty($input['database'])) {
+                errorResponse('Falta driver o database');
+            }
+            $result = testConnection($input);
+            jsonResponse($result);
             break;
 
         case 'add_connection':
@@ -152,14 +202,45 @@ try {
             if (empty($data['name']) || empty($data['driver']) || empty($data['database'])) {
                 errorResponse('Missing required fields');
             }
-            if (!testConnection($data)) errorResponse('Could not connect to database.');
+            // testConnection ahora retorna array, verificamos la clave 'success'
+            $test = testConnection($data);
+            if (!$test['success']) {
+                errorResponse('Could not connect to database.');
+            }
             $res = X::con('main')->from('connections')->insert([
                 'name' => $data['name'], 'driver' => $data['driver'],
                 'host' => $data['host'] ?? null, 'port' => $data['port'] ?? null,
                 'database' => $data['database'], 'username' => $data['username'] ?? null,
                 'password' => $data['password'] ?? null,
+                'description' => $data['description'] ?? null,
+                'status' => $data['status'] ?? 'dev',
             ]);
             jsonResponse(['success' => true, 'id' => $res->lastId]);
+            break;
+
+        case 'ping_connection':
+            $input = json_decode(file_get_contents('php://input'), true);
+            $id = (int)($input['id'] ?? 0);
+            if (!$id) errorResponse('Se requiere id de conexión');
+
+            $connRow = X::con('main')->from('connections', ['id' => $id])->first();
+            if (!$connRow) errorResponse('Conexión no encontrada');
+
+            // Hacer ping ligero (sin descubrir esquema)
+            $pingResult = testConnection($connRow);
+
+            $response = [
+                'success'       => $pingResult['success'],
+                'latency'       => $pingResult['latency'] ?? null,
+                'error'         => $pingResult['error'] ?? null,
+                'id'            => $id,
+                'name'          => $connRow['name'],
+                'driver'        => $connRow['driver'],
+                'host'          => $connRow['host'] ?? null,
+                'port'          => $connRow['port'] ?? null,
+                'database_name' => $connRow['database'] ?? null,
+            ];
+            jsonResponse($response);
             break;
 
         case 'remove_connection':
@@ -202,12 +283,70 @@ try {
             jsonResponse(['status' => 'ok', 'connectionId' => $connectionKey]);
             break;
 
-        case 'list_tables':
-            activateConnection($_REQUEST['connectionId'] ?? '');
-            $tables = array_keys(SchemaMap::getMap()['tables'] ?? []);
-            jsonResponse(['tables' => $tables, 'views' => []]);
-            break;
+        // ==================== ESQUEMA Y TABLAS ====================
+case 'list_tables':
+    $connectionId = $_REQUEST['connectionId'] ?? '';
+    if (!$connectionId) errorResponse('Falta connectionId');
 
+    // Si la conexión no está en sesión, la activamos bajo demanda
+    if (!isset($_SESSION['connections'][$connectionId])) {
+        if (str_starts_with($connectionId, 'saved_')) {
+            $id = (int)substr($connectionId, 6);
+            $connRow = X::con('main')->from('connections', ['id' => $id])->first();
+            if (!$connRow) errorResponse('Conexión no encontrada en DB principal');
+
+            $dsn = buildDSN($connRow);
+            $map = discoverSchema($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '',
+                                 $connectionId, $connRow);
+            $_SESSION['connections'][$connectionId] = [
+                'dsn'  => $dsn,
+                'map'  => $map,
+                'user' => $connRow['username'] ?? '',
+                'pass' => $connRow['password'] ?? ''
+            ];
+        } else {
+            errorResponse('Conexión no activa y no se puede reconstruir automáticamente');
+        }
+    }
+
+    activateConnection($connectionId);
+
+    $map = SchemaMap::getMap();
+    $tables = array_keys($map['tables'] ?? []);
+
+    // Obtenemos metadatos reales desde el pool de Conn
+    $meta = \RapidBase\Core\Conn::getMetadata($connectionId);
+
+    // IMPORTANTE: la llave correcta es 'dbname' (sin guion bajo)
+    $realDbName = $meta['dbname'] ?? 'Unknown';
+
+    $driver = $meta['driver'] ?? 'unknown';
+
+    // Build schema_tables: [ { name, columns: [{name, type, nullable, primary}] } ]
+    $rawTables = $map['tables'] ?? [];
+    $schemaTables = [];
+    foreach ($rawTables as $tableName => $tableMeta) {
+        $cols = [];
+        foreach ($tableMeta['columns'] ?? [] as $colName => $colMeta) {
+            $cols[] = [
+                'name'     => $colName,
+                'type'     => strtolower($colMeta['type'] ?? 'text'),
+                'nullable' => (bool)($colMeta['nullable'] ?? true),
+                'primary'  => (bool)($colMeta['primary'] ?? false),
+            ];
+        }
+        $schemaTables[] = ['name' => $tableName, 'columns' => $cols];
+    }
+
+    jsonResponse([
+        'success'      => true,
+        'database'     => $realDbName,
+        'driver'       => $driver,
+        'tables'       => $tables,
+        'schema_tables'=> $schemaTables,
+        'views'        => []
+    ]);
+    break;
         case 'table_relations':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             $tableName = $_REQUEST['table'] ?? '';
@@ -229,6 +368,118 @@ try {
             if (count($tables) < 1) errorResponse('At least one table required');
             activateConnection($connectionKey);
             $sql = X::con($connectionKey)->toSQL(Q::from($tables)->select());
+            jsonResponse(['sql' => $sql]);
+            break;
+
+        case 'schema_graph':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            if (!$connectionKey) { jsonResponse([]); break; }
+            activateConnection($connectionKey);
+            $map = SchemaMap::getMap();
+            $tables = $map['tables'] ?? [];
+            $rels   = $map['relationships']['from'] ?? [];
+            $nodes = [];
+            $edges = [];
+            foreach ($tables as $tableName => $info) {
+                $nodes[] = ['id' => $tableName, 'label' => $tableName, 'title' => $tableName];
+            }
+            foreach ($rels as $source => $targets) {
+                foreach ($targets as $target => $rel) {
+                    $edges[] = [
+                        'from'  => $source,
+                        'to'    => $target,
+                        'label' => $rel['local_key'] . ' → ' . $rel['foreign_key'],
+                        'arrows'=> 'to',
+                        'title' => $rel['type'] ?? ''
+                    ];
+                }
+            }
+            jsonResponse(['nodes' => $nodes, 'edges' => $edges]);
+            break;
+
+        // ==================== GRID (CON BÚSQUEDA Y CACHÉ) ====================
+        case 'grid_data':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $table = $_REQUEST['table'] ?? '';
+            $page = max(1, (int)($_REQUEST['page'] ?? 1));
+            $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
+            $sort = $_REQUEST['sort'] ?? [];
+            $filter = $_REQUEST['filter'] ?? null;
+            $search = $_REQUEST['search'] ?? '';
+            $cacheTtl = isset($_REQUEST['cache_ttl']) ? (int)$_REQUEST['cache_ttl'] : 0;
+            if ($cacheTtl < 0) $cacheTtl = 0;
+            if ($cacheTtl > MAX_CACHE_TTL) $cacheTtl = MAX_CACHE_TTL;
+
+            if (!$connectionKey || !$table) errorResponse('Required parameters: connectionId and table');
+
+            // Decodificar tabla (puede ser JSON para múltiples tablas)
+            $decoded = json_decode($table, true);
+            if (is_array($decoded)) {
+                $tables = $decoded;
+                $aliases = [];
+            } else {
+                $tables = [$table];
+                $aliases = [];
+            }
+
+            $conditions = [];
+            if ($filter) {
+                $d = is_string($filter) ? json_decode($filter, true) : $filter;
+                if (is_array($d)) $conditions = $d;
+            }
+
+            // Búsqueda con Search
+            if (!empty($search)) {
+                if (count($tables) === 1) {
+                    $searchObj = Search::on($tables[0])->like($search);
+                } else {
+                    $searchObj = Search::onTables($tables, $aliases)->like($search);
+                }
+                $searchConditions = $searchObj->get();
+                if (!empty($searchConditions)) {
+                    if (empty($conditions)) {
+                        $conditions = $searchConditions;
+                    } else {
+                        $conditions = ['&' => [$conditions, $searchConditions]];
+                    }
+                }
+            }
+
+            activateConnection($connectionKey);
+            $x = X::con($connectionKey)->from($tables, $conditions);
+            if ($cacheTtl > 0) {
+                $x->cached($cacheTtl);
+            }
+
+            // Forzar estrategia según driver
+            $driver = SchemaMap::getMap()['driver'] ?? 'sqlite';
+            if ($driver === 'mysql') {
+                $x->totalStrategy('window');
+            } else {
+                $x->totalStrategy('separate');
+            }
+
+            // Paginación: empaquetar page y limit en un array como espera Q::page
+            $pagination = [$page, $limit];
+            $gridData = $x->grid('*', $pagination, $sort, 300);
+
+            $gridData['cached'] = $cacheTtl > 0;
+            $gridData['cache_ttl'] = $cacheTtl;
+            jsonResponse($gridData);
+            break;
+
+        // ==================== ENDPOINTS ADICIONALES ====================
+        case 'grid_sql':
+            $connectionKey = $_REQUEST['connectionId'] ?? '';
+            $table = $_REQUEST['table'] ?? '';
+            $page = max(1, (int)($_REQUEST['page'] ?? 1));
+            $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
+            $sort = $_REQUEST['sort'] ?? null;
+            if (!$connectionKey || !$table) { jsonResponse(['sql' => '']); break; }
+            activateConnection($connectionKey);
+            $sql = X::con($connectionKey)->toSQL(
+                Q::from($table)->select('*', Q::page($page, $limit), $sort)
+            );
             jsonResponse(['sql' => $sql]);
             break;
 
@@ -263,54 +514,6 @@ try {
             jsonResponse($response);
             break;
 
-        case 'grid_sql':
-            $connectionKey = $_REQUEST['connectionId'] ?? '';
-            $table = $_REQUEST['table'] ?? '';
-            $page = max(1, (int)($_REQUEST['page'] ?? 1));
-            $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
-            $sort = $_REQUEST['sort'] ?? null;
-            if (!$connectionKey || !$table) { jsonResponse(['sql' => '']); break; }
-            activateConnection($connectionKey);
-            $sql = X::con($connectionKey)->toSQL(
-                Q::from($table)->select('*', Q::page($page, $limit), $sort)
-            );
-            jsonResponse(['sql' => $sql]);
-            break;
-
-        // MEJORADO: grid_data con caché configurable
-        case 'grid_data':
-            $connectionKey = $_REQUEST['connectionId'] ?? '';
-            $table = $_REQUEST['table'] ?? '';
-            $page = max(1, (int)($_REQUEST['page'] ?? 1));
-            $limit = max(1, min((int)($_REQUEST['limit'] ?? 10), 1000));
-            $sort = $_REQUEST['sort'] ?? [];
-            $filter = $_REQUEST['filter'] ?? null;
-            $cacheTtl = isset($_REQUEST['cache_ttl']) ? (int)$_REQUEST['cache_ttl'] : 0;
-            if ($cacheTtl < 0) $cacheTtl = 0;
-            if ($cacheTtl > MAX_CACHE_TTL) $cacheTtl = MAX_CACHE_TTL;
-
-            if (!$connectionKey || !$table) errorResponse('Required parameters: connectionId and table');
-
-            $decoded = json_decode($table, true);
-            if (is_array($decoded)) $table = $decoded;
-
-            $conditions = [];
-            if ($filter) {
-                $d = is_string($filter) ? json_decode($filter, true) : $filter;
-                if (is_array($d)) $conditions = $d;
-            }
-
-            activateConnection($connectionKey);
-            $x = X::con($connectionKey)->from($table, $conditions);
-            if ($cacheTtl > 0) {
-                $x->cached($cacheTtl);
-            }
-            $gridData = $x->grid('*', $page, $limit, $sort, 300);
-            $gridData['cached'] = $cacheTtl > 0;
-            $gridData['cache_ttl'] = $cacheTtl;
-            jsonResponse($gridData);
-            break;
-
         case 'related_tables':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             $tablesJson = $_REQUEST['tables'] ?? '[]';
@@ -337,34 +540,41 @@ try {
             ]);
             break;
 
-        case 'schema_graph':
+        case 'get_connection_info':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
-            if (!$connectionKey) { jsonResponse([]); break; }
-            activateConnection($connectionKey);
-            $map = SchemaMap::getMap();
-            $tables = $map['tables'] ?? [];
-            $rels   = $map['relationships']['from'] ?? [];
+            if (!$connectionKey) errorResponse('connectionId required');
 
-            $nodes = [];
-            $edges = [];
-            foreach ($tables as $tableName => $info) {
-                $nodes[] = ['id' => $tableName, 'label' => $tableName, 'title' => $tableName];
+            // Conexión guardada (MySQL / PostgreSQL)
+            if (str_starts_with($connectionKey, 'saved_')) {
+                $id = (int)substr($connectionKey, 6);
+                $connRow = X::con('main')->from('connections', ['id' => $id])->first();
+                if (!$connRow) errorResponse('Connection not found');
+                jsonResponse([
+                    'connection_id' => $connectionKey,
+                    'name'          => $connRow['name'],
+                    'driver'        => $connRow['driver'],
+                    'host'          => $connRow['host'],
+                    'port'          => $connRow['port'],
+                    'database_name' => $connRow['database']
+                ]);
+            } 
+            // Conexión a archivo SQLite
+            else {
+                if (!isset($_SESSION['connections'][$connectionKey])) errorResponse('Connection not active');
+                $dsn = $_SESSION['connections'][$connectionKey]['dsn'];
+                $database = basename(substr($dsn, 7)); // extrae el nombre del archivo
+                jsonResponse([
+                    'connection_id' => $connectionKey,
+                    'name'          => $database,
+                    'driver'        => 'sqlite',
+                    'host'          => null,
+                    'port'          => null,
+                    'database_name' => $database
+                ]);
             }
-            foreach ($rels as $source => $targets) {
-                foreach ($targets as $target => $rel) {
-                    $edges[] = [
-                        'from'  => $source,
-                        'to'    => $target,
-                        'label' => $rel['local_key'] . ' → ' . $rel['foreign_key'],
-                        'arrows'=> 'to',
-                        'title' => $rel['type'] ?? ''
-                    ];
-                }
-            }
-            jsonResponse(['nodes' => $nodes, 'edges' => $edges]);
             break;
 
-        // NUEVO: invalidar caché de una tabla específica
+        // ==================== CACHÉ ====================
         case 'invalidate_cache':
             $connectionKey = $_REQUEST['connectionId'] ?? '';
             $table = $_REQUEST['table'] ?? '';
@@ -375,7 +585,6 @@ try {
             jsonResponse(['success' => true, 'message' => "Cache invalidated for table '$table'"]);
             break;
 
-        // OPCIONAL: limpiar toda la caché (protegido por clave)
         case 'clear_all_cache':
             if (!isset($_REQUEST['key']) || $_REQUEST['key'] !== CACHE_CLEAR_KEY) errorResponse('Unauthorized', 401);
             CacheService::clear();

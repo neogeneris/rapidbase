@@ -21,7 +21,7 @@ class Gateway
         array $where    = [],
         array $groupBy  = [],
         array $having   = [],
-        array $sort     = [],
+        mixed $sort     = [],
         mixed $page     = 1,
         int $fetchMode  = \PDO::FETCH_NUM,
         ?string $class  = null
@@ -344,4 +344,65 @@ class Gateway
         });
         return implode('_', $names);
     }
+	
+	/**
+	 * Realiza una sonda técnica (ping) con reintentos.
+	 * * @param string $driver Motor de BD.
+	 * @param array $config Configuración para conectar.
+	 * @param int $retries Número de intentos adicionales en caso de fallo.
+	 * @param int $delayMs Milisegundos de espera entre reintentos.
+	 * @return array [success, latency, error, attempts]
+	 */
+// En src/RapidBase/Core/Gateway.php
+
+public static function ping(string $driver, array $config, int $retries = 1, int $delayMs = 100): array
+{
+    $sql = match (strtolower($driver)) {
+        'oracle', 'oci' => 'SELECT 1 FROM DUAL',
+        'firebird'      => 'SELECT 1 FROM RDB$DATABASE',
+        default         => 'SELECT 1',
+    };
+
+    $attempts = 0;
+    $maxAttempts = $retries + 1;
+    $start = microtime(true);
+
+    while ($attempts < $maxAttempts) {
+        $attempts++;
+        try {
+            // Intentamos una conexion tecnica aislada
+            $dsn  = $config['dsn'] ?? '';
+            $user = $config['user'] ?? '';
+            $pass = $config['pass'] ?? '';
+            
+            // Creamos el objeto PDO aqui mismo para la prueba
+            $testConn = new \PDO($dsn, $user, $pass, [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_TIMEOUT => 2 // Timeout corto
+            ]);
+            
+            $testConn->query($sql);
+
+            $duration = (microtime(true) - $start) * 1000;
+            return [
+                'success'  => true,
+                'latency'  => round($duration, 2),
+                'attempts' => $attempts
+            ];
+        } catch (\Exception $e) {
+            if ($attempts < $maxAttempts) {
+                usleep($delayMs * 1000);
+            } else {
+                return [
+                    'success'  => false,
+                    'latency'  => 0,
+                    'error'    => $e->getMessage(),
+                    'attempts' => $attempts
+                ];
+            }
+        }
+    }
+}
+
+
 }

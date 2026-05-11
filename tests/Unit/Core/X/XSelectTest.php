@@ -14,9 +14,7 @@ $pdo->exec("INSERT INTO users (name, email) VALUES ('Alice', 'alice@test.com'), 
 $x = X::con('test_x');
 $pass = true;
 
-// ------------------------------------------------------------------
 // 1. select() básico (sin paginación)
-// ------------------------------------------------------------------
 $res = $x->from('users')->select();
 if (!($res instanceof XResponse)) {
     echo "[ERROR] select() should return XResponse\n";
@@ -72,10 +70,8 @@ if ($res->success !== true) {
 }
 if ($pass) echo "  [OK] basic select()\n";
 
-// ------------------------------------------------------------------
-// 2. select() con paginación [0, 1]
-// ------------------------------------------------------------------
-$resPage1 = $x->from('users')->select('*', [0, 1]);
+// 2. select() con paginación [0, 1] y withTotal=true (para obtener el total real)
+$resPage1 = $x->from('users')->select('*', [0, 1], [], true);
 if (count($resPage1->data) !== 1) {
     echo "[ERROR] page 1 should have 1 row, got " . count($resPage1->data) . "\n";
     $pass = false;
@@ -106,9 +102,7 @@ if ($resPage1->prevPage !== null) {
 }
 if ($pass) echo "  [OK] paginated select()\n";
 
-// ------------------------------------------------------------------
 // 3. select() con ordenamiento
-// ------------------------------------------------------------------
 $resSorted = $x->from('users')->select('*', null, '-name');
 if ($resSorted->data[0][1] === 'Bob') {
     echo "  [OK] sorted select()\n";
@@ -117,9 +111,7 @@ if ($resSorted->data[0][1] === 'Bob') {
     $pass = false;
 }
 
-// ------------------------------------------------------------------
 // 4. first()
-// ------------------------------------------------------------------
 $first = $x->from('users')->first();
 if ($first !== null && $first['name'] === 'Alice') {
     echo "  [OK] first()\n";
@@ -128,9 +120,7 @@ if ($first !== null && $first['name'] === 'Alice') {
     $pass = false;
 }
 
-// ------------------------------------------------------------------
 // 5. first() sin resultados
-// ------------------------------------------------------------------
 $empty = $x->from('users', ['id' => 999])->first();
 if ($empty === null) {
     echo "  [OK] first() empty\n";
@@ -139,10 +129,8 @@ if ($empty === null) {
     $pass = false;
 }
 
-// ------------------------------------------------------------------
-// 6. grid()
-// ------------------------------------------------------------------
-$grid = $x->from('users')->grid('*', 1, 10);
+// 6. grid() - usando el nuevo formato de paginación [page, limit]
+$grid = $x->from('users')->grid('*', [1, 10]);
 if ($grid['data'] !== $res->data) {
     echo "[ERROR] grid data mismatch\n";
     $pass = false;
@@ -162,9 +150,7 @@ if (!isset($grid['stats']['duration'])) {
     echo "  [OK] grid()\n";
 }
 
-// ------------------------------------------------------------------
 // Resultado final
-// ------------------------------------------------------------------
 if ($pass) {
     echo "All XSelectTest passed.\n";
 } else {

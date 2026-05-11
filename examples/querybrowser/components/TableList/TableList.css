@@ -1,0 +1,235 @@
+/* ============================================================
+   TABLE LIST – SCHEMA TREE EXPLORER (Light Theme)
+   ============================================================ */
+
+.tl-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+/* ─── Toolbar ───────────────────────────────────────────── */
+.tl-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.tl-search-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.tl-search-icon {
+    position: absolute;
+    left: 7px;
+    color: #94a3b8;
+    pointer-events: none;
+    font-size: 11px;
+}
+
+.tl-search {
+    width: 100%;
+    height: 24px;
+    padding: 0 8px 0 24px;
+    font-size: 11px;
+    font-family: inherit;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    outline: none;
+    background: #fff;
+    color: #1e293b;
+    transition: border-color 0.15s;
+}
+
+.tl-search:focus { border-color: #3b82f6; }
+.tl-search::placeholder { color: #94a3b8; }
+
+/* ─── DB name strip ─────────────────────────────────────── */
+.tl-db-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #3b82f6;
+    background: #eff6ff;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+    letter-spacing: 0.2px;
+}
+
+.tl-db-name svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+
+/* ─── Tree container ────────────────────────────────────── */
+.tl-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.tl-tree::-webkit-scrollbar { width: 4px; }
+.tl-tree::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+/* ─── Root group (Tables / Views) ───────────────────────── */
+.tl-group-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.tl-group-row:hover { color: #64748b; }
+
+.tl-chevron {
+    font-size: 9px;
+    transition: transform 0.18s ease;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.tl-group-row.open .tl-chevron { transform: rotate(90deg); }
+
+/* ─── Table row ─────────────────────────────────────────── */
+.tl-table-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.12s;
+}
+
+.tl-table-row:hover { background: #f1f5f9; }
+
+.tl-table-row.active {
+    background: #eff6ff;
+    border-left: 2px solid #3b82f6;
+    padding-left: 16px;
+}
+
+.tl-table-chevron {
+    font-size: 9px;
+    color: #94a3b8;
+    transition: transform 0.18s ease;
+    flex-shrink: 0;
+    width: 10px;
+}
+
+.tl-table-row.open .tl-table-chevron { transform: rotate(90deg); }
+
+.tl-table-icon {
+    flex-shrink: 0;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+}
+
+.tl-table-icon svg { width: 13px; height: 13px; }
+
+.tl-table-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: #1e293b;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tl-table-row.active .tl-table-name { color: #1d4ed8; font-weight: 600; }
+
+.tl-col-count {
+    font-size: 9.5px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+/* ─── Column rows ───────────────────────────────────────── */
+.tl-col-list {
+    display: none;
+    flex-direction: column;
+}
+
+.tl-col-list.open { display: flex; }
+
+.tl-col-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px 2px 36px;
+    transition: background 0.1s;
+    cursor: default;
+}
+
+.tl-col-row:hover { background: #f8fafc; }
+
+.tl-col-icon {
+    flex-shrink: 0;
+    color: #cbd5e1;
+    font-size: 10px;
+    width: 12px;
+    text-align: center;
+}
+
+/* PK gets special color */
+.tl-col-row.is-pk .tl-col-icon { color: #f59e0b; }
+
+.tl-col-name {
+    font-size: 11.5px;
+    color: #334155;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tl-col-row.is-pk .tl-col-name {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.tl-col-type {
+    font-size: 10px;
+    color: #94a3b8;
+    font-family: 'Consolas', monospace;
+    flex-shrink: 0;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── Empty / loading states ────────────────────────────── */
+.tl-state {
+    padding: 16px 12px;
+    font-size: 11px;
+    color: #94a3b8;
+    text-align: center;
+}
+
+.tl-state.error { color: #ef4444; }
+
+/* ─── Highlight on search match ─────────────────────────── */
+.tl-match { background: #fef9c3; border-radius: 2px; }

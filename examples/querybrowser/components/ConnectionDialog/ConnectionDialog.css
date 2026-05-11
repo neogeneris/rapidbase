@@ -1,0 +1,345 @@
+/* ============================================================
+   CONNECTION DIALOG – TWO-STEP WIZARD
+   ============================================================ */
+
+/* ─── Overlay ───────────────────────────────────────────── */
+.cd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.cd-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ─── Dialog ────────────────────────────────────────────── */
+.cd-dialog {
+    width: 520px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(10px) scale(0.98);
+    transition: transform 0.22s ease;
+    max-height: 90vh;
+}
+.cd-overlay.is-open .cd-dialog {
+    transform: translateY(0) scale(1);
+}
+
+/* ─── Header ────────────────────────────────────────────── */
+.cd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    flex-shrink: 0;
+}
+.cd-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.cd-subtitle {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 1px;
+}
+.cd-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Step pills */
+.cd-pills {
+    display: flex;
+    gap: 4px;
+}
+.cd-pill {
+    width: 26px;
+    height: 5px;
+    border-radius: 3px;
+    background: #e2e8f0;
+    transition: background 0.3s, width 0.3s;
+}
+.cd-pill.active { background: #3b82f6; width: 34px; }
+.cd-pill.done   { background: #22c55e; }
+
+.cd-x {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: none;
+    color: #94a3b8; cursor: pointer;
+    border-radius: 4px; font-size: 18px; line-height: 1;
+    transition: all 0.15s;
+}
+.cd-x:hover { background: #f1f5f9; color: #475569; }
+
+/* ─── Body ──────────────────────────────────────────────── */
+.cd-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+.cd-body::-webkit-scrollbar { width: 4px; }
+.cd-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+/* ─── STEP 1 ────────────────────────────────────────────── */
+
+/* Section label */
+.cd-section {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 10px;
+}
+
+/* Driver grid */
+.cd-driver-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.cd-driver-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 14px 8px 10px;
+    border: 2px solid #e2e8f0;
+    border-radius: 7px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    position: relative;
+}
+.cd-driver-card:hover {
+    border-color: #93c5fd;
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+}
+.cd-driver-card.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+.cd-driver-card.active::after {
+    content: '✓';
+    position: absolute;
+    top: 4px; right: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    color: #3b82f6;
+}
+.cd-driver-icon svg {
+    width: 34px;
+    height: 34px;
+    display: block;
+}
+.cd-driver-name {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    text-align: center;
+}
+.cd-driver-card.active .cd-driver-name {
+    color: #1d4ed8;
+}
+
+/* Form field */
+.cd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cd-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.cd-req { color: #ef4444; margin-left: 2px; }
+
+.cd-input,
+.cd-textarea {
+    font-family: inherit;
+    font-size: 13px;
+    color: #1e293b;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    outline: none;
+    padding: 0 10px;
+    height: 34px;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+.cd-input:focus,
+.cd-textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.cd-input::placeholder,
+.cd-textarea::placeholder { color: #94a3b8; }
+
+.cd-textarea {
+    height: 64px;
+    padding: 8px 10px;
+    resize: vertical;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* Environment badges */
+.cd-env-group {
+    display: flex;
+    gap: 6px;
+}
+.cd-env {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #64748b;
+    transition: all 0.15s;
+}
+.cd-env:hover { background: #f8fafc; }
+
+.cd-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.cd-dot.dev  { background: #22c55e; }
+.cd-dot.qa   { background: #f59e0b; }
+.cd-dot.prod { background: #ef4444; }
+
+.cd-env[data-status="dev"].active  { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.cd-env[data-status="qa"].active   { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+.cd-env[data-status="production"].active { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+
+/* ─── STEP 2 ────────────────────────────────────────────── */
+.cd-driver-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 18px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+}
+.cd-driver-badge svg {
+    width: 18px; height: 18px;
+}
+
+.cd-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.cd-row .cd-field { flex: 1; }
+
+/* ─── Footer ────────────────────────────────────────────── */
+.cd-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 20px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.cd-footer-left,
+.cd-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cd-result {
+    font-size: 11px;
+    color: #64748b;
+}
+.cd-result.ok    { color: #16a34a; }
+.cd-result.error { color: #dc2626; }
+
+/* Buttons */
+.cd-btn {
+    height: 32px;
+    padding: 0 15px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+.cd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.cd-ghost   { background: #fff; border-color: #cbd5e1; color: #475569; }
+.cd-ghost:hover:not(:disabled) { background: #f1f5f9; }
+
+.cd-primary { background: #3b82f6; color: #fff; }
+.cd-primary:hover:not(:disabled) { background: #2563eb; }
+
+.cd-success { background: #16a34a; color: #fff; }
+.cd-success:hover:not(:disabled) { background: #15803d; }
+
+/* Spinner */
+.cd-spinner {
+    width: 13px; height: 13px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: cd-spin 0.6s linear infinite;
+    display: none;
+}
+.cd-btn.loading .cd-spinner  { display: inline-block; }
+.cd-btn.loading .cd-btn-text { display: none; }
+
+@keyframes cd-spin { to { transform: rotate(360deg); } }

@@ -1,0 +1,23 @@
+.tab-footer {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: #f1f5f9;
+    border-top: 1px solid #e2e8f0;
+    padding: 0 15px;
+    height: 28px;
+    font-size: 11px;
+    color: #4a5568;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+.footer-item {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-right: 1px solid #cbd5e0;
+    height: 100%;
+}
+.footer-item:last-child { border-right: none; }
+.footer-item b { color: #1a73e8; margin-left: 4px; }

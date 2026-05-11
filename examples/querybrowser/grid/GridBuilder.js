@@ -11,7 +11,43 @@ class GridBuilder {
         this.currentMetadata = null;
         this.columns = [];
         this.sortField = null;
-        this.sortOrder = 'asc';
+        this.sortOrder = null;
+        
+        this._initResizing();
+    }
+
+    _initResizing() {
+        let th = null, startX = 0, startWidth = 0;
+        
+        this.container.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('grid-resizer')) {
+                th = e.target.parentElement;
+                startX = e.clientX;
+                startWidth = th.offsetWidth;
+                e.preventDefault();
+                e.stopPropagation();
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp, { once: true });
+                e.target.classList.add('grid-resizing');
+            }
+        });
+
+        const onMouseMove = (e) => {
+            if (!th) return;
+            const newWidth = startWidth + (e.clientX - startX);
+            if (newWidth > 40) {
+                th.style.width = newWidth + 'px';
+                th.style.minWidth = newWidth + 'px';
+            }
+        };
+
+        const onMouseUp = (e) => {
+            if (th) {
+                th.querySelector('.grid-resizer').classList.remove('grid-resizing');
+                th = null;
+                document.removeEventListener('mousemove', onMouseMove);
+            }
+        };
     }
 
     render(data, metadata = null) {
@@ -30,43 +66,39 @@ class GridBuilder {
         if (metadata?.columns && metadata?.titles) {
             this.columns = metadata.columns;
             this.headerTemplate.innerHTML = metadata.titles.map((t, i) => 
-                `<th data-column="${this.escapeHtml(metadata.columns[i])}">${this.escapeHtml(t)}</th>`
-            ).join('');
-        } else if (!this.headerTemplate?.querySelectorAll('th').length) {
-            const n = data[0].length;
-            this.columns = Array.from({length: n}, (_, i) => String(i));
-            this.headerTemplate.innerHTML = Array.from({length: n}, (_, i) => 
-                `<th data-column="${i}">Col ${i}</th>`
+                `<th data-column="${this.escapeHtml(metadata.columns[i])}" style="width:150px;">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
             ).join('');
         }
         this.bodyContainer.innerHTML = data.map(row => 
             `<tr>${row.map(v => `<td>${v ?? ''}</td>`).join('')}</tr>`
         ).join('');
-        this.updateSortIndicator();
     }
 
     renderAssociativeMode(data, metadata = null) {
-        const keys = Object.keys(data[0]); this.columns = keys;
+        const keys = Object.keys(data[0]); 
+        this.columns = keys;
         if (metadata?.columns && metadata?.titles) {
             this.headerTemplate.innerHTML = metadata.titles.map((t, i) => 
-                `<th data-column="${this.escapeHtml(metadata.columns[i])}">${this.escapeHtml(t)}</th>`
+                `<th data-column="${this.escapeHtml(metadata.columns[i])}" style="width:150px;">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
             ).join('');
         } else if (!this.headerTemplate?.querySelectorAll('th').length) {
             this.headerTemplate.innerHTML = keys.map(k => 
-                `<th data-column="${k}">${this.formatKey(k)}</th>`
+                `<th data-column="${k}" style="width:150px;">${this.formatKey(k)}<div class="grid-resizer"></div></th>`
             ).join('');
         }
         this.bodyContainer.innerHTML = data.map(row => 
             `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`
         ).join('');
-        this.updateSortIndicator();
     }
 
+    /**
+     * Actualiza los indicadores visuales basándose en el estado de 3 niveles.
+     */
     updateSortIndicator() {
         if (!this.headerTemplate) return;
         this.headerTemplate.querySelectorAll('th').forEach(th => {
             th.removeAttribute('data-sort');
-            if (th.dataset.column === this.sortField) {
+            if (this.sortField && th.dataset.column === this.sortField && this.sortOrder) {
                 th.setAttribute('data-sort', this.sortOrder);
             }
         });
@@ -75,7 +107,8 @@ class GridBuilder {
     formatKey(key) { return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '); }
     escapeHtml(value) {
         if (value === null || value === undefined) return '';
-        const div = document.createElement('div'); div.textContent = String(value); return div.innerHTML;
+        const div = document.createElement('div');
+        div.textContent = value;
+        return div.innerHTML;
     }
-    clear() { this.bodyContainer.innerHTML = ''; if (this.headerTemplate) this.headerTemplate.innerHTML = ''; }
 }

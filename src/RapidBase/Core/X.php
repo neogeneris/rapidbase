@@ -233,7 +233,7 @@ class X
     private function executeSelect(
         string|array $fields,
         mixed $pagination,
-        string|array $sort,
+        mixed $sort,
         bool $withTotal = false,
         ?int $countTtl = null
     ): XResponse {
@@ -412,4 +412,41 @@ class X
         }
         return is_string($this->table[0] ?? '') ? $this->table[0] : '';
     }
+	
+	/**
+	 * Realiza una prueba de conexión (ping) sobre la instancia actual.
+	 * * @param int $retries Número de reintentos en caso de fallo (0 = un solo intento).
+	 * @param int $delayMs Tiempo de espera en milisegundos entre reintentos.
+	 * @return array Resultado detallado: [success, latency, error, attempts]
+	 */
+// En src/RapidBase/Core/X.php
+
+/**
+ * Realiza un ping a la conexión activa.
+ * Solo funciona si la conexión ya fue añadida a Conn (activada).
+ *
+ * @param int $retries No usado, se mantiene por compatibilidad
+ * @param int $delayMs No usado
+ * @return array [success, latency, error]
+ */
+public function ping(int $retries = 1, int $delayMs = 100): array
+{
+    try {
+        $pdo = Conn::get($this->connectionId);
+        $start = microtime(true);
+        $pdo->query('SELECT 1');
+        $latency = round((microtime(true) - $start) * 1000, 2);
+        return [
+            'success' => true,
+            'latency' => $latency,
+            'error'   => null,
+        ];
+    } catch (\Throwable $e) {
+        return [
+            'success' => false,
+            'latency' => null,
+            'error'   => $e->getMessage(),
+        ];
+    }
+}
 }

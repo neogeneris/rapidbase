@@ -7,20 +7,24 @@
     <!-- vis‑network -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
+	<link rel="stylesheet" href="components/ConnectionFooter/ConnectionFooter.css">
     <style>
+        /* ========== Tus estilos originales (se mantienen) ========== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', 'Segoe UI', Roboto, sans-serif; height: 100vh; display: flex; background: #f0f2f5; overflow: hidden; }
-        .sidebar { width: 300px; min-width: 220px; max-width: 600px; background: #ffffff; color: #333; display: flex; flex-direction: column; overflow: hidden; box-shadow: 2px 0 12px rgba(0,0,0,0.05); z-index: 10; position: relative; border-right: 1px solid #e0e0e0; }
-        .sidebar-header { padding: 24px 20px; background: #ffffff; border-bottom: 1px solid #eee; }
+        body { font-family: 'Inter', 'Segoe UI', Roboto, sans-serif; height: 100vh; display: flex; background: #eef2f5; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 300px; min-width: 220px; max-width: 600px; background: #ffffff; color: #333; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); z-index: 10; position: relative; border-right: 1px solid #e2e8f0; }
+        .sidebar-header { padding: 24px 20px; background: #ffffff; border-bottom: 1px solid #edf2f7; }
         .sidebar-header h2 { font-size: 1.4rem; font-weight: 600; color: #1a73e8; margin-bottom: 4px; }
-        .sidebar-header p { font-size: 0.85rem; color: #777; }
+        .sidebar-header p { font-size: 0.85rem; color: #718096; }
         .sidebar-content { flex: 1; overflow-y: auto; overflow-x: hidden; }
-        .connections-list { padding: 12px 0; border-bottom: 1px solid #eee; max-height: 220px; overflow-y: auto; }
+        .connections-list { padding: 12px 0; border-bottom: 1px solid #edf2f7; max-height: 220px; overflow-y: auto; }
         .connection-item { padding: 10px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s; font-size: 0.9rem; }
-        .connection-item:hover { background: #f5f7fa; }
-        .connection-item.active { background: #e8f0fe; color: #1a73e8; font-weight: 500; }
+        .connection-item:hover { background: #f7fafc; }
+        .connection-item.active { background: #ebf8ff; color: #1a73e8; font-weight: 500; border-left: 3px solid #1a73e8; }
         .conn-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .conn-delete { color: #d93025; font-weight: bold; cursor: pointer; padding: 0 6px; opacity: 0.6; transition: opacity 0.2s; }
+        .conn-delete { color: #e53e3e; font-weight: bold; cursor: pointer; padding: 0 6px; opacity: 0.6; transition: opacity 0.2s; }
         .conn-delete:hover { opacity: 1; }
         .btn-add { background: #1a73e8; border: none; color: white; padding: 10px 16px; margin: 16px 20px; cursor: pointer; border-radius: 8px; font-weight: 500; font-size: 0.9rem; transition: background 0.2s; }
         .btn-add:hover { background: #1557b0; }
@@ -29,89 +33,135 @@
         .database-item:hover, .table-node:hover { background: #f0f4ff; }
         .treeview ul { list-style: none; padding-left: 16px; }
         .caret { cursor: pointer; user-select: none; margin-right: 6px; font-size: 0.8rem; }
-        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fafbfc; }
-        .tabs-header { display: flex; background: #ffffff; border-bottom: 1px solid #e0e0e0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-        .tab { padding: 12px 20px; background: #ffffff; border-right: 1px solid #eee; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #555; transition: background 0.15s; }
-        .tab.active { background: #f0f4ff; border-bottom: 3px solid #1a73e8; color: #1a73e8; font-weight: 500; }
+        
+        /* Main */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #f7fafc; }
+        .tabs-header { display: flex; background: #ffffff; border-bottom: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+        .tab { padding: 12px 20px; background: #ffffff; border-right: 1px solid #edf2f7; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #4a5568; transition: background 0.15s; }
+        .tab.active { background: #f7fafc; border-bottom: 3px solid #1a73e8; color: #1a73e8; font-weight: 500; }
         .tab-close { font-size: 1rem; opacity: 0.4; transition: opacity 0.2s; }
         .tab-close:hover { opacity: 0.8; }
         .tab-pane { display: none; height: 100%; flex-direction: column; padding: 20px; overflow: hidden; }
         .tab-pane.active { display: flex; flex-direction: column; height: calc(100vh - 120px); overflow-y: auto; overflow-x: hidden; }
-        .dashboard { display: none; flex: 1; flex-direction: column; padding: 24px; overflow-y: auto; background: #fafbfc; }
+        
+/* Asegura que el panel ocupe el alto disponible sin crear scroll externo */
+.tab-pane.active { 
+    display: flex; 
+    flex-direction: column; 
+    height: calc(100vh - 50px); /* Ajusta según el alto de tu tabs-header */
+    padding: 20px; 
+    overflow: hidden; /* El scroll lo manejará el grid interno, no el panel */
+}
+
+/* El grid container debe crecer para ocupar el espacio, empujando al footer */
+.grid-container { 
+    flex: 1; /* Esto empuja al footer hacia abajo */
+    display: flex; 
+    flex-direction: column;
+    min-height: 0; /* Importante para que flex-child respete el overflow */
+}
+
+
+        
+        /* Dashboard y el resto (sin cambios) */
+        .dashboard { display: none; flex: 1; flex-direction: column; padding: 24px; overflow-y: auto; background: #f7fafc; }
         .dashboard.active { display: flex; }
-        .dashboard h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; color: #333; }
-        .dashboard-section { background: #ffffff; border-radius: 10px; padding: 16px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); border: 1px solid #e5e8eb; }
-        .log-entry { font-family: monospace; font-size: 0.7rem; padding: 4px 0; border-bottom: 1px solid #f0f0f0; color: #555; }
-        .log-entry:last-child { border-bottom: none; }
-        .local-server { padding: 8px 0; }
-        .local-server strong { color: #1a73e8; }
-        .grid-container { display: flex; flex-direction: column; flex: 1; min-height: 350px; background: #ffffff; border: 1px solid #e5e8eb; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .dashboard h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; color: #2d3748; }
+        .dashboard-section { background: #ffffff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .log-entry { font-family: monospace; font-size: 0.7rem; padding: 4px 0; border-bottom: 1px solid #edf2f7; color: #4a5568; }
+        
+        /* Grid mejorado (tus estilos se mantienen) */
+        .grid-container { display: flex; flex-direction: column; flex: 1; min-height: 350px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; }
         .grid-scroll-wrapper { flex: 1; overflow: auto; min-height: 0; }
         .grid-table { width: 100%; border-collapse: collapse; table-layout: auto; white-space: nowrap; }
-        .grid-head { position: sticky; top: 0; z-index: 10; }
-        .grid-head th { padding: 12px 16px; font-weight: 600; cursor: pointer; user-select: none; border-right: 1px solid #eee; background: #f8f9fb; border-bottom: 2px solid #e0e0e0; text-align: left; min-width: 120px; color: #444; font-size: 0.8rem; letter-spacing: 0.02em; }
-        .grid-head th:hover { background: #eef1f5; }
-        .grid-head th[data-sort="asc"]::after { content: " ▲"; font-size: 0.7rem; }
-        .grid-head th[data-sort="desc"]::after { content: " ▼"; font-size: 0.7rem; }
-        .grid-body td { padding: 10px 16px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #f2f2f2; border-bottom: 1px solid #f2f2f2; min-width: 120px; max-width: 320px; font-size: 0.8rem; color: #333; }
-        .grid-body tr:hover td { background: #f6f9fe; }
-        .grid-controls { display: flex; gap: 12px; padding: 12px; background: #ffffff; border-bottom: 1px solid #eee; align-items: center; }
-        .grid-search { padding: 8px 14px; border: 1px solid #dde1e6; border-radius: 8px; min-width: 200px; font-size: 0.85rem; transition: border-color 0.2s; }
-        .grid-search:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 2px rgba(26,115,232,0.15); }
-        .grid-footer { padding: 10px 16px; background: #ffffff; border-top: 1px solid #eee; font-size: 0.8rem; color: #888; text-align: center; flex-shrink: 0; }
-        .grid-loading, .grid-error, .grid-empty { padding: 30px; text-align: center; color: #888; font-size: 0.9rem; }
-        .grid-loading { display: none; color: #1a73e8; }
-        .grid-error { display: none; color: #d93025; background: #fef2f2; border-radius: 8px; margin: 16px; }
-        .hidden { display: none; }
+        .grid-head { position: sticky; top: 0; z-index: 10; transition: box-shadow 0.1s; }
+        .grid-head th { background: #f9fafb; padding: 12px 16px; font-weight: 600; cursor: pointer; user-select: none; border-right: 1px solid #edf2f7; border-bottom: 1px solid #e2e8f0; text-align: left; min-width: 120px; color: #4a5568; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        .grid-head th:hover { background: #f1f5f9; }
+        .grid-head.scrolled th { box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .grid-head th[data-sort="asc"]::after { content: " ▲"; font-size: 0.7rem; color: #3182ce; }
+        .grid-head th[data-sort="desc"]::after { content: " ▼"; font-size: 0.7rem; color: #3182ce; }
+        .grid-body td { padding: 12px 16px; border-bottom: 1px solid #edf2f7; font-size: 0.85rem; color: #1a202c; }
+        .grid-body tr:hover td { background: #f7fafc; }
+        .grid-body tr:hover td:first-child { border-left: 3px solid #3182ce; padding-left: 13px; }
+        .grid-body td.number { text-align: right; font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+        .grid-body td.mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; }
+        
+        /* Controles del grid */
+        .grid-controls { display: flex; gap: 12px; padding: 12px 16px; background: #ffffff; border-bottom: 1px solid #e2e8f0; align-items: center; flex-wrap: wrap; }
+        .grid-search-wrapper { position: relative; display: inline-flex; align-items: center; }
+        .grid-search { padding: 8px 12px 8px 36px; border: 1px solid #cbd5e0; border-radius: 8px; width: 240px; font-size: 0.85rem; transition: all 0.2s; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'); background-repeat: no-repeat; background-position: 12px center; background-size: 14px; }
+        .grid-search:focus { border-color: #3182ce; outline: none; box-shadow: 0 0 0 3px rgba(49,130,206,0.1); background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%233182ce" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'); }
+        .kbd-hint { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #edf2f7; border-radius: 5px; padding: 2px 6px; font-size: 0.65rem; color: #4a5568; font-family: monospace; border: 1px solid #cbd5e0; pointer-events: none; }
+        .debug-switch { margin-left: auto; display: flex; align-items: center; gap: 8px; background: #f1f5f9; padding: 4px 12px; border-radius: 20px; }
+        .debug-switch .switch { width: 36px; height: 18px; position: relative; display: inline-block; }
+        .debug-switch .switch input { opacity: 0; width: 0; height: 0; }
+        .debug-switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #cbd5e0; border-radius: 20px; transition: 0.25s; }
+        .debug-switch .slider::before { content: ""; position: absolute; height: 12px; width: 12px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.25s; }
+        .debug-switch input:checked + .slider { background: #3182ce; }
+        .debug-switch input:checked + .slider::before { transform: translateX(18px); }
+        
+        /* Barra de carga */
+        .loading-bar { position: absolute; top: 0; left: 0; height: 2px; background: #3182ce; width: 0%; transition: width 0.2s ease; z-index: 10; border-radius: 2px; }
+        
+        /* Empty state */
+        .grid-empty-state { padding: 48px 20px; text-align: center; color: #a0aec0; font-size: 0.9rem; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .grid-empty-state svg { width: 48px; height: 48px; stroke: #cbd5e0; }
+        
+        /* Footer del grid */
+        .grid-footer { padding: 10px 16px; background: #f9fafb; border-top: 1px solid #e2e8f0; font-size: 0.75rem; color: #718096; text-align: center; }
+        
+        /* Mensajes de error */
+        .grid-error, .sql-error { padding: 12px; background: #fff5f5; color: #c53030; border-radius: 8px; font-size: 0.8rem; margin: 12px; border: 1px solid #fed7d7; }
+        .sql-error { margin: 0 0 12px 0; }
+        
+        /* SQL debug */
+        .sql-debug { background: #fefcbf; color: #975a16; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-family: monospace; overflow: auto; max-height: 150px; border: 1px solid #faf089; margin-top: 12px; }
+        
+        /* Modal */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.35); backdrop-filter: blur(3px); }
         .modal-content { background: #ffffff; margin: 4% auto; padding: 28px; width: 700px; max-width: 95%; border-radius: 16px; max-height: 85vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.15); }
         .modal-grid { display: flex; gap: 24px; flex-wrap: wrap; }
         .modal-column { flex: 1; min-width: 200px; }
-        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 6px 0 16px 0; border: 1px solid #dde1e6; border-radius: 8px; font-size: 0.9rem; }
-        .modal-content label { font-weight: 600; color: #333; font-size: 0.85rem; }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; }
-        .error-message { color: #d93025; background: #fce8e6; padding: 10px; border-radius: 6px; margin-top: 12px; font-size: 0.85rem; }
-        .success-message { color: #0d904f; background: #e6f4ea; padding: 10px; border-radius: 6px; margin-top: 12px; font-size: 0.85rem; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 6px 0 16px 0; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.9rem; }
+        .modal-content label { font-weight: 600; color: #2d3748; font-size: 0.85rem; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+        .error-message { color: #c53030; background: #fff5f5; padding: 10px; border-radius: 6px; margin-top: 12px; font-size: 0.85rem; }
+        .success-message { color: #2f855a; background: #f0fff4; padding: 10px; border-radius: 6px; margin-top: 12px; font-size: 0.85rem; }
+        
+        /* Sidebar resizer */
         .sidebar-resizer { position: absolute; top: 0; right: 0; bottom: 0; width: 4px; cursor: col-resize; background: transparent; z-index: 20; }
         .sidebar-resizer:hover, .sidebar-resizer.resizing { background: #1a73e8; opacity: 0.5; }
+        
         button { background: #1a73e8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s; }
-        button:disabled { background: #c4c7cc; cursor: default; }
-        button img { width: 16px; height: 16px; vertical-align: middle; }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #1a73e8; border-radius: 20px; transition: 0.25s; }
-        .slider::before { content: ""; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.25s; }
-        input:checked + .slider { background: #e67e22; }
-        input:checked + .slider::before { transform: translateX(20px); }
+        button:disabled { background: #cbd5e0; cursor: default; }
         .sql-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-        .sql-mode-label { font-size: 0.8rem; color: #888; white-space: nowrap; }
+        .sql-mode-label { font-size: 0.8rem; color: #718096; white-space: nowrap; }
         .table-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 28px; }
         .table-chip { background: #e8f0fe; color: #1a73e8; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #d2e3fc; }
-        .chip-remove { cursor: pointer; opacity: 0.6; font-size: 0.7rem; color: #d93025; }
+        .chip-remove { cursor: pointer; opacity: 0.6; font-size: 0.7rem; color: #e53e3e; }
         .chip-remove:hover { opacity: 1; }
         .rel-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; align-items: center; }
-        .rel-bar-label { font-size: 0.75rem; color: #888; margin-right: 6px; white-space: nowrap; font-weight: 500; }
+        .rel-bar-label { font-size: 0.75rem; color: #718096; margin-right: 6px; white-space: nowrap; font-weight: 500; }
         .table-chip-to { background: #e6f2ff; color: #1a73e8; padding: 3px 10px; border-radius: 16px; font-size: 0.75rem; cursor: pointer; border: 1px solid #b3d4fc; transition: background 0.15s; }
         .table-chip-to:hover { background: #cce4ff; }
         .table-chip-from { background: #fef3e2; color: #e67e22; padding: 3px 10px; border-radius: 16px; font-size: 0.75rem; cursor: pointer; border: 1px solid #fce0b4; transition: background 0.15s; }
         .table-chip-from:hover { background: #fde6c0; }
-        .sql-editor { font-family: 'SF Mono', 'Fira Code', monospace; padding: 12px; border: 1px solid #dde1e6; border-radius: 8px; resize: vertical; min-height: 64px; max-height: 140px; background: #ffffff; color: #222; font-size: 0.85rem; margin-bottom: 8px; width: 100%; line-height: 1.5; }
-        .sql-editor:not([readonly]) { background: #ffffff; border-color: #1a73e8; }
-        .sql-error { display: none; padding: 8px 12px; background: #fce8e6; color: #d93025; border-radius: 6px; font-size: 0.8rem; margin-bottom: 8px; }
-        .sql-debug { padding: 8px 12px; background: #fef7e0; color: #9a7d0a; border-radius: 6px; font-size: 0.7rem; margin-top: 8px; max-height: 70px; overflow: auto; font-family: monospace; white-space: pre-wrap; display: none; border: 1px solid #faebaf; }
+        .sql-editor { font-family: 'SF Mono', 'Fira Code', monospace; padding: 12px; border: 1px solid #cbd5e0; border-radius: 8px; resize: vertical; min-height: 64px; max-height: 140px; background: #ffffff; color: #1a202c; font-size: 0.85rem; margin-bottom: 8px; width: 100%; line-height: 1.5; }
+        .sql-editor:not([readonly]) { background: #ffffff; border-color: #3182ce; }
         .sql-run-btn { align-self: flex-start; padding: 8px 20px; background: #1a73e8; border-radius: 6px; font-weight: 500; transition: background 0.2s; }
         .sql-run-btn:hover { background: #1557b0; }
-        .sql-editor.drag-over { border-color: #1a73e8; background: #f0f6ff; box-shadow: 0 0 0 3px rgba(26,115,232,0.2); }
-        .schema-header { font-size: 1rem; font-weight: 600; color: #1a73e8; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0; }
+        .sql-editor.drag-over { border-color: #3182ce; background: #ebf8ff; box-shadow: 0 0 0 3px rgba(49,130,206,0.2); }
+        .schema-header { font-size: 1rem; font-weight: 600; color: #1a73e8; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
         .schema-controls { display: flex; gap: 8px; margin-top: 8px; justify-content: center; }
-        .schema-controls button { background: #1a73e8; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
-        .schema-controls button:hover { background: #1557b0; }
-        #schema-graph-tab { background: #f5f0e6; border-radius: 10px; overflow: hidden; }
     </style>
 </head>
 <body>
 <div class="sidebar">
-    <div class="sidebar-header"><h2>📊 RapidBase</h2><p>Query Browser</p></div>
+    <div class="sidebar-header">
+        <h2>📊 RapidBase</h2>
+        <p>Query Browser</p>
+        <div id="connection-badge" style="margin-top: 8px;"></div>
+    </div>
     <button class="btn-add" id="btn-add-connection">➕ Nueva conexión</button>
     <div class="sidebar-content">
         <div class="connections-list" id="connections-list">Cargando conexiones...</div>
@@ -127,7 +177,7 @@
         <h3>📋 Panel de inicio</h3>
         <div class="dashboard-section">
             <h4>🔍 Servidores locales</h4>
-            <button id="btn-discover-local" style="background:#6c757d;">Buscar servidores locales</button>
+            <button id="btn-discover-local" style="background:#718096;">Buscar servidores locales</button>
             <div id="local-databases" style="margin-top:10px;"></div>
         </div>
         <div class="dashboard-section">
@@ -169,6 +219,7 @@
 <script src="grid/Paginator.js"></script>
 <script src="grid/APIDataGrid.js"></script>
 <script src="grid/querybrowser-grid-component.js"></script>
+<script src="components/ConnectionFooter/ConnectionFooter.js"></script>
 
 <script>
 let currentConnectionId = null, currentConnectionName = '';
@@ -181,7 +232,6 @@ async function fetchJson(url, options = {}) {
     const j = await r.json(); if (j.error) throw new Error(j.error); return j;
 }
 
-// ==================== DASHBOARD ====================
 function showDashboard() {
     document.getElementById('dashboard').classList.add('active');
     document.getElementById('tabs-header').style.display = 'none';
@@ -195,12 +245,11 @@ function hideDashboard() {
     document.getElementById('tab-content').style.display = '';
 }
 
-// Mockup de escaneo local
 document.getElementById('btn-discover-local').addEventListener('click', () => {
-    document.getElementById('local-databases').innerHTML = '<p style="color:#888;">No se encontraron servidores locales (mockup).</p>';
+    document.getElementById('local-databases').innerHTML = '<p style="color:#718096;">No se encontraron servidores locales (mockup).</p>';
 });
 
-// ==================== GRAFO DE ESQUEMA ====================
+// Grafo de esquema
 function openSchemaGraph() {
     if (!currentConnectionId) return;
     openTab('__schema__');
@@ -209,13 +258,11 @@ function openSchemaGraph() {
 function openSchemaGraphTab() {
     const schemaId = 'schema_' + currentConnectionId + '_' + Date.now();
     const tabId = 'tab_schema_' + (nextTabId++);
-    
     tabs.set(tabId, { tableName: '__schema__', connectionId: currentConnectionId, tables: [], mode: 'navigate' });
     const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
     btn.innerHTML = `<span>🕸️ ${escapeHtml(currentConnectionName || currentConnectionId)}</span><span class="tab-close">✖</span>`;
     btn.addEventListener('click', e => { if (e.target.classList.contains('tab-close')) closeTab(tabId); else activateTab(tabId); });
     document.getElementById('tabs-header').appendChild(btn);
-
     const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
     pane.innerHTML = `
         <div class="schema-header">Esquema: ${escapeHtml(currentConnectionName || currentConnectionId)}</div>
@@ -240,49 +287,24 @@ async function loadSchemaGraph(schemaId, tabId) {
         const resp = await fetch(`api.php?action=schema_graph&connectionId=${connId}`);
         const data = await resp.json();
         if (!data.nodes || data.nodes.length === 0) {
-            container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">No hay relaciones disponibles</div>';
+            container.innerHTML = '<div style="padding:20px;text-align:center;color:#718096;">No hay relaciones disponibles</div>';
             return;
         }
-        const maxDegree = Math.max(...data.nodes.map(n => data.edges.filter(e => e.from === n.id || e.to === n.id).length), 1);
-        const nodes = data.nodes.map(n => {
-            const degree = data.edges.filter(e => e.from === n.id || e.to === n.id).length;
-            const intensity = Math.floor(200 - (degree / maxDegree) * 150);
-            return { ...n, color: { background: '#a8d0e6', border: '#1a73e8', highlight: { background: '#7bb3d9' } }, font: { color: '#333' } };
-        });
+        const nodes = data.nodes.map(n => ({ ...n, color: { background: '#a8d0e6', border: '#1a73e8' }, font: { color: '#333' } }));
         const edges = data.edges.map(e => ({ ...e, arrows: 'to', color: { color: '#888', opacity: 0.4 } }));
         const networkData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-        const options = {
-            layout: { improvedLayout: true },
-            physics: { solver: 'forceAtlas2Based', forceAtlas2Based: { gravitationalConstant: -50 } },
-            interaction: { hover: true, navigationButtons: false },
-            nodes: { shape: 'box', font: { size: 12 } }
-        };
+        const options = { layout: { improvedLayout: true }, physics: { solver: 'forceAtlas2Based' }, interaction: { hover: true }, nodes: { shape: 'box', font: { size: 12 } } };
         container.innerHTML = '';
         const network = new vis.Network(container, networkData, options);
         networks[schemaId] = network;
-        network.on('click', function(params) {
-            if (params.nodes.length > 0) {
-                const tableName = params.nodes[0];
-                openTab(tableName, connId);
-            }
-        });
-    } catch(e) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c;">Error al cargar el grafo</div>'; }
+        network.on('click', params => { if (params.nodes.length > 0) openTab(params.nodes[0], connId); });
+    } catch(e) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#e53e3e;">Error al cargar el grafo</div>'; }
 }
+function zoomIn(schemaId) { if (networks[schemaId]) networks[schemaId].moveTo({ scale: networks[schemaId].getScale() * 1.2 }); }
+function zoomOut(schemaId) { if (networks[schemaId]) networks[schemaId].moveTo({ scale: networks[schemaId].getScale() * 0.8 }); }
+function resetZoom(schemaId) { if (networks[schemaId]) networks[schemaId].fit({ animation: true }); }
 
-function zoomIn(schemaId) {
-    const network = networks[schemaId];
-    if (network) network.moveTo({ scale: network.getScale() * 1.2 });
-}
-function zoomOut(schemaId) {
-    const network = networks[schemaId];
-    if (network) network.moveTo({ scale: network.getScale() * 0.8 });
-}
-function resetZoom(schemaId) {
-    const network = networks[schemaId];
-    if (network) network.fit({ animation: true });
-}
-
-// ==================== CONEXIONES Y UI ====================
+// Conexiones
 async function loadConnections() {
     try {
         const data = await fetchJson('api.php?action=list_connections');
@@ -293,10 +315,11 @@ async function loadConnections() {
             if (e.target.classList.contains('conn-delete')) { e.stopPropagation(); deleteConnection(+e.target.dataset.id); }
             else connectSavedConnection(+el.dataset.id);
         }));
-    } catch(e) { document.getElementById('connections-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
+    } catch(e) { document.getElementById('connections-list').innerHTML = `<div style="padding:10px;color:#e53e3e;">Error: ${e.message}</div>`; }
 }
 
 async function deleteConnection(id) { if (confirm('¿Eliminar?')) { await fetchJson(`api.php?action=remove_connection&id=${id}`); loadConnections(); } }
+
 async function connectSavedConnection(id) {
     try {
         const f = new FormData(); f.append('connId', id);
@@ -307,9 +330,11 @@ async function connectSavedConnection(id) {
             currentConnectionName = connItem ? connItem.querySelector('.conn-name').textContent.replace('📁 ', '') : currentConnectionId;
             document.querySelectorAll('.connection-item').forEach(el => el.classList.remove('active'));
             connItem?.classList.add('active');
+            const badgeDiv = document.getElementById('connection-badge');
+            badgeDiv.innerHTML = `<span class="connection-badge">🔌 ${escapeHtml(currentConnectionName)}</span>`;
             await loadTables();
             hideDashboard();
-            if (tabs.size === 0) { openSchemaGraph(); }
+            if (tabs.size === 0) openSchemaGraph();
         }
     } catch(e) { alert('Error: ' + e.message); }
 }
@@ -321,11 +346,11 @@ async function loadDatabases() {
         if (!d.databases.length) { div.innerHTML = '<div style="padding:10px;">No hay archivos .sqlite</div>'; return; }
         div.innerHTML = '<div style="padding:5px 10px;font-weight:bold;">📂 Archivos SQLite</div>' + d.databases.map(db => `<div class="database-item" data-db="${escapeHtml(db)}">🗄️ ${escapeHtml(db)}</div>`).join('');
         div.querySelectorAll('.database-item').forEach(el => el.addEventListener('click', () => connectDatabaseFile(el.dataset.db)));
-    } catch(e) { document.getElementById('database-list').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
+    } catch(e) { document.getElementById('database-list').innerHTML = `<div style="padding:10px;color:#e53e3e;">Error: ${e.message}</div>`; }
 }
 
 async function connectDatabaseFile(db) {
-    try { const f = new FormData(); f.append('db', db); const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f }); if (d.status === 'ok') { currentConnectionId = d.connectionId; currentConnectionName = db; await loadTables(); hideDashboard(); if (tabs.size === 0) { openSchemaGraph(); } } }
+    try { const f = new FormData(); f.append('db', db); const d = await fetchJson('api.php?action=connect', { method: 'POST', body: f }); if (d.status === 'ok') { currentConnectionId = d.connectionId; currentConnectionName = db; document.getElementById('connection-badge').innerHTML = `<span class="connection-badge">🗄️ ${escapeHtml(db)}</span>`; await loadTables(); hideDashboard(); if (tabs.size === 0) openSchemaGraph(); } }
     catch(e) { alert('Error: ' + e.message); }
 }
 
@@ -342,30 +367,24 @@ async function loadTables() {
         });
         const caret = div.querySelector('.caret'), childUl = caret?.parentElement.querySelector('ul');
         caret?.addEventListener('click', e => { e.stopPropagation(); childUl.style.display = childUl.style.display === 'none' ? '' : 'none'; caret.innerText = childUl.style.display === 'none' ? '▶' : '▼'; });
-    } catch(e) { document.getElementById('treeview').innerHTML = `<div style="padding:10px;color:#e74c3c;">Error: ${e.message}</div>`; }
+    } catch(e) { document.getElementById('treeview').innerHTML = `<div style="padding:10px;color:#e53e3e;">Error: ${e.message}</div>`; }
 }
 
-// ==================== TABS Y FUNCIONES AUXILIARES ====================
+// Tabs
 function openTab(tableName, connId) {
     const effectiveConn = connId || currentConnectionId;
-    
     if (tableName === '__schema__') { openSchemaGraphTab(); return; }
-    
     for (let [tid, t] of tabs) {
-        if (t.tableName === tableName && t.connectionId === effectiveConn) {
-            activateTab(tid);
-            return;
-        }
+        if (t.tableName === tableName && t.connectionId === effectiveConn) { activateTab(tid); return; }
     }
-    
     const tabId = `tab_${nextTabId++}`;
-    tabs.set(tabId, { tableName, connectionId: effectiveConn, tables: [tableName], mode: 'navigate' });
-
+    tabs.set(tabId, { 
+        tableName, connectionId: effectiveConn, tables: [tableName], mode: 'navigate', searchTerm: '' 
+    });
     const btn = document.createElement('div'); btn.className = 'tab'; btn.dataset.tabId = tabId;
     btn.innerHTML = `<span>📋 ${escapeHtml(tableName)}</span><span class="tab-close">✖</span>`;
     btn.addEventListener('click', e => { if (e.target.classList.contains('tab-close')) closeTab(tabId); else activateTab(tabId); });
     document.getElementById('tabs-header').appendChild(btn);
-
     const pane = document.createElement('div'); pane.className = 'tab-pane'; pane.id = `pane_${tabId}`;
     pane.innerHTML = `
         <div class="sql-toolbar">
@@ -381,21 +400,25 @@ function openTab(tableName, connId) {
         <div class="grid-container" id="grid_${tabId}">
             <div class="grid-controls"></div>
             <div class="grid-scroll-wrapper"><table class="grid-table"><thead class="grid-head"></thead><tbody class="grid-body"></tbody></table></div>
-            <div class="grid-loading">Cargando datos...</div><div class="grid-error"></div>
+            <div class="grid-footer"></div>
         </div>
-        <div class="sql-debug" id="debug_${tabId}"></div>`;
+        
+        <div class="sql-debug" id="debug_${tabId}" style="display:none;"></div>
+		<div class="tab-footer" id="tab-footer-${tabId}"></div>
+    `;
     document.getElementById('tab-content').appendChild(pane);
+	// Instanciar el footer solo para pestañas de tabla, no para el grafo
+	if (tableName !== '__schema__') {
+		new ConnectionFooter(`tab-footer-${tabId}`, effectiveConn);
+	}
     activateTab(tabId);
-
     const modeCheck = document.getElementById(`mode_${tabId}`);
     const sqlEditor = document.getElementById(`sql_${tabId}`);
     const runBtn = document.getElementById(`run_${tabId}`);
     const modeLabel = document.getElementById(`modelabel_${tabId}`);
-
     modeCheck.addEventListener('change', () => toggleMode(tabId));
     runBtn.addEventListener('click', () => executeTabSQL(tabId));
     sqlEditor.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter' && modeCheck.checked) runBtn.click(); });
-
     sqlEditor.addEventListener('dragover', e => { if (modeCheck.checked) return; e.preventDefault(); sqlEditor.classList.add('drag-over'); });
     sqlEditor.addEventListener('dragleave', () => sqlEditor.classList.remove('drag-over'));
     sqlEditor.addEventListener('drop', async e => {
@@ -418,7 +441,6 @@ function openTab(tableName, connId) {
             loadNavigateGrid(tabId);
         }
     });
-
     updateTableChips(tabId);
     loadNavigateGrid(tabId);
     hideDashboard();
@@ -428,9 +450,7 @@ function updateTableChips(tabId) {
     const tab = tabs.get(tabId);
     const fromContainer = document.getElementById(`chips_from_${tabId}`);
     if (!fromContainer) return;
-    fromContainer.innerHTML = tab.tables.map((t, i) =>
-        `<span class="table-chip" title="${escapeHtml(t)}">${escapeHtml(t)}${tab.tables.length > 1 ? `<span class="chip-remove" data-idx="${i}">✖</span>` : ''}</span>`
-    ).join(' ');
+    fromContainer.innerHTML = tab.tables.map((t, i) => `<span class="table-chip" title="${escapeHtml(t)}">${escapeHtml(t)}${tab.tables.length > 1 ? `<span class="chip-remove" data-idx="${i}">✖</span>` : ''}</span>`).join(' ');
     fromContainer.querySelectorAll('.chip-remove').forEach(el => {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -453,28 +473,18 @@ async function loadRelatedBars(tabId) {
         const r = await fetch(`api.php?action=related_tables&connectionId=${tab.connectionId}&tables=${encodeURIComponent(JSON.stringify(tab.tables))}`);
         const related = await r.json();
         if (barTo) {
-            barTo.innerHTML = '<span class="rel-bar-label">belongsTo:</span>' +
-                (related.to || []).map(t => `<span class="table-chip-to" data-table="${escapeHtml(t)}" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
+            barTo.innerHTML = '<span class="rel-bar-label">belongsTo:</span>' + (related.to || []).map(t => `<span class="table-chip-to" data-table="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
             barTo.querySelectorAll('.table-chip-to').forEach(chip => {
                 chip.addEventListener('click', () => {
-                    if (!tab.tables.includes(chip.dataset.table)) {
-                        tab.tables.push(chip.dataset.table);
-                        updateTableChips(tabId);
-                        loadNavigateGrid(tabId);
-                    }
+                    if (!tab.tables.includes(chip.dataset.table)) { tab.tables.push(chip.dataset.table); updateTableChips(tabId); loadNavigateGrid(tabId); }
                 });
             });
         }
         if (barFrom) {
-            barFrom.innerHTML = '<span class="rel-bar-label">hasMany:</span>' +
-                (related.from || []).map(t => `<span class="table-chip-from" data-table="${escapeHtml(t)}" title="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
+            barFrom.innerHTML = '<span class="rel-bar-label">hasMany:</span>' + (related.from || []).map(t => `<span class="table-chip-from" data-table="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join(' ');
             barFrom.querySelectorAll('.table-chip-from').forEach(chip => {
                 chip.addEventListener('click', () => {
-                    if (!tab.tables.includes(chip.dataset.table)) {
-                        tab.tables.push(chip.dataset.table);
-                        updateTableChips(tabId);
-                        loadNavigateGrid(tabId);
-                    }
+                    if (!tab.tables.includes(chip.dataset.table)) { tab.tables.push(chip.dataset.table); updateTableChips(tabId); loadNavigateGrid(tabId); }
                 });
             });
         }
@@ -496,7 +506,7 @@ function toggleMode(tabId) {
     } else {
         tab.mode = 'navigate';
         sqlEditor.readOnly = true;
-        sqlEditor.style.background = '#e9ecef';
+        sqlEditor.style.background = '#edf2f7';
         runBtn.style.display = 'none';
         modeLabel.textContent = 'Navegación';
         loadNavigateGrid(tabId);
@@ -511,24 +521,67 @@ function loadNavigateGrid(tabId) {
     container.querySelector('.grid-body').innerHTML = '';
     document.getElementById(`error_${tabId}`).style.display = 'none';
     document.getElementById(`debug_${tabId}`).style.display = 'none';
+    
+    
+    
+    // Asegurar que los controles tengan el input y switch
+    let controlsDiv = container.querySelector('.grid-controls');
+    if (!controlsDiv.querySelector('.grid-search-wrapper')) {
+        controlsDiv.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'grid-search-wrapper';
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Buscar...';
+        searchInput.className = 'grid-search';
+        wrapper.appendChild(searchInput);
+        const hint = document.createElement('span');
+        hint.className = 'kbd-hint';
+        hint.textContent = '/';
+        wrapper.appendChild(hint);
+        controlsDiv.appendChild(wrapper);
+        let timeout;
+        searchInput.addEventListener('input', e => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                tab.searchTerm = e.target.value;
+                if (grid) { grid.currentPage = 1; grid.load(); }
+            }, 300);
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === '/') { e.preventDefault(); searchInput.focus(); }
+        });
+        const debugWrapper = document.createElement('label');
+        debugWrapper.className = 'debug-switch';
+        debugWrapper.innerHTML = `<span style="font-size:0.75rem;">🐞 Debug</span><label class="switch"><input type="checkbox" id="debug_switch_${tabId}"><span class="slider"></span></label>`;
+        controlsDiv.appendChild(debugWrapper);
+        const debugCheckbox = debugWrapper.querySelector('input');
+        const debugDiv = document.getElementById(`debug_${tabId}`);
+        debugCheckbox.addEventListener('change', (e) => { debugDiv.style.display = e.target.checked ? 'block' : 'none'; });
+    } else {
+        const searchInput = controlsDiv.querySelector('.grid-search');
+        if (searchInput.value !== tab.searchTerm) searchInput.value = tab.searchTerm || '';
+    }
     const grid = new APIDataGrid(gridContainer, 'api.php?action=grid_data', { mode: 'infinite', pageSize: 30 });
     grid.tabId = tabId;
     grid.connectionId = tab.connectionId;
     grid.tables = tab.tables;
+    grid.getSearchTerm = () => tabs.get(tabId)?.searchTerm || '';
     const origBuildParams = grid.buildParams.bind(grid);
     grid.buildParams = function() {
         const p = origBuildParams();
         p.set('connectionId', this.connectionId);
-        if (this.tables.length === 1) {
-            p.set('table', this.tables[0]);
-        } else {
-            p.set('table', JSON.stringify(this.tables));
-        }
+        p.set('table', JSON.stringify(this.tables));
+        const search = this.getSearchTerm();
+        if (search) p.set('search', search);
         return p;
     };
     grid.fetchData = async function() {
         if (this.isLoading) return;
-        this.isLoading = true; this.showLoading(); this.hideError();
+        this.isLoading = true;
+        if (this.loadingBar) this.loadingBar.style.width = '30%';
+        this.hideError();
         try {
             const url = `${this.apiUrl.split('?')[0]}?${this.buildParams().toString()}`;
             const r = await fetch(url);
@@ -537,19 +590,26 @@ function loadNavigateGrid(tabId) {
             if (d.error) throw new Error(d.error);
             const rows = d.data || [];
             const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
-            const duration = d.stats?.duration ? (Number(d.stats.duration) / 1000).toFixed(7) + 's' : 'N/A';
+            const duration = d.stats?.duration ? (Number(d.stats.duration) / 1000).toFixed(4) + 's' : 'N/A';
             this.footerContainer.innerHTML = `📄 Total: ${(d.total || rows.length).toLocaleString()} registros | ${d.columns ? d.columns.length : rows[0]?.length || 0} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
             if (rows.length > 0) {
                 if (this.currentPage === 1) this.render(rows, meta);
                 else this.appendRows(rows);
                 this.hasMore = rows.length === this.pageSize;
                 if (!this.hasMore && this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; }
-            } else { this.hasMore = false; if (this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; } }
+            } else {
+                this.hasMore = false;
+                if (this.currentPage === 1) {
+                    this.bodyContainer.innerHTML = `<div class="grid-empty-state"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span>No se encontraron registros</span><small>Intenta con otros filtros o palabras de búsqueda</small></div>`;
+                }
+                if (this.scrollCleanup) { this.scrollCleanup(); this.scrollCleanup = null; }
+            }
             if (d.debug) {
                 document.getElementById(`sql_${tabId}`).value = d.debug.sql || '';
                 const debugEl = document.getElementById(`debug_${tabId}`);
                 debugEl.textContent = `SQL: ${d.debug.sql}\nDuration: ${duration}`;
-                debugEl.style.display = 'block';
+                const debugSwitch = document.querySelector(`#debug_switch_${tabId}`);
+                if (debugSwitch && debugSwitch.checked) debugEl.style.display = 'block';
             }
             document.getElementById(`error_${tabId}`).style.display = 'none';
         } catch(e) {
@@ -558,12 +618,27 @@ function loadNavigateGrid(tabId) {
             const debugEl = document.getElementById(`debug_${tabId}`);
             debugEl.textContent = 'Error: ' + e.message;
             debugEl.style.display = 'block';
-        } finally { this.isLoading = false; this.hideLoading(); }
+        } finally {
+            this.isLoading = false;
+            if (this.loadingBar) {
+                this.loadingBar.style.width = '100%';
+                setTimeout(() => { if (this.loadingBar) this.loadingBar.style.width = '0%'; }, 200);
+            }
+            this.hideLoading();
+        }
     };
+    if (!container.querySelector('.loading-bar')) {
+        const loadBar = document.createElement('div');
+        loadBar.className = 'loading-bar';
+        container.style.position = 'relative';
+        container.appendChild(loadBar);
+        grid.loadingBar = loadBar;
+    }
     grid.load();
 }
 
-// ==================== EJECUCIÓN SQL (con reloj y estilo cambiante) ====================
+
+// Ejecución SQL
 function animateButton(button, promise) {
     const img = document.createElement('img');
     img.src = 'assets/icon/reloj.gif';
@@ -598,40 +673,29 @@ async function executeTabSQL(tabId) {
     const container = document.querySelector(gridContainer);
     container.querySelector('.grid-head').innerHTML = '';
     container.querySelector('.grid-body').innerHTML = '';
-
     const f = new FormData();
     f.append('connectionId', tab.connectionId);
     f.append('sql', sql);
-
     const runBtn = document.getElementById(`run_${tabId}`);
     if (!runBtn) { alert('Error: Botón no encontrado'); return; }
-
     try {
-        const r = await animateButton(runBtn,
-            fetchJson('api.php?action=execute_query', { method: 'POST', body: f })
-        );
-
+        const r = await animateButton(runBtn, fetchJson('api.php?action=execute_query', { method: 'POST', body: f }));
         if (r.columns) {
             const grid = new APIDataGrid(gridContainer, 'api.php?action=execute_query', { mode: 'pagination', pageSize: 100 });
             grid.fetchData = async function() {
                 if (this.isLoading) return;
                 this.isLoading = true; this.showLoading(); this.hideError();
                 try {
-                    this.render(r.data, {
-                        columns: r.columns,
-                        titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
-                    });
+                    this.render(r.data, { columns: r.columns, titles: r.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) });
                     this.hasMore = false;
-                    this.footerContainer.innerHTML = `Total: ${r.data.length} registros | ${r.columns.length} columnas | Duracion: ${r.durationMs || r.elapsed || '0'}s`;
+                    this.footerContainer.innerHTML = `Total: ${r.data.length} registros | ${r.columns.length} columnas | Duración: ${r.durationMs || r.elapsed || '0'}s`;
                 } catch(e) { this.showError(e.message); } finally { this.isLoading = false; this.hideLoading(); }
             };
             grid.load();
         } else {
-            alert(`Filas afectadas: ${r.affected} | Duracion: ${r.durationMs || '0'}s`);
+            alert(`Filas afectadas: ${r.affected} | Duración: ${r.durationMs || '0'}s`);
         }
-    } catch(e) {
-        alert('Error: ' + e.message);
-    }
+    } catch(e) { alert('Error: ' + e.message); }
 }
 
 function activateTab(id) {
@@ -650,7 +714,7 @@ function closeTab(id) {
 
 function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// Modal y eventos
+// Modal de conexión
 const modal = document.getElementById('modal-connection');
 document.getElementById('btn-add-connection').addEventListener('click', () => {
     modal.style.display = 'block'; document.getElementById('modal-message').innerHTML = '';

@@ -54,30 +54,72 @@ class Q
         $fields = null, $pagination = null, $sort = [],
         $groupBy = null, array $having = [], bool $withTotal = false
     ): CompiledQuery {
-        $selectFields = $fields ?? '*';
+        $originalFields = $fields ?? '*';
+        $selectFields = $originalFields;
         
+        // Normalización de Sort
+        $sort = $sort ?? []; 
+        if (is_string($sort)) {
+            $sort = str_contains($sort, ',') 
+                ? array_map('trim', explode(',', $sort)) 
+                : [trim($sort)];
+        }
+
+        // Obtener estado de tablas y Joins (necesario para saber si hay múltiples tablas)
+        $base = $this->buildBaseState();
+        $tablesInfo = $base['tablesInfo'];
+        $mainAlias = $tablesInfo[0]['alias'] ?? '';
+
+        // ========== Manejo de múltiples tablas (JOIN) ==========
+        if (count($tablesInfo) > 1) {
+            // Expansión completa: todas las columnas de todas las tablas, calificadas con alias
+            $allQualifiedColumns = [];
+            $map = SchemaMap::getMap();
+            foreach ($tablesInfo as $info) {
+                $alias = $info['alias'];
+                $realTable = $info['real'];
+                $cols = $map['tables'][$realTable] ?? [];
+                foreach (array_keys($cols) as $col) {
+                    $allQualifiedColumns[] = $alias . '.' . $col;
+                }
+            }
+            // Si el usuario pidió '*', usamos la lista completa
+            if ($originalFields === '*') {
+                $selectFields = $allQualifiedColumns;
+            } else {
+                // Si el usuario especificó campos concretos, los calificamos automáticamente
+                $selectFields = $this->qualify($originalFields, $mainAlias);
+            }
+            // También calificamos el sort
+            $sort = $this->qualifySort($sort, $mainAlias);
+        } else {
+            // Una sola tabla: calificación simple (solo si el campo no tiene punto y no es función)
+            $selectFields = $this->qualify($originalFields, $mainAlias);
+            $sort = $this->qualifySort($sort, $mainAlias);
+        }
+
+        // Añadir función ventana si se solicita
         if ($withTotal && empty($groupBy)) {
             $totalFunc = 'COUNT(*) OVER() AS ' . ConditionMatrix::quote('_total');
             if (is_array($selectFields)) {
-                array_unshift($selectFields, $totalFunc);
+                $selectFields[] = $totalFunc;
+            } elseif ($selectFields === '*') {
+                $selectFields = "*, $totalFunc";
             } else {
-                $selectFields = $totalFunc . ', ' . $selectFields;
+                $selectFields = is_array($selectFields) ? array_merge($selectFields, [$totalFunc]) : "$selectFields, $totalFunc";
             }
         }
 
+        // Ruta rápida para tablas simples (sin joins, sin group by, etc.)
         if ($groupBy === null && empty($having) && empty($this->compiledParams) && $this->isSimpleTable()) {
             return $this->compileSimpleSelect($selectFields, $pagination, $sort);
         }
 
-        $base = $this->buildBaseState();
+        // Construcción normal de la consulta
         $fromClause = $base['fromClause'];
-        $tablesInfo = $base['tablesInfo'];
         $whereData  = ['sql' => $base['whereSql'], 'params' => $base['whereParams']];
 
-        $groupSql = '';
-        if ($groupBy) {
-            $groupSql = is_array($groupBy) ? implode(', ', $groupBy) : $groupBy;
-        }
+        $groupSql = $groupBy ? (is_array($groupBy) ? implode(', ', $groupBy) : $groupBy) : '';
 
         $havingData = empty($having)
             ? ['sql' => '', 'params' => []]
@@ -88,8 +130,11 @@ class Q
 
         $params = array_merge($whereData['params'], $havingData['params']);
 
+        // Convertir selectFields a string si es array
+        $selectSql = is_array($selectFields) ? implode(', ', $selectFields) : $selectFields;
+
         $compiledState = [
-            SqlCompiler::SEL    => $selectFields,
+            SqlCompiler::SEL    => $selectSql,
             SqlCompiler::FROM   => $fromClause,
             SqlCompiler::WHERE  => $whereData['sql'],
             SqlCompiler::GROUP  => $groupSql,
@@ -109,6 +154,59 @@ class Q
         }
 
         return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap, $sourceTables);
+    }
+
+    // ========== Métodos auxiliares de calificación ==========
+
+    private function qualify(mixed $fields, string $tableAlias): mixed
+    {
+        if ($fields === '*' || empty($fields)) return $fields;
+
+        $process = function($field) use ($tableAlias) {
+            $field = trim((string)$field);
+            // Si ya tiene un punto o es una función SQL, no se califica
+            if (str_contains($field, '.') || str_contains($field, '(') || $field === '*') {
+                return $field;
+            }
+            return $tableAlias . '.' . $field;
+        };
+
+        if (is_string($fields)) {
+            $parts = explode(',', $fields);
+            return implode(', ', array_map($process, $parts));
+        }
+
+        if (is_array($fields)) {
+            return array_map($process, $fields);
+        }
+
+        return $fields;
+    }
+
+    private function qualifySort(mixed $sort, string $tableAlias): mixed
+    {
+        if (empty($sort)) return $sort;
+
+        $process = function($field) use ($tableAlias) {
+            $field = trim((string)$field);
+            $isDesc = str_starts_with($field, '-');
+            $clean = $isDesc ? substr($field, 1) : $field;
+            if (str_contains($clean, '.') || str_contains($clean, '(')) {
+                return $field;
+            }
+            return ($isDesc ? '-' : '') . $tableAlias . '.' . $clean;
+        };
+
+        if (is_string($sort)) {
+            $parts = explode(',', $sort);
+            return implode(', ', array_map($process, $parts));
+        }
+
+        if (is_array($sort)) {
+            return array_map($process, $sort);
+        }
+
+        return $sort;
     }
 
     public function insert(array|CompiledQuery $rows, ?callable $transformer = null): CompiledQuery
@@ -273,7 +371,20 @@ class Q
         return new CompiledQuery($sql, $params, CompiledQuery::EXISTS);
     }
 
-    public static function page(int $page, int $perPage = 10): array { $page = max(1, $page); return [($page - 1) * $perPage, $perPage]; }
+    public static function page(mixed $page, int $perPage = 10): array 
+    {
+        // Si $page ya es un array [pagina, limite], extraemos los valores
+        if (is_array($page)) {
+            $perPage = $page[1] ?? $perPage; // Usa el segundo valor si existe
+            $page = $page[0] ?? 1;           // Usa el primero o asume página 1
+        }
+
+        $page = max(1, (int)$page);
+        $perPage = max(1, $perPage);
+
+        return [($page - 1) * $perPage, $perPage];
+    }
+
     public static function setDriver(string $driver): void { ConditionMatrix::setDriver($driver); }
     public static function quote(string $identifier): string { return ConditionMatrix::quote($identifier); }
 
@@ -323,7 +434,8 @@ class Q
             foreach ($this->state[self::F] as $col => $val) { $parts[] = ConditionMatrix::quote($col) . ' = ?'; $params[] = $val; }
             $whereSql = ' WHERE ' . implode(' AND ', $parts);
         }
-        $orderSql = $sort ? ' ORDER BY ' . $this->buildOrderClause($sort) : '';
+        $sort = $sort ?? [];
+        $orderSql = !empty($sort) ? ' ORDER BY ' . $this->buildOrderClause($sort) : '';
         $limitSql = $this->buildLimitClause($pagination);
         $selectFields = $fields ?? '*';
         if (is_array($selectFields)) $selectFields = implode(', ', $selectFields);
@@ -402,7 +514,8 @@ class Q
     }
 
     private function buildOrderClause($order): string
-    {
+    {   
+        if (empty($order)) return '';
         if (is_array($order)) {
             $p = [];
             foreach ($order as $f) { $f = trim($f); $d = 'ASC'; if (str_starts_with($f, '-')) { $d = 'DESC'; $f = substr($f, 1); } $p[] = ConditionMatrix::quote($f) . ' ' . $d; }

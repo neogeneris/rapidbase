@@ -1,0 +1,62 @@
+.rb-panel {
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.rb-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: #f1f5f9; /* Color grisáceo suave estilo IDE */
+    border-bottom: 1px solid #cbd5e0;
+    user-select: none;
+}
+
+.rb-panel-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rb-panel-icon {
+    font-size: 14px;
+}
+
+.rb-panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rb-panel-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.rb-panel-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.rb-panel-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.rb-panel-body {
+    flex: 1;
+    overflow: auto;
+    background: #fff;
+}
