@@ -225,13 +225,6 @@
                     }
                 });
                 app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
-                
-                // Update SchemaExplorer immediately after creating the tab
-                setTimeout(() => {
-                    if (app.schemaExplorer && app.activeSchemaData) {
-                        app.schemaExplorer.update(app.activeSchemaData, [tableName]);
-                    }
-                }, 50);
             },
 
             // Abrir diálogo de nueva conexión
@@ -274,8 +267,10 @@
             app.tableList.populate = (connId, data) => {
                 app.activeSchemaData = data;
                 origPopulate(connId, data);
-                // No actualizar SchemaExplorer aquí - se actualizará cuando se abra una tabla
-                // El SchemaExplorer solo muestra tablas activas en el QueryBuilder
+                // Actualizar SchemaExplorer con los datos del schema
+                if (app.schemaExplorer && data) {
+                    app.schemaExplorer.update(data, []);
+                }
             };
 
             initResizable(document.getElementById('resizer-h-left'), document.getElementById('conn-manager-box'), 'h');
