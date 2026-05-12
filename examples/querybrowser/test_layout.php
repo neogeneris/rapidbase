@@ -211,9 +211,17 @@
                         if (app.schemaExplorer && app.activeSchemaData) {
                             app.schemaExplorer.update(app.activeSchemaData, instance.tables);
                         }
-                    }
+                    },
+                    schemaExplorer: app.schemaExplorer
                 });
-                app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
+                const tab = app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
+                
+                // Forzar actualización inicial del SchemaExplorer con la tabla seleccionada
+                setTimeout(() => {
+                    if (app.schemaExplorer && app.activeSchemaData) {
+                        app.schemaExplorer.update(app.activeSchemaData, [tableName]);
+                    }
+                }, 100);
             },
 
             // Abrir diálogo de nueva conexión

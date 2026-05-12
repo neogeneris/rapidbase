@@ -11,6 +11,7 @@ class QueryBuilder {
         this.searchTerm = '';
         this.grid = null;
         this.onActivateTab = options.onActivateTab || null;
+        this.schemaExplorer = options.schemaExplorer || null;
     }
 
     init(parentElement) {
@@ -231,8 +232,14 @@ class QueryBuilder {
             
             if (data.success && data.description) {
                 // Guardar en app.activeSchemaData si existe el contexto global
-                if (window.app && window.app.schemaExplorer) {
+                if (window.app) {
                     window.app.activeSchemaData = data.description;
+                }
+                
+                // Actualizar SchemaExplorer directamente si tenemos referencia
+                if (this.schemaExplorer) {
+                    this.schemaExplorer.update(data.description, this.tables);
+                } else if (window.app && window.app.schemaExplorer) {
                     window.app.schemaExplorer.update(data.description, this.tables);
                 }
             }
