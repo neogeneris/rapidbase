@@ -1,56 +1,26 @@
 ```
-# Test database files
-tests/data/*.sqlite
+# Database files
+*.sqlite
 
-# Environment and temporary files
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment files
 .env
 .env.local
 *.env.*
-*.tmp
-*.log
 
-# Editors and IDE
+# Editor/IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 
 # Dependencies
-node_modules/
 vendor/
 
 # Build artifacts
-dist/
 build/
-target/
-*.o
-*.obj
-*.out
-
-# Python specific
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
+dist/
 ```
