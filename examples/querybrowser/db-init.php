@@ -19,6 +19,8 @@ $sql = "CREATE TABLE IF NOT EXISTS connections (
     dsn TEXT NOT NULL,      -- cadena de conexión (ej: 'sqlite:/path', 'mysql:host=...;dbname=...')
     username TEXT,
     password TEXT,
+    description TEXT,       -- descripción opcional de la conexión
+    environment TEXT,       -- ambiente: 'dev', 'qa', 'prod'
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )";
 DB::exec($sql, [], 'internal');
