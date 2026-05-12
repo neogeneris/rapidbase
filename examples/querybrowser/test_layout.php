@@ -272,9 +272,9 @@
                 app.activeSchemaData = data;
                 origPopulate(connId, data);
                 // Actualizar SchemaExplorer con los datos del schema
-                if (app.schemaExplorer && data) {
-                    app.schemaExplorer.update(data, []);
-                }
+                //if (app.schemaExplorer && data) {
+                //    app.schemaExplorer.update(data, []);
+               // }
             };
 
             initResizable(document.getElementById('resizer-h-left'), document.getElementById('conn-manager-box'), 'h');

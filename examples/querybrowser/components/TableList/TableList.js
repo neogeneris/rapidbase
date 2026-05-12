@@ -174,6 +174,7 @@ class TableList {
                     <span class="tl-table-icon">${TableList.ICON_TABLE}</span>
                     <span class="tl-table-name">${window.escapeHtml(table.name)}</span>
                     <span class="tl-col-count">${table.columns.length}</span>
+                    <span class="tl-rel-badge" style="display:none;"></span>
                 </div>
                 <div class="tl-col-list ${isOpen ? 'open' : ''}" data-cols-for="${window.escapeHtml(table.name)}">
                     ${colsHtml}
@@ -227,9 +228,13 @@ class TableList {
                 if (isNowOpen) this.openTables.add(tableName);
                 else           this.openTables.delete(tableName);
 
+                // Callback original (abrir grafo o grid)
                 if (this.onTableClick) {
                     this.onTableClick(tableName);
                 }
+
+                // Cargar detalles de la tabla (relaciones) desde el endpoint
+                this.loadTableDetails(tableName);
 
                 // Mark row as active
                 tree.querySelectorAll('.tl-table-row').forEach(r => r.classList.remove('active'));
@@ -248,4 +253,34 @@ class TableList {
             };
         });
     }
+
+    // ─── New: load table relations via table_description endpoint ──
+
+async loadTableDetails(tableName) {
+    if (!this.connectionId || !tableName) return;
+    try {
+        const url = `api.php?action=table_description&connectionId=${this.connectionId}&tables=${encodeURIComponent(JSON.stringify([tableName]))}`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data.success && data.description[tableName]) {
+            const details = data.description[tableName];
+            // Enviar al SchemaExplorer
+            if (window.app?.schemaExplorer) {
+                window.app.schemaExplorer.update(this.schemaData, [tableName], details);
+            }
+            // Actualizar badge usando el atributo data-table
+            const badge = this.container.querySelector(`.tl-rel-badge[data-table="${tableName}"]`);
+            if (badge) {
+                const relCount = details.relations.length;
+                badge.textContent = relCount ? `🔗 ${relCount}` : '';
+                badge.style.display = relCount ? 'inline-block' : 'none';
+                badge.title = details.relations.map(r => `${r.direction}: ${r.target_table} (${r.local_col}→${r.target_col})`).join('\n');
+            }
+        }
+    } catch (e) {
+        console.error('loadTableDetails error:', e);
+    }
+}
+
+
 }

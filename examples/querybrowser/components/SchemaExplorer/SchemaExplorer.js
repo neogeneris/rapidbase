@@ -35,11 +35,29 @@ class SchemaExplorer {
             this.container.style.boxShadow = 'none';
         }
         target.appendChild(this.container);
+        // Si está embebido, lo abrimos inicialmente
+        if (this.options.containerId) {
+            this.open();
+        }
     }
 
-    update(schemaData, activeTables = []) {
+    /**
+     * Updates the schema explorer with given schema data and optional active tables.
+     * @param {Object} schemaData - Schema map (list_tables format or description format)
+     * @param {Array|string} activeTables - Tables to show. If undefined or empty array, the panel is cleared.
+     */
+    update(schemaData, activeTables) {
         this.options.schemaData = schemaData;
-        // Normalize activeTables: if it's a string or JSON array, convert to array
+
+        // Si no se especifican tablas activas → estado vacío
+        if (activeTables === undefined || activeTables === null) {
+            this.options.activeTables = undefined;
+            this.renderTree([]);
+            this.close();
+            return;
+        }
+
+        // Normalizar a array
         if (typeof activeTables === 'string') {
             try {
                 const parsed = JSON.parse(activeTables);
@@ -47,10 +65,21 @@ class SchemaExplorer {
             } catch (e) {
                 this.options.activeTables = [activeTables];
             }
+        } else if (Array.isArray(activeTables)) {
+            this.options.activeTables = activeTables;
         } else {
-            this.options.activeTables = Array.isArray(activeTables) ? activeTables : (activeTables ? [activeTables] : []);
+            this.options.activeTables = [activeTables];
         }
+
+        // Si el array está vacío, también mostramos panel vacío (sin cerrar, para mantener feedback visual)
+        if (this.options.activeTables.length === 0) {
+            this.renderTree([]);
+            this.open();  // mostramos el panel con el mensaje de "seleccione una tabla"
+            return;
+        }
+
         this.loadSchema();
+        this.open();
     }
 
     loadSchema() {
@@ -58,26 +87,22 @@ class SchemaExplorer {
         if (!data) return;
 
         let tablesArray = [];
-        
+
         if (data.schema_tables) {
-            // New API format: { success: true, schema_tables: [...] }
+            // New API format from list_tables
             tablesArray = data.schema_tables;
         } else if (Array.isArray(data)) {
-            // Array format
             tablesArray = data;
         } else if (typeof data === 'object' && !data.columns) {
-            // X::description() format: { "table1": { "columns": {"col": "type"}, "pks": [...], "relations": [...] }, ... }
+            // X::description() format: { table: { columns:{col:type}, pks:[...], relations:[...] } }
             tablesArray = Object.keys(data).map(tableName => {
                 const tableData = data[tableName];
                 const columnsObj = tableData.columns || {};
-                
-                // Convert { "id": "integer", "name": "text" } to [{ name: "id", type: "integer" }, ...]
                 const columns = Object.entries(columnsObj).map(([colName, colType]) => ({
                     name: colName,
                     type: colType,
                     primary: tableData.pks && tableData.pks.includes(colName)
                 }));
-                
                 return {
                     name: tableName,
                     columns: columns,
@@ -86,18 +111,18 @@ class SchemaExplorer {
                 };
             });
         } else {
-            // Old format: { "table1": { "columns": [{ name, type }], ... }, ... }
+            // Old format: { table: { columns: [{name,type}] } }
             tablesArray = Object.keys(data).map(name => ({
                 name: name,
                 columns: data[name].columns || []
             }));
         }
 
-        // Filter only active tables if requested (on-demand loading)
+        // Filtrar solo las tablas activas (si existen)
         if (this.options.activeTables && this.options.activeTables.length > 0) {
             tablesArray = tablesArray.filter(t => this.options.activeTables.includes(t.name));
         }
-        
+
         this.renderTree(tablesArray);
     }
 
@@ -147,7 +172,7 @@ class SchemaExplorer {
 
             html += `</ul></details>`;
         });
-        
+
         tree.innerHTML = html;
     }
 
@@ -197,13 +222,17 @@ class SchemaExplorer {
         if (this.options.grid?.updateQuery) this.options.grid.updateQuery(selected);
     }
 
-    toggle() {
-        this.isOpen = !this.isOpen;
-        this.container.classList.toggle('closed', !this.isOpen);
+    open() {
+        this.isOpen = true;
+        this.container.classList.remove('closed');
     }
 
-    update(schemaData) {
-        this.options.schemaData = schemaData;
-        this.loadSchema();
+    close() {
+        this.isOpen = false;
+        this.container.classList.add('closed');
+    }
+
+    toggle() {
+        this.isOpen ? this.close() : this.open();
     }
 }
