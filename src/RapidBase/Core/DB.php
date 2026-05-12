@@ -13,34 +13,57 @@ use \Generator;
 
 class DB implements DBInterface
 {
-    public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void
-    {
-        Conn::setup($dsn, $user, $pass, $name);
-        $driver = Conn::getDriver($name);
-        ConditionMatrix::setDriver($driver);
+	
+	
+	public static function setup(string $dsn, string $user, string $pass, string $name = 'main'): void
+	{
+		// 1. Registrar la conexión
+		Conn::setup($dsn, $user, $pass, $name);
+		$driver = Conn::getDriver($name);
+		ConditionMatrix::setDriver($driver);
+		SchemaMap::setDefaultConnection(Conn::getCurrentConnectionId());
 
-        SchemaMap::setDefaultConnection(Conn::getCurrentConnectionId());
+		// 2. Si ya hay un mapa cargado (p.ej. por la app), no lo sobrescribimos
+		if (SchemaMap::getMap()) {
+			return;
+		}
 
-        $schemaMapPath = __DIR__ . "/../../schema_map_{$name}.php";
-        if (file_exists($schemaMapPath)) {
-            SchemaMap::loadFromFile($schemaMapPath, $name);
-        } else {
-            try {
-                \RapidBase\Meta\SchemaMapper::setOutputFile($schemaMapPath);
-                $dbName = Conn::getDatabaseName($name);
-                \RapidBase\Meta\SchemaMapper::generate(
-                    Conn::get($name),
-                    $dbName,
-                    null,
-                    $name
-                );
-                SchemaMap::loadFromFile($schemaMapPath, $name);
-            } catch (\Exception $e) {
-                error_log("SchemaMap auto-generation failed: " . $e->getMessage());
-            }
-        }
-    }
+		// 3. Intentar recuperar de CacheService
+		$cacheKey = 'schema_' . CacheService::hash($dsn . $user . $name);
+		if (class_exists(CacheService::class) && $cached = CacheService::get($cacheKey)) {
+			SchemaMap::setMap($cached, $name);
+			return;
+		}
 
+		// 4. Auto-descubrimiento y cacheo
+		try {
+			$dbName = Conn::getDatabaseName($name);
+			$pdo = Conn::get($name);
+			$discovery = \RapidBase\Meta\Discovery\DiscoveryFactory::create($pdo);
+			$allTables = $discovery->getTables($dbName);
+
+			$tablesMetadata = [];
+			foreach ($allTables as $table) {
+				$tablesMetadata[$table] = $discovery->discoverColumns($table, $dbName);
+			}
+
+			$map = [
+				'tables'        => $tablesMetadata,
+				'relationships' => $discovery->discoverRelationships($dbName),
+				'driver'        => $driver,
+				'features'      => (new \RapidBase\Meta\Discovery\FeatureDetector($pdo))->detect(),
+				'checksum'      => '', // podría calcularse, no esencial
+			];
+
+			SchemaMap::setMap($map, $name);
+			if (class_exists(CacheService::class)) {
+				CacheService::set($cacheKey, $map, 0); // TTL 0 = no expira
+			}
+		} catch (\Exception $e) {
+			error_log("RapidBase auto-schema discovery failed for '$name': " . $e->getMessage());
+			// No detener la app
+		}
+	}
     public static function getConnection(): ?\PDO { return Conn::get(); }
     public static function exec(string $sql, array $params = []): array { return Executor::action($sql, $params); }
     public static function query(string $sql, array $params = []): \PDOStatement|false { return Executor::query($sql, $params); }

@@ -38,12 +38,24 @@ class GridBuilder {
             if (newWidth > 40) {
                 th.style.width = newWidth + 'px';
                 th.style.minWidth = newWidth + 'px';
+                // Force table layout to respect column widths
+                const table = th.closest('table');
+                if (table) {
+                    table.style.tableLayout = 'fixed';
+                }
             }
         };
 
         const onMouseUp = (e) => {
             if (th) {
                 th.querySelector('.grid-resizer').classList.remove('grid-resizing');
+                // Restore auto layout after resize for proper horizontal scroll
+                const table = th.closest('table');
+                if (table) {
+                    setTimeout(() => {
+                        table.style.tableLayout = 'auto';
+                    }, 50);
+                }
                 th = null;
                 document.removeEventListener('mousemove', onMouseMove);
             }
