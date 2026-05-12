@@ -25,7 +25,7 @@ echo "[INFO] Verificando estructura de la tabla connections...\n";
 
 // Verificar si la columna description ya existe
 $result = DB::query("PRAGMA table_info(connections)", [], 'internal');
-$columns = array_column($result, 'name');
+$columns = array_column($result->fetchAll(PDO::FETCH_ASSOC), 'name');
 
 if (!in_array('description', $columns)) {
     echo "[INFO] Agregando columna 'description'...\n";

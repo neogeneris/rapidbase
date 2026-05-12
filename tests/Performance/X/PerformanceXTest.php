@@ -329,7 +329,7 @@ $timeXJoin3Cache = benchmark("X (cached() - Cache Hit)", function() {
 echo "\n--- SCENARIO 6: grid() method (pagination + total count, 50 iterations) ---\n";
 
 $timeXGrid = benchmark("X::grid() (auto strategy - separate)", function() {
-    X::con('main')->from('users')->grid('*', 1, 30);
+    X::con('main')->from('users')->grid('*', [1, 30]);
 });
 
 $timeGatewayGrid = benchmark("Gateway::selectCached() + manual count", function() {
@@ -342,11 +342,11 @@ echo "\n--- SCENARIO 7: Window function vs Separate COUNT (first page, 50 iterat
 
 // Separate COUNT (estrategia que usa CountCache + select normal)
 $timeSeparate = benchmark("Grid with separate COUNT (CountCache + LIMIT)", function() {
-    X::con('main')->from('users')->totalStrategy('separate')->grid('*', 1, 30);
+    X::con('main')->from('users')->totalStrategy('separate')->grid('*', [1, 30]);
 }, 50);
 
 $timeWindow = benchmark("Grid with window FUNCTION (COUNT(*) OVER())", function() {
-    X::con('main')->from('users')->totalStrategy('window')->grid('*', 1, 30);
+    X::con('main')->from('users')->totalStrategy('window')->grid('*', [1, 30]);
 }, 50);
 
 // ==================== SUMMARY ====================
