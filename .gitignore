@@ -426,3 +426,5 @@ vendor/
 !fastlane/.supply/**
 !fastlane/.frameit/**
 ...... (truncated due to length)
+examples/querybrowser/data/connections.sqlite
+tmp/x_benchmark.sqlite
