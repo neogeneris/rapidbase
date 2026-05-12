@@ -1,25 +1,53 @@
 <?php
 
 /**
- * Router principal de la API
- * Uso: api.php?ep=HealthService&action=ping&connectionId=5
+ * Main API Router
+ * Usage: api.php?ep=ConnectionManager&action=list
  * 
- * Este archivo demuestra cómo se podría enrutar las solicitudes HTTP
- * hacia los endpoints definidos en la carpeta EndPoints/
+ * This file demonstrates how to route HTTP requests
+ * to endpoints defined in the Endpoints/ folder.
  */
 
-// Cargar clases (en producción usar composer autoload)
+// Load RapidBase bundle
+require_once __DIR__ . '/lib/RapidBase.php';
+
+// Initialize database connection using Conn::setup
+\RapidBase\Core\Conn::setup('sqlite:' . __DIR__ . '/rapidbase_poc.sqlite', '', '', 'main');
+
+// Load API classes
 require_once __DIR__ . '/Api/ApiContext.php';
 require_once __DIR__ . '/Api/BaseEndpoint.php';
 
-// Directorio donde se encuentran los endpoints
+// Auto-load Models
+spl_autoload_register(function ($class) {
+    if (strpos($class, 'RapidBase\\Models\\') === 0) {
+        $file = __DIR__ . '/Models/' . substr(strrchr($class, '\\'), 1) . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+        }
+    }
+});
+
+// Directory where endpoints are located
 $endpointsDir = __DIR__ . '/Endpoints/';
 
-// Obtener parámetros de la solicitud
-$endpointName = $_GET['ep'] ?? '';
-$action = $_GET['action'] ?? '';
+// Get request parameters (supports GET, POST, or CLI)
+$endpointName = $_REQUEST['ep'] ?? ($_SERVER['argv'][1] ?? '');
+$action = $_REQUEST['action'] ?? ($_SERVER['argv'][2] ?? '');
 
-// Validar que se haya especificado un endpoint
+// Merge all request sources for flexibility
+$params = array_merge($_GET, $_POST, $_REQUEST);
+if (!empty($_SERVER['argv'])) {
+    // Parse CLI arguments like ep=X action=Y param1=value1
+    for ($i = 3; $i < count($_SERVER['argv']); $i++) {
+        if (strpos($_SERVER['argv'][$i], '=') !== false) {
+            list($key, $value) = explode('=', $_SERVER['argv'][$i], 2);
+            $params[$key] = $value;
+        }
+    }
+}
+
+// Validate endpoint is specified
 if (empty($endpointName)) {
     http_response_code(400);
     echo json_encode([
@@ -29,11 +57,11 @@ if (empty($endpointName)) {
     exit;
 }
 
-// Construir el nombre de la clase
+// Build class name
 $className = "RapidBase\\Endpoints\\{$endpointName}";
 $classFile = $endpointsDir . "{$endpointName}.php";
 
-// Verificar si el archivo del endpoint existe
+// Check if endpoint file exists
 if (!file_exists($classFile)) {
     http_response_code(404);
     echo json_encode([
@@ -43,28 +71,28 @@ if (!file_exists($classFile)) {
     exit;
 }
 
-// Cargar el endpoint
+// Load the endpoint
 require_once $classFile;
 
-// Verificar que la clase exista
+// Verify class exists
 if (!class_exists($className)) {
     http_response_code(500);
     echo json_encode(['error' => "Class {$className} not found"]);
     exit;
 }
 
-// Crear el contexto con los datos de la solicitud
+// Create context with request data
 $context = new \RapidBase\Api\ApiContext(
-    params:  array_merge($_GET, $_POST),
+    params:  $params,
     session: $_SESSION ?? [],
-    auth:    [] // Aquí podrías agregar lógica de autenticación
+    auth:    [] // Add authentication logic here
 );
 
-// Instanciar el endpoint e inyectar contexto
+// Instantiate endpoint and inject context
 $api = new $className();
 $api->setContext($context);
 
-// Si no se especifica acción, devolver la descripción del endpoint
+// If no action specified, return endpoint description
 if (empty($action)) {
     header('Content-Type: application/json');
     echo json_encode([
@@ -76,7 +104,7 @@ if (empty($action)) {
     exit;
 }
 
-// Verificar que el método exista
+// Check if method exists
 if (!method_exists($api, $action)) {
     http_response_code(400);
     echo json_encode([
@@ -86,20 +114,20 @@ if (!method_exists($api, $action)) {
     exit;
 }
 
-// Obtener los parámetros requeridos por el método
+// Get method parameters
 $reflection = new ReflectionMethod($api, $action);
 $parameters = $reflection->getParameters();
 
-// Construir el array de argumentos para llamar al método
+// Build arguments array for method call
 $args = [];
 foreach ($parameters as $param) {
     $paramName = $param->getName();
     
-    // Buscar el parámetro en GET o POST
+    // Look for parameter in request
     if (isset($context->params[$paramName])) {
         $value = $context->params[$paramName];
         
-        // Convertir al tipo esperado si es necesario
+        // Convert to expected type if necessary
         if ($param->hasType()) {
             $type = $param->getType()->getName();
             if ($type === 'int') {
@@ -125,7 +153,7 @@ foreach ($parameters as $param) {
     }
 }
 
-// Ejecutar el método y devolver resultado
+// Execute method and return result
 try {
     $result = call_user_func_array([$api, $action], $args);
     header('Content-Type: application/json');

@@ -2,25 +2,19 @@
 # Database files
 *.sqlite
 
+# Dependencies
+vendor/
+
 # Logs and temp files
 *.log
 *.tmp
 
-# Environment files
+# Environment
 .env
 .env.local
 *.env.*
 
-# Editor/IDE files
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# Dependencies
-vendor/
-
-# Build artifacts
-build/
-dist/
 ```

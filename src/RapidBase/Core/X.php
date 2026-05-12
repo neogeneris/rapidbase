@@ -445,84 +445,96 @@ class X
 	}
 
 
-	/**
-	 * Returns the schema description (columns, primary keys, relations)
-	 * for the tables currently selected via from().
-	 *
-	 * If no table has been set, returns the description for all tables
-	 * present in the SchemaMap.
-	 *
-	 * @return array  Associative array keyed by table name.
-	 */
-	public function description(): array
-	{
-		$this->useConnection();
+    /**
+     * Returns a clean schema description with tables, views, and relations.
+     *
+     * If no table was set via from(), all tables in the SchemaMap are included.
+     *
+     * @return array  Example:
+     *                [
+     *                  'tables' => [
+     *                      ['name' => 'users', 'columns' => ['id' => 'int', 'name' => 'varchar'], 'primaryKeys' => ['id']],
+     *                      ...
+     *                  ],
+     *                  'views' => [],
+     *                  'relations' => [
+     *                      ['sourceTable' => 'users', 'sourceColumn' => 'role_id',
+     *                       'targetTable' => 'roles', 'targetColumn' => 'id', 'type' => 'belongsTo'],
+     *                      ...
+     *                  ]
+     *                ]
+     */
+    public function description(): array
+    {
+        $this->useConnection();
 
-		$tables = $this->table;
-		if (empty($tables)) {
-			$tables = array_keys(SchemaMap::getMap()['tables'] ?? []);
-		} elseif (is_string($tables)) {
-			$tables = [$tables];
-		}
+        // Determine which tables to describe
+        $tables = $this->table;
+        if (empty($tables)) {
+            $tables = array_keys(SchemaMap::getMap()['tables'] ?? []);
+        } elseif (is_string($tables)) {
+            $tables = [$tables];
+        }
 
-		$map      = SchemaMap::getMap();
-		$result   = [];
+        $map = SchemaMap::getMap();
+        $tableDefs = [];
+        $relations = [];
 
-		foreach ($tables as $table) {
-			$tableInfo = $map['tables'][$table] ?? null;
+        foreach ($tables as $tableName) {
+            $tableInfo = $map['tables'][$tableName] ?? null;
 
-			if (!$tableInfo) {
-				$result[$table] = [
-					'columns'   => [],
-					'pks'       => [],
-					'relations' => [],
-				];
-				continue;
-			}
+            if (!$tableInfo) {
+                $tableDefs[] = [
+                    'name'        => $tableName,
+                    'columns'     => [],
+                    'primaryKeys' => [],
+                ];
+                continue;
+            }
 
-			// --- Columns and Primary Keys ---
-			$columns = [];
-			$pks     = [];
-			foreach ($tableInfo as $colName => $def) {
-				$columns[$colName] = $def['type'] ?? 'string';
-				if ($def['primary'] ?? false) {
-					$pks[] = $colName;
-				}
-			}
+            // Columns and primary keys
+            $columns = [];
+            $pks     = [];
+            foreach ($tableInfo as $colName => $def) {
+                $columns[$colName] = $def['type'] ?? 'string';
+                if ($def['primary'] ?? false) {
+                    $pks[] = $colName;
+                }
+            }
+            $tableDefs[] = [
+                'name'        => $tableName,
+                'columns'     => $columns,
+                'primaryKeys' => $pks,
+            ];
 
-			// --- Relations ---
-			$relations = [];
+            // Relations (outgoing and incoming) are merged into a flat list
+            // Outgoing
+            foreach ($map['relationships']['from'][$tableName] ?? [] as $target => $rel) {
+                $relations[] = [
+                    'sourceTable'  => $tableName,
+                    'sourceColumn' => $rel['local_key'],
+                    'targetTable'  => $target,
+                    'targetColumn' => $rel['foreign_key'],
+                    'type'         => $rel['type'] ?? 'belongsTo',
+                ];
+            }
+            // Incoming
+            foreach ($map['relationships']['to'][$tableName] ?? [] as $source => $rel) {
+                $relations[] = [
+                    'sourceTable'  => $source,
+                    'sourceColumn' => $rel['local_key'],
+                    'targetTable'  => $tableName,
+                    'targetColumn' => $rel['foreign_key'],
+                    'type'         => $rel['type'] ?? 'hasMany',
+                ];
+            }
+        }
 
-			// Outgoing relations (this table points to another)
-			foreach ($map['relationships']['from'][$table] ?? [] as $target => $rel) {
-				$relations[] = [
-					'direction'    => 'out',
-					'local_col'    => $rel['local_key'],
-					'target_table' => $target,
-					'target_col'   => $rel['foreign_key'],
-					'type'         => $rel['type'] ?? 'belongsTo',
-				];
-			}
-
-			// Incoming relations (other tables point to this one)
-			foreach ($map['relationships']['to'][$table] ?? [] as $source => $rel) {
-				$relations[] = [
-					'direction'    => 'in',
-					'local_col'    => $rel['foreign_key'],
-					'target_table' => $source,
-					'target_col'   => $rel['local_key'],
-					'type'         => $rel['type'] ?? 'hasMany',
-				];
-			}
-
-			$result[$table] = [
-				'columns'   => $columns,
-				'pks'       => $pks,
-				'relations' => $relations,
-			];
-		}
-
-		return $result;
-	}
+        return [
+            'tables'    => $tableDefs,
+            'views'     => [],
+            'relations' => $relations,
+        ];
+    }
 
 }

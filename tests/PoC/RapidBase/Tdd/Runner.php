@@ -11,17 +11,69 @@ use PDO;
 class Runner {
     private PDO $db;
     private string $endpointsPath;
+    private string $modelsPath;
+    private string $basePath;
     private array $results = [];
     private bool $stopOnFirstFail = false;
 
     public function __construct(
         string $dbPath = 'rapidbase_tdd.sqlite',
-        string $endpointsPath = __DIR__ . '/../Endpoints'
+        string $basePath = __DIR__ . '/..'
     ) {
+        $this->basePath = rtrim($basePath, '/\\');
+        $this->endpointsPath = $this->basePath . '/Endpoints';
+        $this->modelsPath = $this->basePath . '/Models';
+        
+        // Cargar RapidBase bundle primero
+        $bundlePath = $this->basePath . '/lib/RapidBase.php';
+        if (file_exists($bundlePath)) {
+            require_once $bundlePath;
+        }
+        
+        // Inicializar conexión por defecto para el ORM
+        $this->initDefaultConnection();
+        
         $this->db = new \PDO("sqlite:$dbPath");
         $this->db->setAttribute(\PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->endpointsPath = $endpointsPath;
         $this->initDb();
+        $this->autoLoadModels();
+    }
+
+    /**
+     * Initialize default SQLite connection for ORM operations
+     */
+    private function initDefaultConnection(): void {
+        $pocDbPath = $this->basePath . '/rapidbase_poc.sqlite';
+        
+        try {
+            \RapidBase\Core\Conn::setup(
+                'sqlite:' . $pocDbPath,
+                '',
+                '',
+                'default'
+            );
+        } catch (\Throwable $e) {
+            // Si ya existe la conexión, continuar
+        }
+    }
+
+    /**
+     * Auto-load all models from Models/ directory
+     */
+    private function autoLoadModels(): void {
+        if (!is_dir($this->modelsPath)) {
+            return;
+        }
+        
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($this->modelsPath, RecursiveDirectoryIterator::SKIP_DOTS)
+        );
+        
+        foreach ($iterator as $file) {
+            if ($file->isFile() && $file->getExtension() === 'php') {
+                require_once $file->getPathname();
+            }
+        }
     }
 
     private function initDb() {
