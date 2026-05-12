@@ -144,7 +144,7 @@ class X
         $status = Gateway::status();
         return new XResponse(
             data: [], sql: $status['sql'] ?? '', durationMs: $status['duration'] ?? 0,
-            success: $affected > 0, affected: $affected, lastId: $affected
+            success: $affected > 0, affected: (int) $affected, lastId: $affected
         );
     }
 
