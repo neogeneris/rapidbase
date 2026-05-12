@@ -11,6 +11,7 @@ class QueryBuilder {
         this.searchTerm = '';
         this.grid = null;
         this.onActivateTab = options.onActivateTab || null;
+        this.schemaExplorer = options.schemaExplorer || null;
     }
 
     init(parentElement) {
@@ -234,14 +235,33 @@ class QueryBuilder {
             const resp = await fetch(`api.php?action=table_description&connectionId=${this.connectionId}&tables=${encodeURIComponent(JSON.stringify(this.tables))}`);
             const data = await resp.json();
             
+            console.log("SchemaExplorer - Table Description Response:", data);
+            
             if (data.success && data.description) {
                 // Guardar en app.activeSchemaData si existe el contexto global
-                if (window.app && window.app.schemaExplorer) {
+                if (window.app) {
                     window.app.activeSchemaData = data.description;
-                    window.app.schemaExplorer.update(data.description, this.tables);
+                    console.log("SchemaExplorer - Updated app.activeSchemaData with tables:", Object.keys(data.description));
                 }
+                
+                // Actualizar SchemaExplorer directamente si tenemos referencia
+                if (this.schemaExplorer) {
+                    console.log("SchemaExplorer - Updating via direct reference with tables:", this.tables);
+                    this.schemaExplorer.update(data.description, this.tables);
+                } else if (window.app && window.app.schemaExplorer) {
+                    console.log("SchemaExplorer - Updating via window.app.schemaExplorer with tables:", this.tables);
+                    window.app.schemaExplorer.update(data.description, this.tables);
+                } else {
+                    console.warn("SchemaExplorer - No schemaExplorer instance found");
+                }
+            } else if (data.error) {
+                console.error("SchemaExplorer - API error:", data.error);
+            } else {
+                console.warn("SchemaExplorer - No description in response");
             }
-        } catch (e) { console.error("Error loading table description", e); }
+        } catch (e) { 
+            console.error("SchemaExplorer - Error loading table description", e); 
+        }
     }
 
     _renderRelList(containerId, list) {

@@ -222,9 +222,13 @@
                         if (app.schemaExplorer && app.activeSchemaData) {
                             app.schemaExplorer.update(app.activeSchemaData, instance.tables);
                         }
-                    }
+                    },
+                    schemaExplorer: app.schemaExplorer
                 });
-                app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
+                const tab = app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
+                
+                // Nota: SchemaExplorer se actualizará automáticamente cuando QueryBuilder cargue la descripción
+                // a través del método _loadTableDescription() que ya está implementado
             },
 
             // Abrir diálogo de nueva conexión
