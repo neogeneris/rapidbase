@@ -21,17 +21,17 @@ class Conn
     /** @var string Identificador de la conexión activa actual */
     private static string $currentConnectionId = 'default';
 
-    /**
-     * Registra una nueva conexión en el pool.
-     *
-     * @param string $connectionId Nombre lógico que identifica la conexión (ej. 'main', 'reporting')
-     * @param string $dsn          DSN completo (ej. 'mysql:host=localhost;dbname=mi_bd')
-     * @param string $user
-     * @param string $pass
-     * @return void
-     * @throws \PDOException
-     */
-    public static function add(string $connectionId, string $dsn, string $user = '', string $pass = ''): void
+	/**
+	 * Registra una nueva conexión en el pool.
+	 *
+	 * @param string $connectionId Nombre lógico que identifica la conexión (ej. 'main', 'reporting')
+	 * @param string $dsn          DSN completo (ej. 'mysql:host=localhost;dbname=mi_bd')
+	 * @param string $user
+	 * @param string $pass
+	 * @return void
+	 * @throws \PDOException
+	 */    
+	public static function add(string $connectionId, string $dsn, string $user = '', string $pass = ''): void
     {
         $pdo = new \PDO($dsn, $user, $pass, [
             \PDO::ATTR_ERRMODE          => \PDO::ERRMODE_EXCEPTION,
@@ -60,14 +60,18 @@ class Conn
     }
 
     /**
-     * Método de compatibilidad hacia atrás.
-     * @deprecated Usar Conn::add() directamente.
-     */
-    public static function setup(string $dsn, string $user, string $pass, string $connectionId = 'main'): void
-    {
-        self::add($connectionId, $dsn, $user, $pass);
-        self::select($connectionId);
-    }
+	 * Registra y activa una conexión principal.
+	 * 
+	 * Equivale a llamar a Conn::add() seguido de Conn::select().
+	 * Es el método recomendado para configurar la conexión inicial de la aplicación.
+	 *
+	 * @param string $connectionId Identificador lógico de la conexión.
+	 */
+	public static function setup(string $dsn, string $user, string $pass, string $connectionId = 'main'): void
+	{
+		self::add($connectionId, $dsn, $user, $pass);
+		self::select($connectionId);
+	}
 
     /**
      * Cambia la conexión activa.
