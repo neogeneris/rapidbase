@@ -49,16 +49,16 @@
 
 .se-column-item { 
     display: flex; align-items: center; padding: 3px 12px 3px 8px; border-radius: 4px; 
-    cursor: grab; transition: background 0.15s;
+    cursor: grab; transition: background 0.15s; min-width: 200px;
 }
 .se-column-item:hover { background: #f8fafc; }
 
-.se-col-label { display: flex; align-items: center; flex: 1; cursor: pointer; font-size: 0.8rem; color: #64748b; }
-.se-col-label input { margin-right: 8px; cursor: pointer; width: 13px; height: 13px; }
+.se-col-label { display: flex; align-items: center; flex: 1; cursor: pointer; font-size: 0.8rem; color: #64748b; gap: 6px; }
+.se-col-label input { margin-right: 4px; cursor: pointer; width: 13px; height: 13px; flex-shrink: 0; }
 
-.se-pk { margin: 0 4px; font-size: 10px; opacity: 0.8; }
-.se-name { font-weight: 500; }
-.se-type { color: #94a3b8; font-size: 0.65rem; margin-left: 6px; font-weight: 600; background: #f8fafc; padding: 1px 3px; border-radius: 2px; }
+.se-pk { margin: 0 4px; font-size: 10px; opacity: 0.8; flex-shrink: 0; }
+.se-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.se-type { color: #94a3b8; font-size: 0.65rem; margin-left: auto; font-weight: 600; background: #f8fafc; padding: 1px 4px; border-radius: 2px; flex-shrink: 0; }
 
 .se-sort-select { 
     border: none; background: transparent; color: #94a3b8; font-size: 11px; 

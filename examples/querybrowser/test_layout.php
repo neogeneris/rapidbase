@@ -216,12 +216,8 @@
                 });
                 const tab = app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
                 
-                // Forzar actualización inicial del SchemaExplorer con la tabla seleccionada
-                setTimeout(() => {
-                    if (app.schemaExplorer && app.activeSchemaData) {
-                        app.schemaExplorer.update(app.activeSchemaData, [tableName]);
-                    }
-                }, 100);
+                // Nota: SchemaExplorer se actualizará automáticamente cuando QueryBuilder cargue la descripción
+                // a través del método _loadTableDescription() que ya está implementado
             },
 
             // Abrir diálogo de nueva conexión
