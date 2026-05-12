@@ -23,7 +23,7 @@ foreach (glob(__DIR__ . '/Endpoints/*.php') as $file) {
 
 $runner = new \RapidBase\Tdd\Runner(
     dbPath: 'rapidbase_tdd.sqlite',
-    endpointsPath: __DIR__ . '/Endpoints'
+    basePath: __DIR__
 );
 
 $args = $argv;
