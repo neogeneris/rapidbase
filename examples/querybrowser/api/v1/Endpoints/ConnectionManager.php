@@ -4,17 +4,40 @@ namespace RapidBase\Endpoints;
 
 use RapidBase\Api\BaseEndpoint;
 use RapidBase\Core\Conn;
-use RapidBase\Core\DB;
-use RapidBase\Models\Connection;
 
 /**
- * ConnectionManager - Manages database connections using RapidBase ActiveRecord.
+ * ConnectionManager - Manages database connections.
  * 
- * This endpoint demonstrates CRUD operations on the connections table
- * using the Connection model which extends RapidBase ORM.
+ * This endpoint handles listing, testing and activating connections
+ * using the internal Conn pool and configuration.
  */
 class ConnectionManager extends BaseEndpoint
 {
+    private function getConnectionsFile(): string
+    {
+        return __DIR__ . '/../../data/connections.json';
+    }
+
+    private function loadConnections(): array
+    {
+        $file = $this->getConnectionsFile();
+        if (!file_exists($file)) {
+            return [];
+        }
+        $content = file_get_contents($file);
+        return json_decode($content, true) ?: [];
+    }
+
+    private function saveConnections(array $connections): bool
+    {
+        $file = $this->getConnectionsFile();
+        $dir = dirname($file);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        return file_put_contents($file, json_encode($connections, JSON_PRETTY_PRINT)) !== false;
+    }
+
     /**
      * List all registered connections.
      * 
@@ -23,12 +46,12 @@ class ConnectionManager extends BaseEndpoint
     public function list(): array
     {
         try {
-            $connections = Connection::all();
+            $connections = $this->loadConnections();
             
             return [
                 'success' => true,
                 'count' => count($connections),
-                'connections' => $connections
+                'connections' => array_values($connections)
             ];
         } catch (\Throwable $e) {
             return [
@@ -49,19 +72,27 @@ class ConnectionManager extends BaseEndpoint
         $params = $this->context->params;
         
         try {
-            $connection = new Connection();
-            $connection->name = $params['name'] ?? 'Unnamed';
-            $connection->driver = $params['driver'] ?? 'sqlite';
-            $connection->host = $params['host'] ?? 'localhost';
-            $connection->port = $params['port'] ?? null;
-            $connection->database = $params['database'] ?? $params['db'] ?? '';
-            $connection->username = $params['username'] ?? $params['user'] ?? '';
-            $connection->password = $params['password'] ?? $params['pass'] ?? '';
-            $connection->description = $params['description'] ?? '';
-            $connection->environment = $params['environment'] ?? 'dev';
-            $connection->status = $params['status'] ?? 'active';
+            $connections = $this->loadConnections();
             
-            $saved = $connection->save();
+            // Generate new ID
+            $newId = count($connections) > 0 ? max(array_keys($connections)) + 1 : 1;
+            
+            $connection = [
+                'id' => $newId,
+                'name' => $params['name'] ?? 'Unnamed',
+                'driver' => $params['driver'] ?? 'sqlite',
+                'host' => $params['host'] ?? 'localhost',
+                'port' => $params['port'] ?? null,
+                'database' => $params['database'] ?? $params['db'] ?? '',
+                'username' => $params['username'] ?? $params['user'] ?? '',
+                'password' => $params['password'] ?? $params['pass'] ?? '',
+                'description' => $params['description'] ?? '',
+                'environment' => $params['environment'] ?? 'dev',
+                'status' => $params['status'] ?? 'active'
+            ];
+            
+            $connections[$newId] = $connection;
+            $saved = $this->saveConnections($connections);
             
             if (!$saved) {
                 return [
@@ -72,8 +103,8 @@ class ConnectionManager extends BaseEndpoint
             
             return [
                 'success' => true,
-                'id' => (int) $connection->id,
-                'connection' => $connection->toArray()
+                'id' => $newId,
+                'connection' => $connection
             ];
             
         } catch (\Throwable $e) {
@@ -102,9 +133,9 @@ class ConnectionManager extends BaseEndpoint
         }
         
         try {
-            $connection = Connection::find($id);
+            $connections = $this->loadConnections();
             
-            if (!$connection) {
+            if (!isset($connections[$id])) {
                 return [
                     'success' => false,
                     'error' => "Connection $id not found"
@@ -112,22 +143,23 @@ class ConnectionManager extends BaseEndpoint
             }
             
             // Update fields if provided
-            if (isset($params['name'])) $connection->name = $params['name'];
-            if (isset($params['driver'])) $connection->driver = $params['driver'];
-            if (isset($params['host'])) $connection->host = $params['host'];
-            if (isset($params['port'])) $connection->port = $params['port'];
-            if (isset($params['database'])) $connection->database = $params['database'];
-            if (isset($params['username'])) $connection->username = $params['username'];
-            if (isset($params['password'])) $connection->password = $params['password'];
-            if (isset($params['description'])) $connection->description = $params['description'];
-            if (isset($params['environment'])) $connection->environment = $params['environment'];
-            if (isset($params['status'])) $connection->status = $params['status'];
+            $conn = &$connections[$id];
+            if (isset($params['name'])) $conn['name'] = $params['name'];
+            if (isset($params['driver'])) $conn['driver'] = $params['driver'];
+            if (isset($params['host'])) $conn['host'] = $params['host'];
+            if (isset($params['port'])) $conn['port'] = $params['port'];
+            if (isset($params['database'])) $conn['database'] = $params['database'];
+            if (isset($params['username'])) $conn['username'] = $params['username'];
+            if (isset($params['password'])) $conn['password'] = $params['password'];
+            if (isset($params['description'])) $conn['description'] = $params['description'];
+            if (isset($params['environment'])) $conn['environment'] = $params['environment'];
+            if (isset($params['status'])) $conn['status'] = $params['status'];
             
-            $saved = $connection->save();
+            $saved = $this->saveConnections($connections);
             
             return [
                 'success' => $saved,
-                'connection' => $connection->toArray()
+                'connection' => $conn
             ];
             
         } catch (\Throwable $e) {
@@ -156,16 +188,17 @@ class ConnectionManager extends BaseEndpoint
         }
         
         try {
-            $connection = Connection::find($id);
+            $connections = $this->loadConnections();
             
-            if (!$connection) {
+            if (!isset($connections[$id])) {
                 return [
                     'success' => false,
                     'error' => "Connection $id not found"
                 ];
             }
             
-            $deleted = $connection->delete();
+            unset($connections[$id]);
+            $deleted = $this->saveConnections($connections);
             
             return [
                 'success' => $deleted,
@@ -198,21 +231,37 @@ class ConnectionManager extends BaseEndpoint
         }
         
         try {
-            $connection = Connection::find($id);
+            $connections = $this->loadConnections();
             
-            if (!$connection) {
+            if (!isset($connections[$id])) {
                 return [
                     'success' => false,
                     'error' => "Connection $id not found"
                 ];
             }
             
+            $conn = $connections[$id];
+            
             // Build DSN from connection details
-            $dsn = $connection->buildDsn();
+            $driver = $conn['driver'] ?? 'sqlite';
+            $host = $conn['host'] ?? 'localhost';
+            $port = $conn['port'] ?? '';
+            $database = $conn['database'] ?? '';
+            $username = $conn['username'] ?? '';
+            $password = $conn['password'] ?? '';
+            
+            $dsn = "$driver:";
+            if ($driver === 'sqlite') {
+                $dsn .= $database;
+            } else {
+                $dsn .= "host=$host;";
+                if ($port) $dsn .= "port=$port;";
+                $dsn .= "dbname=$database";
+            }
             
             // Test connection using RapidBase Conn
             $start = microtime(true);
-            Conn::add('test_temp', $dsn, $connection->username, $connection->password);
+            Conn::add('test_temp', $dsn, $username, $password);
             $pdo = Conn::get('test_temp');
             
             // Simple ping query
@@ -226,8 +275,8 @@ class ConnectionManager extends BaseEndpoint
                 'success' => true,
                 'connected' => true,
                 'latency_ms' => $latency,
-                'driver' => $connection->driver,
-                'database' => $connection->database
+                'driver' => $driver,
+                'database' => $database
             ];
             
         } catch (\Throwable $e) {
@@ -257,22 +306,39 @@ class ConnectionManager extends BaseEndpoint
         }
         
         try {
-            $connection = Connection::find($id);
+            $connections = $this->loadConnections();
             
-            if (!$connection) {
+            if (!isset($connections[$id])) {
                 return [
                     'success' => false,
                     'error' => "Connection $id not found"
                 ];
             }
             
-            $dsn = $connection->buildDsn();
-            Conn::add($connection->id, $dsn, $connection->username, $connection->password);
-            Conn::select($connection->id);
+            $conn = $connections[$id];
+            
+            $driver = $conn['driver'] ?? 'sqlite';
+            $host = $conn['host'] ?? 'localhost';
+            $port = $conn['port'] ?? '';
+            $database = $conn['database'] ?? '';
+            $username = $conn['username'] ?? '';
+            $password = $conn['password'] ?? '';
+            
+            $dsn = "$driver:";
+            if ($driver === 'sqlite') {
+                $dsn .= $database;
+            } else {
+                $dsn .= "host=$host;";
+                if ($port) $dsn .= "port=$port;";
+                $dsn .= "dbname=$database";
+            }
+            
+            Conn::add($id, $dsn, $username, $password);
+            Conn::select($id);
             
             return [
                 'success' => true,
-                'message' => "Connection {$connection->id} activated",
+                'message' => "Connection $id activated",
                 'active' => Conn::getCurrentConnectionId()
             ];
             
