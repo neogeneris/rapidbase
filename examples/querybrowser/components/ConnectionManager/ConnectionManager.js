@@ -12,7 +12,8 @@ class ConnectionManager {
     async init() {
         this.container.innerHTML = '<div class="p-3 text-muted" style="font-size:12px;">Cargando...</div>';
         try {
-            const response = await fetch('api.php?action=list_connections');
+            // Nuevo endpoint unificado: ConnectionManager::list
+            const response = await fetch('api/v1/index.php?ep=ConnectionManager&action=list');
             const data = await response.json();
             this.allConnections = data.connections || [];
             this.render();
@@ -48,10 +49,10 @@ class ConnectionManager {
         if (dbNameEl) dbNameEl.innerHTML = '<span class="meta-loading">...</span>';
 
         try {
-            const response = await fetch('api.php?action=ping_connection', {
+            const response = await fetch('api/v1/index.php?ep=HealthService&action=ping', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id })
+                body: JSON.stringify({ connectionId: id })
             });
 
             const result = await response.json();
@@ -104,11 +105,18 @@ class ConnectionManager {
         }
 
         try {
-            const response = await fetch(`api.php?action=list_tables&connectionId=${connectionId}`);
+            const response = await fetch(`api/v1/index.php?ep=SchemaExplorer&action=getSchema&connectionId=${connectionId}`);
             const result   = await response.json();
 
             if (result.success && window.app?.tableList) {
-                app.tableList.populate(connectionId, result);
+                // Adaptar el formato de SchemaExplorer al que espera TableList
+                const adaptedResult = {
+                    success: true,
+                    tables: result.tables || [],
+                    views: result.views || [],
+                    relations: result.relations || []
+                };
+                app.tableList.populate(connectionId, adaptedResult);
             } else if (!result.success && window.app?.tableList) {
                 app.tableList.setError(result.error || 'No se pudo cargar el esquema');
             }
