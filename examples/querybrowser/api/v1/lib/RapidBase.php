@@ -126,3 +126,68 @@ declare(strict_types=1); namespace RapidBase\Infrastructure\UI\Adapters; class D
 			  AND TABLE_NAME = :tableName
 			  AND CONSTRAINT_NAME = 'PRIMARY'
 			ORDER BY ORDINAL_POSITION;"; $stmt = $this->pdo->prepare($sql); $stmt->bindParam(':databaseName', $databaseName, PDO::PARAM_STR); $stmt->bindParam(':tableName', $tableName, PDO::PARAM_STR); $stmt->execute(); $result = $stmt->fetch(PDO::FETCH_ASSOC); if ($result) { $pkCols = [$result['COLUMN_NAME']]; $more = $stmt->fetchAll(PDO::FETCH_ASSOC); foreach ($more as $row) { $pkCols[] = $row['COLUMN_NAME']; } return count($pkCols) === 1 ? $pkCols[0] : $pkCols; } return null; } public function getTables(string $databaseName): array { $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = :databaseName AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME"; $stmt = $this->pdo->prepare($sql); $stmt->bindParam(':databaseName', $databaseName, PDO::PARAM_STR); $stmt->execute(); return $stmt->fetchAll(PDO::FETCH_COLUMN); } } 
+// ApiContext class for RapidBase API
+namespace RapidBase\Api;
+
+class ApiContext {
+    public function __construct(
+        public array $params = [],
+        public array $session = [],
+        public array $auth = []
+    ) {}
+}
+
+// BaseEndpoint class for RapidBase API
+namespace RapidBase\Api;
+
+use ReflectionClass;
+use ReflectionMethod;
+
+abstract class BaseEndpoint {
+    protected ApiContext $context;
+
+    public function setContext(ApiContext $context): void {
+        $this->context = $context;
+    }
+
+    public function describe(): array {
+        $reflection = new ReflectionClass($this);
+        $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
+        $manifest = [];
+
+        foreach ($methods as $method) {
+            if ($method->class === self::class || str_starts_with($method->name, '__')) {
+                continue;
+            }
+
+            $manifest[$method->name] = [
+                'description' => $this->parseDoc($method->getDocComment()),
+                'parameters'  => array_map(fn($p) => [
+                    'name'     => $p->getName(),
+                    'type'     => $p->hasType() ? $p->getType()->getName() : 'mixed',
+                    'optional' => $p->isOptional()
+                ], $method->getParameters())
+            ];
+        }
+
+        return $manifest;
+    }
+
+    public function version(): array {
+        return [
+            'endpoint' => static::class,
+            'version' => '1.0.0'
+        ];
+    }
+
+    public function catalog(): array {
+        return [
+            'endpoint' => static::class,
+            'methods' => array_keys($this->describe())
+        ];
+    }
+
+    private function parseDoc($doc): string {
+        return trim(preg_replace('/(\/\*\*|\*\/|\*)/', '', (string)$doc));
+    }
+}
