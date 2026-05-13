@@ -354,6 +354,72 @@ class Runner {
     }
 
     /**
+     * Ejecuta las pruebas de un endpoint específico
+     */
+    public function runEndpoint(string $endpointName, bool $verbose = false): array {
+        $this->results = [
+            'total' => 0,
+            'pass' => 0,
+            'fail' => 0,
+            'tests' => []
+        ];
+
+        $endpoints = $this->scanEndpoints();
+        
+        foreach ($endpoints as $endpoint) {
+            if ($endpoint['name'] !== $endpointName) {
+                continue;
+            }
+            
+            $instance = new $endpoint['class']();
+            
+            // Inyectar contexto mock si es necesario
+            if (method_exists($instance, 'setContext')) {
+                $context = new \RapidBase\Api\ApiContext(
+                    params: [],
+                    session: ['user_id' => 1],
+                    auth: ['role' => 'admin']
+                );
+                $instance->setContext($context);
+            }
+            
+            $methods = $this->getTestableMethods($endpoint['class']);
+            
+            foreach ($methods as $method) {
+                $testId = "{$endpoint['name']}::{$method}";
+                $this->results['total']++;
+                
+                if ($verbose) {
+                    echo "Running: $testId ... ";
+                }
+                
+                $result = $this->runMethod($instance, $method, $testId);
+                
+                if ($result['status'] === 'PASS') {
+                    $this->results['pass']++;
+                    if ($verbose) echo "[SUCCESS]\n";
+                } else {
+                    $this->results['fail']++;
+                    if ($verbose) echo "[FAILURE]: {$result['error']}\n";
+                }
+                
+                $this->results['tests'][] = [
+                    'id' => $testId,
+                    'class' => $endpoint['name'],
+                    'method' => $method,
+                    'status' => $result['status'],
+                    'error' => $result['error'] ?? null,
+                    'duration' => $result['duration'] ?? 0
+                ];
+            }
+            
+            break; // Solo el endpoint solicitado
+        }
+
+        return $this->results;
+    }
+
+    /**
      * Obtiene lista de tests que fallaron en su última ejecución
      */
     public function getFailingTests(): array {
@@ -401,12 +467,12 @@ class Runner {
         echo str_repeat("=", 70) . "\n";
         echo "              RAPIDBASE TDD TEST REPORT                   \n";
         echo str_repeat("=", 70) . "\n";
-        printf("  Total: %-4d  Pass: %-4d  Fail: %-4d                  \n", 
+        printf("  Total: %-4d  Success: %-4d  Failure: %-4d                  \n", 
                $results['total'], $results['pass'], $results['fail']);
         echo str_repeat("-", 70) . "\n";
         
         foreach ($results['tests'] as $test) {
-            $status = $test['status'] === 'PASS' ? '[PASS]' : '[FAIL]';
+            $status = $test['status'] === 'PASS' ? '[SUCCESS]' : '[FAILURE]';
             $errorInfo = '';
             if ($test['status'] === 'FAIL' && !empty($test['error'])) {
                 $errorInfo = ' - ' . substr($test['error'], 0, 40);

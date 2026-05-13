@@ -1,11 +1,6 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-
-# Dependencies
-vendor/
-composer.lock
+# Database files
+*.sqlite
 
 # Logs and temp files
 *.log
@@ -14,19 +9,44 @@ composer.lock
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
 # Editors
 .vscode/
 .idea/
 
-# Test reports and coverage
-.coverage
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+.python-version
+
+# Compiled and build artifacts
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.exe
+*.out
+
+# Dependencies
+node_modules/
+target/
+.gradle/
+.mypy_cache/
+.pytest_cache/
 coverage/
 htmlcov/
-*.xml
+.coverage
 
-# OS generated files
+# System files
 .DS_Store
 Thumbs.db
 ```
