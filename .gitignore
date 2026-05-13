@@ -1,1 +1,32 @@
-Nothing should be ignored based on the provided file changes. The added file 'examples/querybrowser/api/v1/Endpoints/SystemInfo.php' is a source code file that should not be added to .gitignore. Since there are no build artifacts, dependencies, or temporary files in the changes, no additional ignore rules are needed.
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+
+# Dependencies
+vendor/
+composer.lock
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Test reports and coverage
+.coverage
+coverage/
+htmlcov/
+*.xml
+
+# OS generated files
+.DS_Store
+Thumbs.db
+```

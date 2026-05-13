@@ -398,28 +398,28 @@ class Runner {
      */
     public function printReport(array $results): void {
         echo "\n";
-        echo "╔══════════════════════════════════════════════════════════╗\n";
-        echo "║              RAPIDBASE TDD TEST REPORT                   ║\n";
-        echo "╠══════════════════════════════════════════════════════════╣\n";
-        printf("║  Total: %-4d  Pass: %-4d  Fail: %-4d                  ║\n", 
+        echo str_repeat("=", 70) . "\n";
+        echo "              RAPIDBASE TDD TEST REPORT                   \n";
+        echo str_repeat("=", 70) . "\n";
+        printf("  Total: %-4d  Pass: %-4d  Fail: %-4d                  \n", 
                $results['total'], $results['pass'], $results['fail']);
-        echo "╠══════════════════════════════════════════════════════════╣\n";
+        echo str_repeat("-", 70) . "\n";
         
         foreach ($results['tests'] as $test) {
-            $icon = $test['status'] === 'PASS' ? '✓' : '✗';
-            $colorCode = $test['status'] === 'PASS' ? "\033[32m" : "\033[31m";
-            $reset = "\033[0m";
+            $status = $test['status'] === 'PASS' ? '[PASS]' : '[FAIL]';
+            $errorInfo = '';
+            if ($test['status'] === 'FAIL' && !empty($test['error'])) {
+                $errorInfo = ' - ' . substr($test['error'], 0, 40);
+            }
             
-            printf("║  %s%s %s::%s%-40s%s ║\n", 
-                   $colorCode, 
-                   $icon, 
+            printf("  %s %s::%s%s\n", 
+                   $status,
                    $test['class'], 
-                   $test['method'], 
-                   $test['status'] === 'FAIL' ? ': ' . substr($test['error'], 0, 25) : '',
-                   $reset);
+                   $test['method'],
+                   $errorInfo);
         }
         
-        echo "╚══════════════════════════════════════════════════════════╝\n\n";
+        echo str_repeat("=", 70) . "\n\n";
     }
 
     /**

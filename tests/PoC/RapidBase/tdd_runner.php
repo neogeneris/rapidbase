@@ -117,7 +117,7 @@ switch ($mode) {
         }
         
         foreach ($endpoints as $endpoint) {
-            echo "📦 {$endpoint['name']}\n";
+            echo "[ENDPOINT] {$endpoint['name']}\n";
             echo "   File: {$endpoint['file']}\n";
             echo "   Class: {$endpoint['class']}\n";
             
