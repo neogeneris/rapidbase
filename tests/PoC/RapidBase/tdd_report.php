@@ -124,21 +124,21 @@ class TddReport {
         $s = $stats['summary'];
         
         echo "\n";
-        echo "______________________________________________________________________\n";
-        echo "|           RAPIDBASE TDD REPORT DASHBOARD                 |\n";
-        echo "|______________________________________________________________|\n";
+        echo str_repeat("=", 70) . "\n";
+        echo "           RAPIDBASE TDD REPORT DASHBOARD                 \n";
+        echo str_repeat("=", 70) . "\n";
         
         // Métricas clave
-        $statusColor = $s['pass_rate'] >= 90 ? '✓' : ($s['pass_rate'] >= 70 ? '⚠' : '✗');
-        printf("|  %-15s %s%% %-30s |\n", "Pass Rate:", number_format($s['pass_rate'], 2), $statusColor);
-        printf("|  %-15s %-37s |\n", "Total Tests:", $s['total_tests']);
-        printf("|  %-15s %-37s |\n", "Passed:", $s['passed']);
-        printf("|  %-15s %-37s |\n", "Failed:", $s['failed']);
-        printf("|  %-15s %-37s |\n", "Unique Tests:", $s['unique_tests']);
+        $statusIcon = $s['pass_rate'] >= 90 ? '[OK]' : ($s['pass_rate'] >= 70 ? '[WARN]' : '[FAIL]');
+        printf("  Pass Rate:   %s%% %s\n", number_format($s['pass_rate'], 2), $statusIcon);
+        printf("  Total Tests: %s\n", $s['total_tests']);
+        printf("  Passed:      %s\n", $s['passed']);
+        printf("  Failed:      %s\n", $s['failed']);
+        printf("  Unique Tests:%s\n", $s['unique_tests']);
         
-        echo "|______________________________________________________________|\n";
-        echo "|  TREND (Last 10 executions)                              |\n";
-        echo "|______________________________________________________________|\n";
+        echo str_repeat("-", 70) . "\n";
+        echo "  TREND (Last 10 executions)\n";
+        echo str_repeat("-", 70) . "\n";
         
         $passTrend = $stats['trend']['PASS'] ?? 0;
         $failTrend = $stats['trend']['FAIL'] ?? 0;
@@ -146,33 +146,36 @@ class TddReport {
         $passBar = (int)($passTrend / max(1, $passTrend + $failTrend) * $barLength);
         $failBar = $barLength - $passBar;
         
-        echo "|  PASS: " . str_repeat('█', max(0, $passBar)) . str_repeat('░', max(0, $barLength - $passBar)) . " ($passTrend)\n";
-        echo "|  FAIL: " . str_repeat('█', max(0, $failBar)) . str_repeat('░', max(0, $barLength - $failBar)) . " ($failTrend)\n";
+        echo "  PASS: [" . str_repeat('#', max(0, $passBar)) . str_repeat('-', max(0, $barLength - $passBar)) . "] ($passTrend)\n";
+        echo "  FAIL: [" . str_repeat('#', max(0, $failBar)) . str_repeat('-', max(0, $barLength - $failBar)) . "] ($failTrend)\n";
         
-        echo "|______________________________________________________________|\n";
-        echo "|  RECENT HISTORY (Last {$limit} entries)                  |\n";
-        echo "|______________________________________________________________|\n";
+        echo str_repeat("-", 70) . "\n";
+        echo "  RECENT HISTORY (Last {$limit} entries)\n";
+        echo str_repeat("-", 70) . "\n";
         
         foreach (array_slice($stats['recent_history'], 0, 10) as $entry) {
-            $icon = $entry['status'] === 'PASS' ? '✓' : '✗';
-            $color = $entry['status'] === 'PASS' ? '' : ' [ERROR: ' . substr($entry['error_message'], 0, 30) . ']';
+            $status = $entry['status'] === 'PASS' ? '[PASS]' : '[FAIL]';
+            $errorInfo = '';
+            if ($entry['status'] === 'FAIL' && !empty($entry['error_message'])) {
+                $errorInfo = ' [' . substr($entry['error_message'], 0, 25) . ']';
+            }
             $time = number_format($entry['execution_time'] * 1000, 2);
-            printf("|  %s %-25s %sms%-20s |\n", 
-                $icon, 
+            printf("  %s %-25s %sms%s\n", 
+                $status, 
                 substr($entry['test_identifier'], 0, 25),
                 $time,
-                substr($color, 0, 20)
+                $errorInfo
             );
         }
         
         if (!empty($stats['slowest_tests'])) {
-            echo "|______________________________________________________________|\n";
-            echo "|  TOP 5 SLOWEST TESTS (avg time)                          |\n";
-            echo "|______________________________________________________________|\n";
+            echo str_repeat("-", 70) . "\n";
+            echo "  TOP 5 SLOWEST TESTS (avg time)\n";
+            echo str_repeat("-", 70) . "\n";
             
             foreach ($stats['slowest_tests'] as $i => $test) {
                 $time = number_format($test['avg_time'] * 1000, 2);
-                printf("|  %d. %-30s %sms (%d runs)              |\n", 
+                printf("  %d. %-30s %sms (%d runs)\n", 
                     $i + 1,
                     substr($test['test_identifier'], 0, 30),
                     $time,
@@ -181,14 +184,14 @@ class TddReport {
             }
         }
         
-        echo "|______________________________________________________________|\n";
-        echo "|  SYSTEM STATUS                                           |\n";
-        echo "|______________________________________________________________|\n";
-        printf("|  DB Size: %-10s KB                                     |\n", number_format($stats['system']['db_size_bytes'] / 1024, 2));
-        $statsStatus = $stats['system']['stats_file_exists'] ? '✓ Found' : '✗ Not found';
-        printf("|  Autoloader Stats: %-27s |\n", $statsStatus);
+        echo str_repeat("-", 70) . "\n";
+        echo "  SYSTEM STATUS\n";
+        echo str_repeat("-", 70) . "\n";
+        printf("  DB Size:          %s KB\n", number_format($stats['system']['db_size_bytes'] / 1024, 2));
+        $statsStatus = $stats['system']['stats_file_exists'] ? '[FOUND]' : '[NOT FOUND]';
+        printf("  Autoloader Stats: %s\n", $statsStatus);
         
-        echo "|______________________________________________________________|\n";
+        echo str_repeat("=", 70) . "\n";
         echo "\n";
     }
 }
