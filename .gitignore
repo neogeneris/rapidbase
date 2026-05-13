@@ -1,20 +1,18 @@
 ```
-# Database files
-*.sqlite
+# PHP-specific ignores
+*.php~
+*.php.bak
+*.php.swp
 
-# Dependencies
-vendor/
+# Test-related ignores
+tests/PoC/RapidBase/*.tmp
+tests/PoC/RapidBase/*.log
 
-# Logs and temp files
+# General ignores
 *.log
 *.tmp
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
+*.swp
+*.bak
+.DS_Store
+Thumbs.db
 ```
