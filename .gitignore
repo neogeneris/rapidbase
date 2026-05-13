@@ -1,18 +1,1 @@
-```
-# PHP-specific ignores
-*.php~
-*.php.bak
-*.php.swp
-
-# Test-related ignores
-tests/PoC/RapidBase/*.tmp
-tests/PoC/RapidBase/*.log
-
-# General ignores
-*.log
-*.tmp
-*.swp
-*.bak
-.DS_Store
-Thumbs.db
-```
+(empty)
