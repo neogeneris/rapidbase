@@ -37,6 +37,22 @@ if (empty($args)) {
 $mode = $args[0] ?? '--all';
 $verbose = in_array('-v', $args) || in_array('--verbose', $args);
 
+// Verificar si el primer argumento es un nombre de endpoint (ej: ConnectionManager)
+$endpoints = $runner->scanEndpoints();
+$endpointNames = array_column($endpoints, 'name');
+
+if (in_array($mode, $endpointNames)) {
+    // Ejecutar solo las pruebas de este endpoint
+    echo "Running tests for endpoint: {$mode}...\n\n";
+    $results = $runner->runEndpoint($mode, verbose: $verbose);
+    $runner->printReport($results);
+    
+    if ($results['fail'] > 0) {
+        exit(1);
+    }
+    exit(0);
+}
+
 switch ($mode) {
     case '--all':
         echo "Running ALL tests...\n\n";
