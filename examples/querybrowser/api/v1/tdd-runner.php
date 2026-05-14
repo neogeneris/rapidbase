@@ -14,7 +14,7 @@
  */
 
 require_once __DIR__ . '/lib/RapidBase.php';
-require_once __DIR__ . '/Tdd/Runner.php';
+
 require_once __DIR__ . '/tdd_report.php';
 
 // Cargar modelos

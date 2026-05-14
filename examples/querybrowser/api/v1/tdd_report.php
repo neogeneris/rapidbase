@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/Tdd/Runner.php';
+
 
 use RapidBase\Tdd\Runner;
 
