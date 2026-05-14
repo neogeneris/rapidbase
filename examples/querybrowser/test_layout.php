@@ -106,19 +106,20 @@
     </div>
 
     <footer id="footer-container" class="tab-footer"></footer>
-<script src="components/Icons/DBIcons.js"></script>
-    <script src="components/ConnectionFooter/ConnectionFooter.js"></script>
 	
+	<script src="assets/js/RapidBaseClient.js"></script>
+	<script src="components/Icons/DBIcons.js"></script>
+    <script src="components/ConnectionFooter/ConnectionFooter.js"></script>
     <script src="components/ConnectionManager/ConnectionManager.js"></script>
     <script src="components/ConnectionDialog/ConnectionDialog.js"></script>
-<script src="components/TableList/TableList.js"></script>
-<script src="components/TabManager/TabManager.js"></script>
-<script src="components/GraphViewer/GraphViewer.js"></script>
-<script src="components/QueryBuilder/QueryBuilder.js"></script>
-<script src="components/GridViewer/GridViewer.js"></script>
-<script src="components/SchemaExplorer/SchemaExplorer.js"></script>
-<script src="grid/GridBuilder.js"></script>
-<script src="grid/APIDataGrid.js"></script>
+	<script src="components/TableList/TableList.js"></script>
+	<script src="components/TabManager/TabManager.js"></script>
+	<script src="components/GraphViewer/GraphViewer.js"></script>
+	<script src="components/QueryBuilder/QueryBuilder.js"></script>
+	<script src="components/GridViewer/GridViewer.js"></script>
+	<script src="components/SchemaExplorer/SchemaExplorer.js"></script>
+	<script src="grid/GridBuilder.js"></script>
+	<script src="grid/APIDataGrid.js"></script>
 
     <script>
         // --- UTILIDADES ---
@@ -163,7 +164,6 @@
                         const newWidth = event.clientX;
                         if (newWidth > 150 && newWidth < 600) {
                             target.style.width = newWidth + 'px';
-                            // Fix: Force reflow for grid horizontal scroll
                             if (sidebarElement) {
                                 sidebarElement.style.width = newWidth + 'px';
                             }
@@ -196,16 +196,39 @@
             activeSchemaData: null,
             
             // Método para cambiar de conexión
-            connectSaved: (id) => {
+            connectSaved: async (id) => {
                 if (!id || id === 'undefined') return;
-                app.activeConnectionId = id;
-                console.log("Cambiando a conexión ID:", id);
                 
-                // Reiniciar el footer con el nuevo ID
-                app.footer = new ConnectionFooter('footer-container', id);
+                const connectionKey = `saved_${id}`;
+                app.activeConnectionId = connectionKey;
 
-                // Abrir pestaña de grafo
-                app.openGraph(id);
+                // Activar la conexión usando el nuevo router (si existe) o el viejo api.php
+                if (window.RapidBaseClient) {
+                    const api = new RapidBaseClient('api/v1/index.php');
+                    const res = await api.connectionManager.activate({ connectionId: id });
+                    if (!res.success) {
+                        console.error('Error activando conexión:', res.error);
+                        return;
+                    }
+                } else {
+                    // Fallback al viejo api.php
+                    const form = new FormData();
+                    form.append('connId', id);
+                    const resp = await fetch('api.php?action=connect_saved', { method: 'POST', body: form });
+                    const data = await resp.json();
+                    if (data.status !== 'ok') {
+                        console.error('Error activando conexión', data);
+                        return;
+                    }
+                }
+
+                console.log('Conexión activada:', connectionKey);
+
+                // Reiniciar el footer con el nuevo ID
+                app.footer = new ConnectionFooter('footer-container', connectionKey);
+
+                // Abrir pestaña de grafo (el esquema se cargará automáticamente desde ConnectionManager)
+                app.openGraph(connectionKey);
             },
 
             openGraph: (connId) => {
@@ -218,17 +241,13 @@
             openGrid: (connId, tableName) => {
                 const qb = new QueryBuilder(connId, tableName, {
                     onActivateTab: (instance) => {
-                        // Update SchemaExplorer when this tab is selected
                         if (app.schemaExplorer && app.activeSchemaData) {
                             app.schemaExplorer.update(app.activeSchemaData, instance.tables);
                         }
                     },
                     schemaExplorer: app.schemaExplorer
                 });
-                const tab = app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
-                
-                // Nota: SchemaExplorer se actualizará automáticamente cuando QueryBuilder cargue la descripción
-                // a través del método _loadTableDescription() que ya está implementado
+                app.tabs.addTab(`grid-${connId}-${tableName}`, tableName, qb, { icon: '📋' });
             },
 
             // Abrir diálogo de nueva conexión
@@ -243,46 +262,40 @@
             const pConn = new Panel('conn-manager-box', 'Connection', { icon: '🔌' });
             const pTables = new Panel('table-list-box', 'Tables', { icon: '📂' });
 
-            // Cargar Connection Manager y Table List
             app.connManager = new ConnectionManager(pConn.getBodyId());
             app.tableList   = new TableList(pTables.getBodyId(), {
                 onTableClick: (tableName) => app.openGrid(app.activeConnectionId, tableName)
             });
             
-            // Inicializar pestañas
             app.tabs = new TabManager('tabs-header', 'tabs-content');
 
-            // Inicializar SchemaExplorer (Aside derecho)
             app.schemaExplorer = new SchemaExplorer({ 
-                containerId: 'schema-explorer-box',
-                grid: {
-                    updateQuery: (selected) => {
-                        console.log("Columnas seleccionadas para query:", selected);
-                        // Aquí podrías actualizar el QueryBuilder si es necesario
-                    }
-                },
-                onSelectionChange: (selected) => {
-                    console.log("Columnas seleccionadas:", selected);
-                }
-            });
+				containerId: 'schema-explorer-box',
+				grid: {
+					updateQuery: (selected) => {
+						console.log("Columnas seleccionadas para query:", selected);
+					}
+				},
+				onSelectionChange: (selected) => {
+						// Buscar el QueryBuilder activo
+						if (!app.tabs || !app.tabs.activeTabId) return;
+						const activeTab = app.tabs.tabs.get(app.tabs.activeTabId);
+						if (activeTab && activeTab.component instanceof QueryBuilder) {
+							activeTab.component.setSelectedColumns(selected);
+						}
+					}
+			});
 
             // Interceptar la carga de tablas para guardar el schemaData global
             const origPopulate = app.tableList.populate.bind(app.tableList);
             app.tableList.populate = (connId, data) => {
                 app.activeSchemaData = data;
                 origPopulate(connId, data);
-                // Actualizar SchemaExplorer con los datos del schema
-                //if (app.schemaExplorer && data) {
-                //    app.schemaExplorer.update(data, []);
-               // }
             };
 
             initResizable(document.getElementById('resizer-h-left'), document.getElementById('conn-manager-box'), 'h');
             initResizable(document.getElementById('resizer-v-left'), document.getElementById('left-sidebar'), 'v-left', document.getElementById('left-sidebar'));
             initResizable(document.getElementById('resizer-v-right'), document.getElementById('right-sidebar'), 'v-right', document.getElementById('right-sidebar'));
-
-            // NOTA: No inicializamos el footer con ID 1 por defecto para evitar el error 400 
-            // si la DB está vacía. Se cargará cuando hagas clic en una conexión de la lista.
         };
     </script>
 </body>

@@ -4,17 +4,23 @@ namespace RapidBase\Endpoints;
 
 use RapidBase\Api\BaseEndpoint;
 use RapidBase\Core\X;
+use RapidBase\Core\SQL\Q;
 use RapidBase\Core\Conn;
 use RapidBase\Core\DB;
 
-class QueryExecutor extends BaseEndpoint
+class QueryBuilder extends BaseEndpoint
 {
-    public function execute(string $sql): array
+    /**
+     * Generates a SELECT SQL statement for the given tables, optionally
+     * including only the specified columns.
+     */
+    public function autoQuery(string $tables): array
     {
         $connId = $this->context->params['connectionId']
                   ?? $this->context->params['connection_id']
                   ?? 'main';
 
+        // Auto‑activar conexión si no está en el pool
         if (!in_array($connId, Conn::listConnectionIds())) {
             $id = (int) str_replace('saved_', '', $connId);
             if ($id > 0) {
@@ -32,7 +38,7 @@ class QueryExecutor extends BaseEndpoint
                         };
                         DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connId);
                     } else {
-                        return ['success' => false, 'error' => "Connection not found in database"];
+                        return ['success' => false, 'error' => 'Connection not found in database'];
                     }
                 } else {
                     return ['success' => false, 'error' => "Connection '$connId' not available."];
@@ -45,26 +51,29 @@ class QueryExecutor extends BaseEndpoint
         Conn::select($connId);
 
         try {
-            $xr = X::con($connId)->raw($sql);
-            $isSelect = !empty($xr->data) || stripos(trim($sql), 'SELECT') === 0;
+            $tableList = json_decode($tables, true);
+            if (!is_array($tableList) || empty($tableList)) {
+                return ['success' => false, 'error' => 'Invalid tables list'];
+            }
+
+            // Columnas opcionales
+            $columns = null;
+            if (isset($this->context->params['columns'])) {
+                $columns = json_decode($this->context->params['columns'], true);
+                if (!is_array($columns)) $columns = null;
+            }
+
+            $compiled = Q::from($tableList)->select($columns ?? '*');
+            $sql = X::con($connId)->toSQL($compiled);
 
             return [
-                'success'      => true,
-                'type'         => $isSelect ? 'SELECT' : 'ACTION',
-                'data'         => $xr->data ?? [],
-                'columns'      => $xr->columns ?? [],
-                'titles'       => $xr->titles ?? [],
-                'total'        => $xr->total ?? count($xr->data ?? []),
-                'affected_rows'=> $xr->affected ?? 0,
-                'last_insert_id'=> $xr->lastId ?? null,
-                'durationMs'   => $xr->durationMs ?? 0,
-                'sql'          => $xr->sql ?? $sql,
+                'success' => true,
+                'sql'     => $sql,
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
                 'error'   => $e->getMessage(),
-                'sql'     => $sql,
             ];
         }
     }

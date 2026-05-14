@@ -1,0 +1,42 @@
+{"event":"db.success","type":"insert","table":"test_log","duration":0.041961669921875,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (?)","timestamp":1777789190.671151}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.041961669921875,"timestamp":1777789190.671908}
+{"event":"db.success","type":"insert","table":"test_log","duration":0.1800060272216797,"sql":"INSERT INTO \"test_log\" (\"nombre\") VALUES (?)","timestamp":1777789190.675574}
+{"event":"db.log","type":"insert","table":"test_log","success":true,"duration":0.1800060272216797,"timestamp":1777789190.676083}
+{"event":"db.success","type":"update","table":"test_log","duration":0.08606910705566406,"sql":"UPDATE \"test_log\" SET \"nombre\" = ? WHERE \"id\" = ?","timestamp":1777789190.67739}
+{"event":"db.log","type":"update","table":"test_log","success":true,"duration":0.08606910705566406,"timestamp":1777789190.678017}
+{"event":"db.success","type":"delete","table":"test_log","duration":0.0858306884765625,"sql":"DELETE FROM \"test_log\" WHERE \"id\" = ?","timestamp":1777789190.678692}
+{"event":"db.log","type":"delete","table":"test_log","success":true,"duration":0.0858306884765625,"timestamp":1777789190.678907}
+{"event":"db.success","type":"count","table":"leads","duration":0.10704994201660156,"sql":"SELECT COUNT(*) FROM \"leads\"","timestamp":1777789190.772167}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.10704994201660156,"timestamp":1777789190.772451}
+{"event":"db.success","type":"count","table":"leads","duration":0.9839534759521484,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE \"status\" = ?","timestamp":1777789190.773839}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.9839534759521484,"timestamp":1777789190.775114}
+{"event":"db.success","type":"count","table":"leads","duration":0.1289844512939453,"sql":"SELECT COUNT(*) FROM \"leads\" WHERE \"status\" = ?","timestamp":1777789190.775628}
+{"event":"db.log","type":"count","table":"leads","success":true,"duration":0.1289844512939453,"timestamp":1777789190.775807}
+{"event":"db.success","type":"select","table":"leads","duration":0.13589859008789062,"sql":"SELECT source, COUNT(*) as total FROM \"leads\"   GROUP BY source    LIMIT ? OFFSET ?","timestamp":1777789190.852413}
+{"event":"db.log","type":"select","table":"leads","success":true,"duration":0.13589859008789062,"timestamp":1777789190.852688}
+{"event":"db.success","type":"select","table":"leads","duration":0.10991096496582031,"sql":"SELECT source, COUNT(*) as total FROM \"leads\"  WHERE \"leads\".\"status\" = ?  GROUP BY source    LIMIT ? OFFSET ?","timestamp":1777789190.853099}
+{"event":"db.log","type":"select","table":"leads","success":true,"duration":0.10991096496582031,"timestamp":1777789190.853301}
+{"event":"db.success","type":"exists","table":"partners","duration":0.1621246337890625,"sql":"SELECT EXISTS(SELECT 1 FROM \"partners\" WHERE \"slug\" = ?)","timestamp":1777789190.925606}
+{"event":"db.log","type":"exists","table":"partners","success":true,"duration":0.1621246337890625,"timestamp":1777789190.925946}
+{"event":"db.success","type":"exists","table":"partners","duration":0.15497207641601562,"sql":"SELECT EXISTS(SELECT 1 FROM \"partners\" WHERE \"slug\" = ?)","timestamp":1777789190.926358}
+{"event":"db.log","type":"exists","table":"partners","success":true,"duration":0.15497207641601562,"timestamp":1777789190.926553}
+{"event":"db.success","type":"exists","table":"partners","duration":0.08797645568847656,"sql":"SELECT EXISTS(SELECT 1 FROM \"partners\" WHERE \"slug\" = ? AND \"active\" = ?)","timestamp":1777789190.926794}
+{"event":"db.log","type":"exists","table":"partners","success":true,"duration":0.08797645568847656,"timestamp":1777789190.926942}
+{"event":"db.success","type":"insert","table":"test_users","duration":0.04887580871582031,"sql":"INSERT INTO \"test_users\" (\"username\", \"email\", \"age\") VALUES (?, ?, ?)","timestamp":1777789190.930065}
+{"event":"db.log","type":"insert","table":"test_users","success":true,"duration":0.04887580871582031,"timestamp":1777789190.930279}
+{"event":"db.success","type":"count","table":"test_users","duration":0.06699562072753906,"sql":"SELECT COUNT(*) FROM \"test_users\"","timestamp":1777789190.930568}
+{"event":"db.log","type":"count","table":"test_users","success":true,"duration":0.06699562072753906,"timestamp":1777789190.930754}
+{"event":"db.success","type":"select","table":"test_users","duration":0.07200241088867188,"sql":"SELECT * FROM \"test_users\"  WHERE \"test_users\".\"id\" = ?     LIMIT ? OFFSET ?","timestamp":1777789190.931111}
+{"event":"db.log","type":"select","table":"test_users","success":true,"duration":0.07200241088867188,"timestamp":1777789190.931308}
+{"event":"db.success","type":"update","table":"test_users","duration":0.06079673767089844,"sql":"UPDATE \"test_users\" SET \"age\" = ? WHERE \"id\" = ?","timestamp":1777789190.931817}
+{"event":"db.log","type":"update","table":"test_users","success":true,"duration":0.06079673767089844,"timestamp":1777789190.931972}
+{"event":"db.success","type":"insert","table":"test_users","duration":0.052928924560546875,"sql":"INSERT INTO \"test_users\" (\"username\", \"email\") VALUES (?, ?)","timestamp":1777789190.932472}
+{"event":"db.log","type":"insert","table":"test_users","success":true,"duration":0.052928924560546875,"timestamp":1777789190.932636}
+{"event":"db.success","type":"select","table":"test_users","duration":0.07510185241699219,"sql":"SELECT * FROM \"test_users\"      LIMIT ? OFFSET ?","timestamp":1777789190.932988}
+{"event":"db.log","type":"select","table":"test_users","success":true,"duration":0.07510185241699219,"timestamp":1777789190.933143}
+{"event":"db.success","type":"select","table":"test_users","duration":0.09489059448242188,"sql":"SELECT * FROM \"test_users\"  WHERE \"test_users\".\"id\" = ?     LIMIT ? OFFSET ?","timestamp":1777789190.935222}
+{"event":"db.log","type":"select","table":"test_users","success":true,"duration":0.09489059448242188,"timestamp":1777789190.93581}
+{"event":"db.success","type":"delete","table":"test_users","duration":0.06198883056640625,"sql":"DELETE FROM \"test_users\" WHERE \"id\" = ?","timestamp":1777789190.937894}
+{"event":"db.log","type":"delete","table":"test_users","success":true,"duration":0.06198883056640625,"timestamp":1777789190.938307}
+{"event":"db.success","type":"count","table":"test_users","duration":0.07581710815429688,"sql":"SELECT COUNT(*) FROM \"test_users\"","timestamp":1777789190.938591}
+{"event":"db.log","type":"count","table":"test_users","success":true,"duration":0.07581710815429688,"timestamp":1777789190.93874}

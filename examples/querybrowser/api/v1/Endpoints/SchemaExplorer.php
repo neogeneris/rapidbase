@@ -3,6 +3,7 @@
 namespace RapidBase\Endpoints;
 
 use RapidBase\Api\BaseEndpoint;
+use RapidBase\Core\DB;
 use RapidBase\Core\X;
 use RapidBase\Core\Conn;
 use RapidBase\Core\SchemaMap;
@@ -21,64 +22,52 @@ class SchemaExplorer extends BaseEndpoint
      * 
      * @return array Schema structure with tables, views, and relations
      */
-    public function getSchema(): array
-    {
-        $connectionId = $this->context->params['connection_id'] ?? 'main';
-        
-        if (!in_array($connectionId, Conn::listConnectionIds())) {
-            return [
-                'success' => false,
-                'error' => "Connection '$connectionId' not found."
-            ];
-        }
-        
-        Conn::select($connectionId);
-        
-        try {
-            // Use X::con()->description() to get schema metadata
-            $description = X::con($connectionId)->description();
-            
-            // Organize results by type to avoid collisions
-            $tables = [];
-            $views = [];
-            $relations = [];
-            
-            foreach ($description as $tableName => $info) {
-                // Check if it's a view (SQLite stores views in sqlite_master with type='view')
-                $isView = isset($info['type']) && $info['type'] === 'view';
-                
-                if ($isView) {
-                    $views[] = $tableName;
-                } else {
-                    $tables[] = $tableName;
-                    
-                    // Extract relations if present
-                    if (isset($info['relations']) && is_array($info['relations'])) {
-                        foreach ($info['relations'] as $relation) {
-                            $relations[] = $relation;
-                        }
-                    }
-                }
+public function getSchema(): array
+{
+    // Aceptar tanto connectionId como connection_id
+    $connId = $this->context->params['connectionId'] 
+              ?? $this->context->params['connection_id'] 
+              ?? 'main';
+
+    // Si la conexión no está en el pool, intentar activarla desde la BD interna
+    if (!in_array($connId, Conn::listConnectionIds())) {
+        // Extraer el ID numérico de la clave (ej. "saved_6" → 6)
+        $id = (int)str_replace('saved_', '', $connId);
+        if ($id > 0) {
+            // Inicializar la BD interna (misma lógica que ConnectionManager)
+            $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
+            if (!file_exists($dbFile)) {
+                return ['success' => false, 'error' => 'Internal database not found'];
             }
-            
-            return [
-                'success' => true,
-                'schema' => [
-                    'tables' => $tables,
-                    'views' => $views,
-                    'relations' => $relations
-                ],
-                'details' => $description
-            ];
-            
-        } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            DB::setup("sqlite:$dbFile", '', '', 'internal');
+            $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
+            if ($connRow) {
+                $driver = $connRow['driver'];
+                $dsn = match ($driver) {
+                    'sqlite' => "sqlite:{$connRow['database']}",
+                    'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
+                    'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
+                    default  => throw new \Exception("Unsupported driver: $driver"),
+                };
+                DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connId);
+            } else {
+                return ['success' => false, 'error' => "Connection not found in database"];
+            }
+        } else {
+            return ['success' => false, 'error' => "Connection '$connId' not found."];
         }
     }
 
+    Conn::select($connId);
+    $description = X::con($connId)->description();
+
+    return [
+        'success'   => true,
+        'tables'    => $description['tables'],
+        'views'     => $description['views'],
+        'relations' => $description['relations'],
+    ];
+}
     /**
      * Get list of tables only.
      * 

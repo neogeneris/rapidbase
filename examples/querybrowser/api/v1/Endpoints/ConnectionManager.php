@@ -3,350 +3,202 @@
 namespace RapidBase\Endpoints;
 
 use RapidBase\Api\BaseEndpoint;
+use RapidBase\Core\X;
 use RapidBase\Core\Conn;
+use RapidBase\Core\DB;
+use RapidBase\Core\Gateway;
 
-/**
- * ConnectionManager - Manages database connections.
- * 
- * This endpoint handles listing, testing and activating connections
- * using the internal Conn pool and configuration.
- */
 class ConnectionManager extends BaseEndpoint
 {
-    private function getConnectionsFile(): string
-    {
-        return __DIR__ . '/../../data/connections.json';
-    }
+    private static bool $internalDbReady = false;
 
-    private function loadConnections(): array
+    private function ensureInternalDb(): void
     {
-        $file = $this->getConnectionsFile();
-        if (!file_exists($file)) {
-            return [];
+        if (self::$internalDbReady) return;
+
+        // Ruta al archivo real de conexiones
+        if (defined('CONNECTIONS_DB')) {
+            $dbFile = CONNECTIONS_DB;
+        } else {
+            $dbFile = __DIR__ . '/../../../data/connections.sqlite';
         }
-        $content = file_get_contents($file);
-        return json_decode($content, true) ?: [];
-    }
 
-    private function saveConnections(array $connections): bool
-    {
-        $file = $this->getConnectionsFile();
-        $dir = dirname($file);
+        $dir = dirname($dbFile);
         if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
+            mkdir($dir, 0777, true);
         }
-        return file_put_contents($file, json_encode($connections, JSON_PRETTY_PRINT)) !== false;
+
+        if (!file_exists($dbFile)) {
+            $pdo = new \PDO("sqlite:$dbFile");
+            $pdo->exec("CREATE TABLE connections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                driver TEXT NOT NULL,
+                host TEXT,
+                port INTEGER,
+                database TEXT,
+                username TEXT,
+                password TEXT,
+                description TEXT,
+                environment TEXT DEFAULT 'development',
+                status TEXT DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+        }
+
+        DB::setup("sqlite:$dbFile", '', '', 'internal');
+        self::$internalDbReady = true;
     }
 
-    /**
-     * List all registered connections.
-     * 
-     * @return array List of connections
-     */
     public function list(): array
     {
+        $this->ensureInternalDb();
         try {
-            $connections = $this->loadConnections();
-            
+            $result = X::con('internal')->from('connections')->select();
+            $connections = array_map(function ($row) {
+                return [
+                    'id'          => $row[0],
+                    'name'        => $row[1],
+                    'driver'      => $row[2],
+                    'host'        => $row[3],
+                    'port'        => $row[4],
+                    'database'    => $row[5],
+                    'username'    => $row[6],
+                    'password'    => $row[7],
+                    'description' => $row[8],
+                    'environment' => $row[9],
+                    'status'      => $row[10],
+                ];
+            }, $result->data);
             return [
-                'success' => true,
-                'count' => count($connections),
-                'connections' => array_values($connections)
+                'success'     => true,
+                'count'       => count($connections),
+                'connections' => $connections,
             ];
         } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    /**
-     * Create a new connection record.
-     * Expects: name, driver, host, port, database, username, password, description, environment, status
-     * 
-     * @return array Created connection with ID
-     */
     public function create(): array
     {
+        $this->ensureInternalDb();
         $params = $this->context->params;
-        
         try {
-            $connections = $this->loadConnections();
-            
-            // Generate new ID
-            $newId = count($connections) > 0 ? max(array_keys($connections)) + 1 : 1;
-            
-            $connection = [
-                'id' => $newId,
-                'name' => $params['name'] ?? 'Unnamed',
-                'driver' => $params['driver'] ?? 'sqlite',
-                'host' => $params['host'] ?? 'localhost',
-                'port' => $params['port'] ?? null,
-                'database' => $params['database'] ?? $params['db'] ?? '',
-                'username' => $params['username'] ?? $params['user'] ?? '',
-                'password' => $params['password'] ?? $params['pass'] ?? '',
-                'description' => $params['description'] ?? '',
-                'environment' => $params['environment'] ?? 'dev',
-                'status' => $params['status'] ?? 'active'
-            ];
-            
-            $connections[$newId] = $connection;
-            $saved = $this->saveConnections($connections);
-            
-            if (!$saved) {
-                return [
-                    'success' => false,
-                    'error' => 'Failed to save connection'
-                ];
-            }
-            
+            $id = X::con('internal')->from('connections')->insert([
+                'name'        => $params['name'] ?? 'Unnamed',
+                'driver'      => $params['driver'] ?? 'sqlite',
+                'host'        => $params['host'] ?? null,
+                'port'        => $params['port'] ?? null,
+                'database'    => $params['database'] ?? '',
+                'username'    => $params['username'] ?? null,
+                'password'    => $params['password'] ?? null,
+                'description' => $params['description'] ?? null,
+                'environment' => $params['environment'] ?? 'development',
+                'status'      => $params['status'] ?? 'active',
+            ]);
             return [
-                'success' => true,
-                'id' => $newId,
-                'connection' => $connection
+                'success'    => true,
+                'id'         => $id,
+                'connection' => [
+                    'id'          => $id,
+                    'name'        => $params['name'] ?? 'Unnamed',
+                    'driver'      => $params['driver'] ?? 'sqlite',
+                    'host'        => $params['host'] ?? null,
+                    'port'        => $params['port'] ?? null,
+                    'database'    => $params['database'] ?? '',
+                    'username'    => $params['username'] ?? null,
+                    'password'    => $params['password'] ?? null,
+                    'description' => $params['description'] ?? null,
+                    'environment' => $params['environment'] ?? 'development',
+                    'status'      => $params['status'] ?? 'active',
+                ]
             ];
-            
         } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    /**
-     * Update an existing connection.
-     * 
-     * @return array Updated connection
-     */
-    public function update(): array
-    {
-        $params = $this->context->params;
-        $id = $params['id'] ?? $params['connection_id'] ?? null;
-        
-        if (!$id) {
-            return [
-                'success' => false,
-                'error' => 'Missing connection ID'
-            ];
-        }
-        
-        try {
-            $connections = $this->loadConnections();
-            
-            if (!isset($connections[$id])) {
-                return [
-                    'success' => false,
-                    'error' => "Connection $id not found"
-                ];
-            }
-            
-            // Update fields if provided
-            $conn = &$connections[$id];
-            if (isset($params['name'])) $conn['name'] = $params['name'];
-            if (isset($params['driver'])) $conn['driver'] = $params['driver'];
-            if (isset($params['host'])) $conn['host'] = $params['host'];
-            if (isset($params['port'])) $conn['port'] = $params['port'];
-            if (isset($params['database'])) $conn['database'] = $params['database'];
-            if (isset($params['username'])) $conn['username'] = $params['username'];
-            if (isset($params['password'])) $conn['password'] = $params['password'];
-            if (isset($params['description'])) $conn['description'] = $params['description'];
-            if (isset($params['environment'])) $conn['environment'] = $params['environment'];
-            if (isset($params['status'])) $conn['status'] = $params['status'];
-            
-            $saved = $this->saveConnections($connections);
-            
-            return [
-                'success' => $saved,
-                'connection' => $conn
-            ];
-            
-        } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-
-    /**
-     * Delete a connection.
-     * 
-     * @return array Deletion result
-     */
     public function delete(): array
     {
-        $params = $this->context->params;
-        $id = $params['id'] ?? $params['connection_id'] ?? null;
-        
-        if (!$id) {
-            return [
-                'success' => false,
-                'error' => 'Missing connection ID'
-            ];
-        }
-        
+        $this->ensureInternalDb();
+        $id = $this->context->params['id'] ?? null;
+        if (!$id) return ['success' => false, 'error' => 'Missing id'];
         try {
-            $connections = $this->loadConnections();
-            
-            if (!isset($connections[$id])) {
-                return [
-                    'success' => false,
-                    'error' => "Connection $id not found"
-                ];
-            }
-            
-            unset($connections[$id]);
-            $deleted = $this->saveConnections($connections);
-            
-            return [
-                'success' => $deleted,
-                'deleted_id' => $id
-            ];
-            
+            X::con('internal')->from('connections', ['id' => $id])->delete();
+            return ['success' => true, 'deleted_id' => $id];
         } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    /**
-     * Test a connection by attempting to connect.
-     * 
-     * @return array Connection test result with latency
-     */
-    public function test(): array
-    {
-        $params = $this->context->params;
-        $id = $params['id'] ?? $params['connection_id'] ?? null;
-        
-        if (!$id) {
-            return [
-                'success' => false,
-                'error' => 'Missing connection ID'
-            ];
-        }
-        
-        try {
-            $connections = $this->loadConnections();
-            
-            if (!isset($connections[$id])) {
-                return [
-                    'success' => false,
-                    'error' => "Connection $id not found"
-                ];
-            }
-            
-            $conn = $connections[$id];
-            
-            // Build DSN from connection details
-            $driver = $conn['driver'] ?? 'sqlite';
-            $host = $conn['host'] ?? 'localhost';
-            $port = $conn['port'] ?? '';
-            $database = $conn['database'] ?? '';
-            $username = $conn['username'] ?? '';
-            $password = $conn['password'] ?? '';
-            
-            $dsn = "$driver:";
-            if ($driver === 'sqlite') {
-                $dsn .= $database;
-            } else {
-                $dsn .= "host=$host;";
-                if ($port) $dsn .= "port=$port;";
-                $dsn .= "dbname=$database";
-            }
-            
-            // Test connection using RapidBase Conn
-            $start = microtime(true);
-            Conn::add('test_temp', $dsn, $username, $password);
-            $pdo = Conn::get('test_temp');
-            
-            // Simple ping query
-            $pdo->query('SELECT 1');
-            $latency = round((microtime(true) - $start) * 1000, 2);
-            
-            // Clean up temp connection
-            Conn::remove('test_temp');
-            
-            return [
-                'success' => true,
-                'connected' => true,
-                'latency_ms' => $latency,
-                'driver' => $driver,
-                'database' => $database
-            ];
-            
-        } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'connected' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
+public function ping(): array
+{
+    $params = $this->context->params;
+    $rawId = $params['connectionId'] ?? $params['id'] ?? null;
+    if (!$rawId) return ['success' => false, 'error' => 'Missing connectionId'];
 
-    /**
-     * Activate a connection in the Conn pool.
-     * 
-     * @return array Activation result
-     */
-    public function activate(): array
+    // Quitar el prefijo "saved_" si está presente
+    $id = (int) str_replace('saved_', '', $rawId);
+
+    $this->ensureInternalDb();
+    $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
+    if (!$connRow) return ['success' => false, 'error' => 'Connection not found'];
+
+    $driver = $connRow['driver'];
+    $dsn = match ($driver) {
+        'sqlite' => "sqlite:{$connRow['database']}",
+        'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
+        'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
+        default  => throw new \Exception("Unsupported driver: $driver"),
+    };
+
+   // Activar si no está en el pool
+	$connectionKey = "saved_{$id}";
+	if (!in_array($connectionKey, Conn::listConnectionIds())) {
+		$dsn = match ($driver) {
+			'sqlite' => "sqlite:{$connRow['database']}",
+			'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
+			'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
+		};
+		DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connectionKey);
+	}
+
+	$result = X::con($connectionKey)->ping();
+
+    return [
+        'success'       => $result['success'],
+        'latency'       => $result['latency'] ?? 0,
+        'error'         => $result['error'] ?? null,
+        'database_name' => $connRow['database'] ?? '',
+        'host'          => $connRow['host'] ?? null,
+        'port'          => $connRow['port'] ?? null,
+        'driver'        => $driver,
+    ];
+}    public function activate(): array
     {
         $params = $this->context->params;
-        $id = $params['id'] ?? $params['connection_id'] ?? null;
-        
-        if (!$id) {
-            return [
-                'success' => false,
-                'error' => 'Missing connection ID'
-            ];
-        }
-        
-        try {
-            $connections = $this->loadConnections();
-            
-            if (!isset($connections[$id])) {
-                return [
-                    'success' => false,
-                    'error' => "Connection $id not found"
-                ];
-            }
-            
-            $conn = $connections[$id];
-            
-            $driver = $conn['driver'] ?? 'sqlite';
-            $host = $conn['host'] ?? 'localhost';
-            $port = $conn['port'] ?? '';
-            $database = $conn['database'] ?? '';
-            $username = $conn['username'] ?? '';
-            $password = $conn['password'] ?? '';
-            
-            $dsn = "$driver:";
-            if ($driver === 'sqlite') {
-                $dsn .= $database;
-            } else {
-                $dsn .= "host=$host;";
-                if ($port) $dsn .= "port=$port;";
-                $dsn .= "dbname=$database";
-            }
-            
-            Conn::add($id, $dsn, $username, $password);
-            Conn::select($id);
-            
-            return [
-                'success' => true,
-                'message' => "Connection $id activated",
-                'active' => Conn::getCurrentConnectionId()
-            ];
-            
-        } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
+        $id = $params['connectionId'] ?? $params['id'] ?? null;
+        if (!$id) return ['success' => false, 'error' => 'Missing connectionId'];
+
+        $this->ensureInternalDb();
+        $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
+        if (!$connRow) return ['success' => false, 'error' => 'Connection not found'];
+
+        $connectionKey = "saved_{$id}";
+        $dsn = match ($connRow['driver']) {
+            'sqlite' => "sqlite:{$connRow['database']}",
+            'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
+            'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
+        };
+
+        DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connectionKey);
+
+        return [
+            'success'      => true,
+            'connectionId' => $connectionKey,
+            'message'      => 'Connection activated',
+        ];
     }
 }

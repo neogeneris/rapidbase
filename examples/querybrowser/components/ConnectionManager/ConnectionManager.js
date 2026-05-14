@@ -3,8 +3,14 @@ class ConnectionManager {
         this.container = document.getElementById(containerId);
         this.allConnections = [];
         this.filterActive = false;
-        this.pingedConnections = {}; // Cache: { id: { success, latency, host, port, database_name, driver } }
+        this.pingedConnections = {};
         this.activeConnectionId = null;
+
+        // Cliente unificado — REQUERIDO
+        this.apiClient = window.RapidBaseClient
+            ? new RapidBaseClient('api/v1/index.php')
+            : null;
+
         if (!this.container) return;
         this.init();
     }
@@ -12,50 +18,59 @@ class ConnectionManager {
     async init() {
         this.container.innerHTML = '<div class="p-3 text-muted" style="font-size:12px;">Cargando...</div>';
         try {
-            // Nuevo endpoint unificado: ConnectionManager::list
-            const response = await fetch('api/v1/index.php?ep=ConnectionManager&action=list');
-            const data = await response.json();
-            this.allConnections = data.connections || [];
+            this.allConnections = await this._fetchConnections();
             this.render();
         } catch (e) {
             this.container.innerHTML = '<div class="p-3 text-danger">Error de API</div>';
         }
     }
 
+    async _fetchConnections() {
+        const result = await this.apiClient.connectionManager.list();
+        return result.connections || [];
+    }
+
+    async _pingConnection(id) {
+        return await this.apiClient.connectionManager.ping({ connectionId: `saved_${id}` });
+    }
+
+    async _loadSchema(connectionId) {
+        const raw = await this.apiClient.schemaExplorer.getSchema({ connectionId: `saved_${connectionId}` });
+        return {
+            success: true,
+            tables: raw.tables || [],
+            views: raw.views || [],
+            relations: raw.relations || [],
+            database: raw.database || '',
+        };
+    }
+
     async selectConnection(id, element) {
         if (element.classList.contains('is-testing')) return;
 
-        // Mark active
         this.container.querySelectorAll('.conn-item').forEach(el => el.classList.remove('active'));
         element.classList.add('active');
 
-        // If already pinged and online → go straight to schema
+        // Si ya estaba online, solo recargamos esquema
         if (this.pingedConnections[id]?.success) {
-            this.activeConnectionId = `saved_${id}`;
-            this.loadSchema(this.activeConnectionId);
-            app.connectSaved(this.activeConnectionId);
+            this.activeConnectionId = id;
+            this.loadSchema(id);
+            if (window.app?.connectSaved) app.connectSaved(id);
             return;
         }
 
-        // First click → ping
         element.classList.remove('is-online', 'is-offline');
         element.classList.add('is-testing');
 
         const latencyEl = element.querySelector('.latency-tag');
         const dbNameEl = element.querySelector('.conn-real-db');
         const hostPortEl = element.querySelector('.conn-host-port');
-        
+
         latencyEl.textContent = '...';
         if (dbNameEl) dbNameEl.innerHTML = '<span class="meta-loading">...</span>';
 
         try {
-            const response = await fetch('api/v1/index.php?ep=HealthService&action=ping', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ connectionId: id })
-            });
-
-            const result = await response.json();
+            const result = await this._pingConnection(id);
             element.classList.remove('is-testing');
 
             if (result.success) {
@@ -69,7 +84,6 @@ class ConnectionManager {
                     hostPortEl.textContent = hostStr ? `· ${hostStr}` : '';
                 }
 
-                // Cache the ping result
                 this.pingedConnections[id] = {
                     success: true,
                     latency: result.latency,
@@ -79,15 +93,13 @@ class ConnectionManager {
                     driver: result.driver
                 };
 
-                this.activeConnectionId = `saved_${id}`;
-                // Now load schema
-                this.loadSchema(this.activeConnectionId);
-                app.connectSaved(this.activeConnectionId);
+                this.activeConnectionId = id;
+                this.loadSchema(id);
+                if (window.app?.connectSaved) app.connectSaved(id);
             } else {
                 element.classList.add('is-offline');
                 latencyEl.textContent = 'ERR';
-                if (dbNameEl) dbNameEl.innerHTML = `<span class="meta-error">!</span>`;
-
+                if (dbNameEl) dbNameEl.innerHTML = '<span class="meta-error">!</span>';
                 this.pingedConnections[id] = { success: false };
             }
         } catch (err) {
@@ -99,35 +111,28 @@ class ConnectionManager {
     }
 
     async loadSchema(connectionId) {
-        // Delegate rendering to the TableList component
-        if (window.app?.tableList) {
-            app.tableList.setLoading();
-        }
+        if (window.app?.tableList) app.tableList.setLoading();
 
         try {
-            const response = await fetch(`api/v1/index.php?ep=SchemaExplorer&action=getSchema&connectionId=${connectionId}`);
-            const result   = await response.json();
+            const result = await this._loadSchema(connectionId);
 
             if (result.success && window.app?.tableList) {
-                // Adaptar el formato de SchemaExplorer al que espera TableList
-                const adaptedResult = {
-                    success: true,
-                    tables: result.tables || [],
-                    views: result.views || [],
-                    relations: result.relations || []
-                };
-                app.tableList.populate(connectionId, adaptedResult);
+                // Añadir nombre de la BD
+                if (!result.database) {
+                    const connInfo = this.allConnections.find(c => c.id === connectionId);
+                    result.database = connInfo?.database || '';
+                }
+                app.tableList.populate(connectionId, result);
             } else if (!result.success && window.app?.tableList) {
                 app.tableList.setError(result.error || 'No se pudo cargar el esquema');
             }
         } catch (e) {
             console.error('Error cargando esquema:', e);
-            if (window.app?.tableList) {
-                app.tableList.setError('Error de red al cargar el esquema');
-            }
+            if (window.app?.tableList) app.tableList.setError('Error de red al cargar el esquema');
         }
     }
 
+    // ── Render (sin cambios) ──
     render() {
         this.container.innerHTML = '';
         this.container.className = 'cm-wrapper';
@@ -148,32 +153,34 @@ class ConnectionManager {
         list.className = 'cm-list';
 
         this.allConnections.forEach(conn => {
-            const id = conn[0];
-            const name = conn[1] || 'Unnamed';
-            const driver = (conn[2] || '').toLowerCase();
+            const id = conn.id;
+            const name = conn.name || 'Unnamed';
+            const driver = (conn.driver || '').toLowerCase();
             const iconSvg = window.DBIcons ? (DBIcons[driver] || DBIcons.sqlite) : '🗄️';
 
-            // Check if this connection was already pinged
             const cached = this.pingedConnections[id];
             let statusClass = '';
             let latencyText = '';
-            let metaContent = '';
+            let dbNameText = conn.database || '';
+            let hostPortText = '';
 
             if (cached) {
                 if (cached.success) {
                     statusClass = 'is-online';
                     latencyText = `${Math.round(cached.latency)}ms`;
-                    const parts = [];
-                    if (cached.database_name) parts.push(cached.database_name);
+                    dbNameText = cached.database_name || dbNameText;
                     if (cached.host) {
-                        let hostStr = cached.host;
-                        if (cached.port) hostStr += ':' + cached.port;
-                        parts.push(hostStr);
+                        hostPortText = cached.host;
+                        if (cached.port) hostPortText += ':' + cached.port;
                     }
-                    metaContent = parts.map(p => `<span class="meta-chip">${window.escapeHtml(p)}</span>`).join('');
                 } else {
                     statusClass = 'is-offline';
                     latencyText = 'ERR';
+                }
+            } else {
+                if (conn.host) {
+                    hostPortText = conn.host;
+                    if (conn.port) hostPortText += ':' + conn.port;
                 }
             }
 
@@ -191,14 +198,14 @@ class ConnectionManager {
                 <div class="conn-body">
                     <div class="conn-header-row">
                         <div class="conn-name-wrap">
-                            <span class="conn-name">${name}</span>
-                            <span class="conn-real-db">${cached?.database_name ? window.escapeHtml(cached.database_name) : ''}</span>
+                            <span class="conn-name">${window.escapeHtml(name)}</span>
+                            <span class="conn-real-db">${window.escapeHtml(dbNameText)}</span>
                         </div>
                         <span class="latency-tag">${latencyText}</span>
                     </div>
                     <div class="conn-details-row">
                         <span class="conn-driver">${driver}</span>
-                        <span class="conn-host-port">${cached?.host ? '· ' + window.escapeHtml(cached.host + (cached.port ? ':' + cached.port : '')) : ''}</span>
+                        <span class="conn-host-port">${hostPortText ? '· ' + window.escapeHtml(hostPortText) : ''}</span>
                     </div>
                 </div>
             `;

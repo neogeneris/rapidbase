@@ -3,6 +3,7 @@ class SchemaExplorer {
         this.container = null;
         this.options = options;
         this.isOpen = false;
+        this.relationsData = null;   // Almacena las relaciones
         this.init();
     }
 
@@ -35,10 +36,7 @@ class SchemaExplorer {
             this.container.style.boxShadow = 'none';
         }
         target.appendChild(this.container);
-        // Si está embebido, lo abrimos inicialmente
-        if (this.options.containerId) {
-            this.open();
-        }
+        if (this.options.containerId) this.open();
     }
 
     /**
@@ -87,38 +85,53 @@ class SchemaExplorer {
         if (!data) return;
 
         let tablesArray = [];
+        this.relationsData = null;
 
-        if (data.schema_tables) {
-            // New API format from list_tables
-            tablesArray = data.schema_tables;
-        } else if (Array.isArray(data)) {
-            tablesArray = data;
-        } else if (typeof data === 'object' && !data.columns) {
-            // X::description() format: { table: { columns:{col:type}, pks:[...], relations:[...] } }
-            tablesArray = Object.keys(data).map(tableName => {
-                const tableData = data[tableName];
-                const columnsObj = tableData.columns || {};
-                const columns = Object.entries(columnsObj).map(([colName, colType]) => ({
-                    name: colName,
-                    type: colType,
-                    primary: tableData.pks && tableData.pks.includes(colName)
-                }));
-                return {
-                    name: tableName,
-                    columns: columns,
-                    pks: tableData.pks || [],
-                    relations: tableData.relations || []
-                };
-            });
-        } else {
-            // Old format: { table: { columns: [{name,type}] } }
-            tablesArray = Object.keys(data).map(name => ({
-                name: name,
-                columns: data[name].columns || []
+        // Nuevo formato: { tables: [...], views: [], relations: [...] }
+        if (data.tables && Array.isArray(data.tables)) {
+            tablesArray = data.tables.map(t => ({
+                name: t.name,
+                columns: t.columns ? Object.entries(t.columns).map(([col, type]) => ({
+                    name: col,
+                    type: type,
+                    primary: (t.primaryKeys || []).includes(col)
+                })) : [],
+                pks: t.primaryKeys || []
+            }));
+            if (data.relations) {
+                this.relationsData = data.relations;
+            }
+        }
+        // Formato list_tables antiguo: { schema_tables: [...] }
+        else if (data.schema_tables) {
+            tablesArray = data.schema_tables.map(t => ({
+                name: t.name,
+                columns: (t.columns || []).map(c => ({
+                    name: c.name,
+                    type: c.type,
+                    primary: c.primary || false
+                })),
+                pks: (t.columns || []).filter(c => c.primary).map(c => c.name)
             }));
         }
+        // X::description() antiguo o array
+        else if (typeof data === 'object' && !Array.isArray(data)) {
+            tablesArray = Object.keys(data).map(tableName => {
+                const tableData = data[tableName];
+                const cols = tableData.columns || {};
+                return {
+                    name: tableName,
+                    columns: Object.entries(cols).map(([col, type]) => ({
+                        name: col,
+                        type: type,
+                        primary: (tableData.pks || []).includes(col)
+                    })),
+                    pks: tableData.pks || []
+                };
+            });
+        }
 
-        // Filtrar solo las tablas activas (si existen)
+        // Filtrar por tablas activas
         if (this.options.activeTables && this.options.activeTables.length > 0) {
             tablesArray = tablesArray.filter(t => this.options.activeTables.includes(t.name));
         }
@@ -128,34 +141,27 @@ class SchemaExplorer {
 
     renderTree(tables) {
         const tree = this.container.querySelector('#se-tree');
-        if (!tables || tables.length === 0) {
-            tree.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;">Seleccione una tabla en el editor</div>';
-            return;
-        }
-
         let html = '';
-        tables.forEach(table => {
-            const tableIcon = `
-                <svg viewBox="0 0 24 24" width="14" height="14" style="margin-right:8px;color:#3b82f6;">
-                    <path fill="currentColor" d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h10v2H7v-2z"/>
-                </svg>
-            `;
 
-            html += `
-                <details class="se-table" open>
+        if (!tables || tables.length === 0) {
+            html += '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;">Seleccione una tabla en el editor</div>';
+        } else {
+            // --- Tablas ---
+            tables.forEach(table => {
+                const tableIcon = `<svg viewBox="0 0 24 24" width="14" height="14" style="margin-right:8px;color:#3b82f6;">
+                    <path fill="currentColor" d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h10v2H7v-2z"/>
+                </svg>`;
+
+                html += `<details class="se-table" open>
                     <summary>
-                        <span class="se-expander">
-                            <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M8.59,16.59L13.17,12L8.59,7.41L10,6l6,6l-6,6L8.59,16.59z"/></svg>
-                        </span>
+                        <span class="se-expander">▶</span>
                         ${tableIcon}
                         <span class="se-table-name">${window.escapeHtml(table.name)}</span>
                     </summary>
                     <ul>`;
 
-            const columns = table.columns || [];
-            columns.forEach(col => {
-                html += `
-                    <li draggable="true" data-col-full="${table.name}.${col.name}" class="se-column-item">
+                table.columns.forEach(col => {
+                    html += `<li draggable="true" data-col-full="${table.name}.${col.name}" class="se-column-item">
                         <label class="se-col-label">
                             <input type="checkbox" value="${table.name}.${col.name}">
                             ${col.primary ? '<span class="se-pk" title="Primary Key">🔑</span>' : ''}
@@ -168,10 +174,35 @@ class SchemaExplorer {
                             <option value="DESC">DESC</option>
                         </select>
                     </li>`;
+                });
+
+                html += `</ul></details>`;
+            });
+        }
+
+        // --- Relaciones (si existen) ---
+        if (this.relationsData && this.relationsData.length > 0) {
+            html += `<details class="se-relations" open>
+                <summary style="padding:6px 12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <span class="se-expander">▶</span>
+                    <svg viewBox="0 0 24 24" width="14" height="14" style="color:#f59e0b;"><path fill="currentColor" d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h10v2H7v-2z"/></svg>
+                    Relations
+                </summary>
+                <div style="padding-left:24px;">`;
+
+            this.relationsData.forEach(rel => {
+                html += `<div class="se-rel-item" style="padding:2px 0; font-size:11px;">
+                    <span style="color:#3b82f6;">${window.escapeHtml(rel.sourceTable)}</span>.
+                    <span style="color:#1e293b;">${window.escapeHtml(rel.sourceColumn)}</span>
+                    → 
+                    <span style="color:#3b82f6;">${window.escapeHtml(rel.targetTable)}</span>.
+                    <span style="color:#1e293b;">${window.escapeHtml(rel.targetColumn)}</span>
+                    <span style="color:#94a3b8; margin-left:4px;">(${rel.type})</span>
+                </div>`;
             });
 
-            html += `</ul></details>`;
-        });
+            html += `</div></details>`;
+        }
 
         tree.innerHTML = html;
     }
@@ -235,4 +266,25 @@ class SchemaExplorer {
     toggle() {
         this.isOpen ? this.close() : this.open();
     }
+	
+	handleColumnSelection() {
+		const selected = [];
+		this.container.querySelectorAll('.se-column-item').forEach(li => {
+			const cb = li.querySelector('input[type="checkbox"]');
+			if (cb.checked) {
+				selected.push({
+					column: cb.value,
+					sort: li.querySelector('.se-sort-select').value
+				});
+			}
+		});
+		if (this.options.grid?.updateQuery) this.options.grid.updateQuery(selected);
+
+		// 👇 Emitir a cualquier suscriptor (nuevo)
+		if (typeof this.options.onSelectionChange === 'function') {
+			this.options.onSelectionChange(selected);
+		}
+	}	
+	
+	
 }

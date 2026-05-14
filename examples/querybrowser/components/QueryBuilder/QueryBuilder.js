@@ -1,17 +1,25 @@
 /**
- * QueryBuilder.js
- * Advanced data explorer with SQL editor, auto-join chips, and data grid.
+ * QueryBuilder.js – Modernized
+ * Advanced data explorer using the new API v1 and RapidBaseClient.
  */
 class QueryBuilder {
     constructor(connectionId, tableName, options = {}) {
-        this.connectionId = connectionId;
+        this.connectionId = connectionId;           // "saved_6"
         this.tableName = tableName;
         this.tables = [tableName];
-        this.mode = 'navigate'; // 'navigate' or 'edit'
+        this.mode = 'navigate';
         this.searchTerm = '';
         this.grid = null;
         this.onActivateTab = options.onActivateTab || null;
         this.schemaExplorer = options.schemaExplorer || null;
+
+        // Cliente unificado (nuevo router v1)
+        this.api = window.RapidBaseClient
+            ? new RapidBaseClient('api/v1/index.php')
+            : null;
+
+        // Usar el viejo api.php si el router no está disponible
+        this.useLegacyApi = !this.api;
     }
 
     init(parentElement) {
@@ -80,10 +88,12 @@ class QueryBuilder {
     }
 
     _initGrid() {
-        const apiUrl = `api.php?action=grid_data&connectionId=${this.connectionId}`;
+        const apiUrl = this.useLegacyApi
+            ? `api.php?action=grid_data&connectionId=${this.connectionId}`
+            : `api/v1/index.php?ep=QueryExecutor&action=grid`;   // Ajustar cuando exista QueryRunner
+
         this.grid = new APIDataGrid('#qb-grid', apiUrl, { mode: 'infinite', pageSize: 50 });
         
-        // Override grid parameters
         const origBuildParams = this.grid.buildParams.bind(this.grid);
         this.grid.buildParams = () => {
             const p = origBuildParams();
@@ -93,15 +103,10 @@ class QueryBuilder {
             return p;
         };
 
-        // Hook into grid fetch to update SQL debug
         const origFetchData = this.grid.fetchData.bind(this.grid);
         this.grid.fetchData = async () => {
             await origFetchData();
-            // After fetch, if there's debug info in the last response (we need to capture it)
-            // For now, we'll manually fetch the SQL if in navigate mode
-            if (this.mode === 'navigate') {
-                this._updateSQL();
-            }
+            if (this.mode === 'navigate') this._updateSQL();
         };
 
         this.grid.load();
@@ -129,7 +134,6 @@ class QueryBuilder {
             }
         };
 
-        // Drag & Drop columns from SchemaExplorer
         sqlEditor.ondragover = (e) => e.preventDefault();
         sqlEditor.ondrop = (e) => {
             e.preventDefault();
@@ -143,7 +147,6 @@ class QueryBuilder {
             }
         };
 
-        // Horizontal Resizer
         const resizer = this.parentElement.querySelector('#qb-resizer');
         const editorPane = this.parentElement.querySelector('#qb-editor-container');
         resizer.onmousedown = (e) => {
@@ -167,20 +170,14 @@ class QueryBuilder {
 
     _updateUI() {
         const isEdit = this.mode === 'edit';
-        const modeText = this.parentElement.querySelector('#qb-mode-text');
+        this.parentElement.querySelector('#qb-mode-text').textContent = isEdit ? 'Edición SQL' : 'Navegación';
         const sqlEditor = this.parentElement.querySelector('#qb-sql');
-        const runBtn = this.parentElement.querySelector('#qb-run');
-        const chips = this.parentElement.querySelector('#qb-chips');
-        const rels = this.parentElement.querySelector('#qb-rels');
-
-        modeText.textContent = isEdit ? 'Edición SQL' : 'Navegación';
         sqlEditor.readOnly = !isEdit;
         sqlEditor.classList.toggle('editable', isEdit);
-        runBtn.style.display = isEdit ? 'block' : 'none';
+        this.parentElement.querySelector('#qb-run').style.display = isEdit ? 'block' : 'none';
         
-        // Chips & Relations only in navigate mode
-        chips.style.display = isEdit ? 'none' : 'flex';
-        rels.style.display = isEdit ? 'none' : 'flex';
+        this.parentElement.querySelector('#qb-chips').style.display = isEdit ? 'none' : 'flex';
+        this.parentElement.querySelector('#qb-rels').style.display = isEdit ? 'none' : 'flex';
 
         if (!isEdit) {
             this._renderChips();
@@ -210,7 +207,6 @@ class QueryBuilder {
             };
         });
         
-        // Update SchemaExplorer with active tables when chips change
         if (window.app?.schemaExplorer && window.app?.activeSchemaData) {
             window.app.schemaExplorer.update(window.app.activeSchemaData, this.tables);
         }
@@ -219,49 +215,47 @@ class QueryBuilder {
     async _loadRelations() {
         if (this.mode === 'edit') return;
         try {
-            const resp = await fetch(`api.php?action=related_tables&connectionId=${this.connectionId}&tables=${encodeURIComponent(JSON.stringify(this.tables))}`);
-            const data = await resp.json();
+            let data;
+            if (this.useLegacyApi) {
+                const resp = await fetch(`api.php?action=related_tables&connectionId=${this.connectionId}&tables=${encodeURIComponent(JSON.stringify(this.tables))}`);
+                data = await resp.json();
+            } else {
+                data = await this.api.schemaExplorer.getRelatedTables({ connectionId: this.connectionId, tables: JSON.stringify(this.tables) });
+            }
             
             this._renderRelList('qb-rel-to', data.to || []);
             this._renderRelList('qb-rel-from', data.from || []);
-            
-            // Cargar descripción de las tablas para SchemaExplorer
             this._loadTableDescription();
         } catch (e) { console.error("Error loading relations", e); }
     }
 
     async _loadTableDescription() {
         try {
-            const resp = await fetch(`api.php?action=table_description&connectionId=${this.connectionId}&tables=${encodeURIComponent(JSON.stringify(this.tables))}`);
-            const data = await resp.json();
-            
-            console.log("SchemaExplorer - Table Description Response:", data);
-            
-            if (data.success && data.description) {
-                // Guardar en app.activeSchemaData si existe el contexto global
-                if (window.app) {
-                    window.app.activeSchemaData = data.description;
-                    console.log("SchemaExplorer - Updated app.activeSchemaData with tables:", Object.keys(data.description));
-                }
-                
-                // Actualizar SchemaExplorer directamente si tenemos referencia
-                if (this.schemaExplorer) {
-                    console.log("SchemaExplorer - Updating via direct reference with tables:", this.tables);
-                    this.schemaExplorer.update(data.description, this.tables);
-                } else if (window.app && window.app.schemaExplorer) {
-                    console.log("SchemaExplorer - Updating via window.app.schemaExplorer with tables:", this.tables);
-                    window.app.schemaExplorer.update(data.description, this.tables);
-                } else {
-                    console.warn("SchemaExplorer - No schemaExplorer instance found");
-                }
-            } else if (data.error) {
-                console.error("SchemaExplorer - API error:", data.error);
+            let result;
+            if (this.useLegacyApi) {
+                const resp = await fetch(`api.php?action=table_description&connectionId=${this.connectionId}&tables=${encodeURIComponent(JSON.stringify(this.tables))}`);
+                result = await resp.json();
             } else {
-                console.warn("SchemaExplorer - No description in response");
+                // Obtener descripción de cada tabla y combinarlas
+                const descriptions = {};
+                for (const tbl of this.tables) {
+                    const resp = await this.api.schemaExplorer.describeTable({ connectionId: this.connectionId, table: tbl });
+                    if (resp.success && resp.structure) {
+                        descriptions[tbl] = resp.structure;
+                    }
+                }
+                result = { success: true, description: descriptions };
             }
-        } catch (e) { 
-            console.error("SchemaExplorer - Error loading table description", e); 
-        }
+
+            if (result.success && result.description) {
+                if (window.app) window.app.activeSchemaData = result.description;
+                if (this.schemaExplorer) {
+                    this.schemaExplorer.update(result.description, this.tables);
+                } else if (window.app?.schemaExplorer) {
+                    window.app.schemaExplorer.update(result.description, this.tables);
+                }
+            }
+        } catch (e) { console.error("Error loading table description", e); }
     }
 
     _renderRelList(containerId, list) {
@@ -279,7 +273,6 @@ class QueryBuilder {
             };
         });
         
-        // Update SchemaExplorer with active tables when relations change
         if (window.app?.schemaExplorer && window.app?.activeSchemaData) {
             window.app.schemaExplorer.update(window.app.activeSchemaData, this.tables);
         }
@@ -288,12 +281,19 @@ class QueryBuilder {
     async _updateSQL() {
         if (this.mode !== 'navigate') return;
         try {
-            const f = new FormData();
-            f.append('connectionId', this.connectionId);
-            f.append('tables', JSON.stringify(this.tables));
-            const resp = await fetch(`api.php?action=auto_query`, { method: 'POST', body: f });
-            const data = await resp.json();
-            this.parentElement.querySelector('#qb-sql').value = data.sql || '';
+            let sql;
+            if (this.useLegacyApi) {
+                const f = new FormData();
+                f.append('connectionId', this.connectionId);
+                f.append('tables', JSON.stringify(this.tables));
+                const resp = await fetch(`api.php?action=auto_query`, { method: 'POST', body: f });
+                const data = await resp.json();
+                sql = data.sql || '';
+            } else {
+                const result = await this.api.queryBuilder.autoQuery({ connectionId: this.connectionId, tables: JSON.stringify(this.tables) });
+                sql = result.sql || '';
+            }
+            this.parentElement.querySelector('#qb-sql').value = sql;
         } catch (e) {}
     }
 
@@ -306,54 +306,121 @@ class QueryBuilder {
 
         const btn = this.parentElement.querySelector('#qb-run');
         const origBtnHtml = btn.innerHTML;
-        const origBtnDisabled = btn.disabled;
         btn.disabled = true;
-        // Use correct path to clock.gif
         btn.innerHTML = '<img src="assets/icon/reloj.gif" style="height:16px;vertical-align:middle;margin-right:8px;"> Ejecutando...';
 
-        try {
-            const f = new FormData();
-            f.append('connectionId', this.connectionId);
-            f.append('sql', sql);
-            fetch(`api.php?action=execute_query`, { method: 'POST', body: f })
-                .then(resp => resp.json())
-                .then(data => {
-                    if (data.error) throw new Error(data.error);
+        const execute = async () => {
+            try {
+                let result;
+                if (this.useLegacyApi) {
+                    const f = new FormData();
+                    f.append('connectionId', this.connectionId);
+                    f.append('sql', sql);
+                    const resp = await fetch(`api.php?action=execute_query`, { method: 'POST', body: f });
+                    result = await resp.json();
+                } else {
+                    // Petición directa al router para obtener todos los metadatos
+                    const url = `api/v1/index.php?ep=QueryExecutor&action=execute&connectionId=${encodeURIComponent(this.connectionId)}&sql=${encodeURIComponent(sql)}`;
+                    const resp = await fetch(url);
+                    result = await resp.json();
+                }
 
-                    if (data.columns) {
-                        // If it's a SELECT, update grid
-                        this.grid.render(data.data, { 
-                            columns: data.columns, 
-                            titles: data.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) 
-                        });
-                        this.grid.hasMore = false;
-                        this.grid.footerContainer.textContent = `Total: ${data.data.length} registros | Duración: ${data.durationMs || 'N/A'}ms`;
-                    } else {
-                        alert(`Filas afectadas: ${data.affected || 0}`);
-                    }
-                })
-                .catch(e => {
-                    errorEl.textContent = e.message;
-                    errorEl.style.display = 'block';
-                })
-                .finally(() => {
-                    btn.innerHTML = origBtnHtml;
-                    btn.disabled = origBtnDisabled;
-                });
-        } catch (e) {
-            errorEl.textContent = e.message;
-            errorEl.style.display = 'block';
-            btn.innerHTML = origBtnHtml;
-            btn.disabled = origBtnDisabled;
-        }
+                if (result.error) throw new Error(result.error);
+
+                if (result.columns) {
+                    this.grid.render(result.data, { 
+                        columns: result.columns, 
+                        titles: result.titles || result.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) 
+                    });
+                    this.grid.hasMore = false;
+                    this.grid.footerContainer.textContent = `Total: ${result.data.length} registros | Duración: ${result.durationMs || 'N/A'}ms`;
+                } else {
+                    alert(`Filas afectadas: ${result.affected_rows || result.affected || 0}`);
+                }
+            } catch (e) {
+                errorEl.textContent = e.message;
+                errorEl.style.display = 'block';
+            } finally {
+                btn.innerHTML = origBtnHtml;
+                btn.disabled = false;
+            }
+        };
+        execute();
     }
 
     onActivate() {
-        if (this.onActivateTab) {
-            this.onActivateTab(this);
-        }
-        if (this.grid) {
-            // Need to fix potential column alignment issues when tab becomes visible
-        }
+        if (this.onActivateTab) this.onActivateTab(this);
     }
+	
+	setSelectedColumns(selected) {
+    // selected = [ { column: "tabla.columna", sort: "ASC" }, ... ]
+    this.selectedColumns = selected;
+
+    if (this.mode === 'edit') return;   // Solo en navegación
+
+    if (!selected || selected.length === 0) {
+        // Si no hay selección, usar todas las columnas (comportamiento por defecto)
+        this._updateSQLAndGrid();
+        return;
+    }
+
+    // Extraer solo los nombres de columna completos (tabla.columna)
+    const columns = selected.map(s => s.column);
+
+    // Regenerar SQL con esas columnas y recargar la grilla
+    this._updateSQLAndGrid(columns);
+}
+
+setSelectedColumns(selected) {
+    this.selectedColumns = selected;
+
+    if (this.mode !== 'navigate') return;
+
+    if (!selected || selected.length === 0) {
+        this._updateSQL();
+        this.grid.resetAndFetch();
+        return;
+    }
+
+    const columns = selected.map(s => s.column);
+
+    if (this.useLegacyApi) {
+        this._updateSQL();
+        this.grid.resetAndFetch();
+        return;
+    }
+
+    this._updateSQLAndGrid(columns);
+}
+
+async _updateSQLAndGrid(columns) {
+    try {
+        const params = {
+            connectionId: this.connectionId,
+            tables: JSON.stringify(this.tables),
+            columns: JSON.stringify(columns)
+        };
+        const result = await this.api.queryBuilder.autoQuery(params);
+        if (!result.sql) return;
+
+        this.parentElement.querySelector('#qb-sql').value = result.sql;
+
+        const url = `api/v1/index.php?ep=QueryExecutor&action=execute&connectionId=${encodeURIComponent(this.connectionId)}&sql=${encodeURIComponent(result.sql)}`;
+        const resp = await fetch(url);
+        const execData = await resp.json();
+
+        if (execData.columns) {
+            this.grid.render(execData.data, {
+                columns: execData.columns,
+                titles: execData.titles || execData.columns.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+            });
+            this.grid.hasMore = false;
+            this.grid.footerContainer.textContent = `Total: ${execData.data.length} registros | Duración: ${execData.durationMs || 'N/A'}ms`;
+        }
+    } catch (e) {
+        console.error('Error actualizando SQL/Grid:', e);
+    }
+}
+
+
 }

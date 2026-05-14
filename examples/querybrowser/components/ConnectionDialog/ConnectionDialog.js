@@ -1,6 +1,6 @@
 /**
  * ConnectionDialog.js
- * Two-step wizard for creating new database connections.
+ * Two‑step wizard for creating new database connections.
  *
  * Step 1 — Driver grid, connection name, environment, description
  * Step 2 — Connection details (host, port, database, user, password)
@@ -9,17 +9,17 @@ class ConnectionDialog {
     constructor() {
         this.currentStep = 1;
         this.selectedDriver = 'mysql';
-        this.selectedStatus = 'dev';
+        this.selectedEnvironment = 'dev';
         this.overlay = null;
         this._build();
     }
 
     static get DRIVERS() {
         return [
-            { id: 'mysql',      label: 'MySQL',       port: 3306,  icon: 'mysql' },
-            { id: 'mariadb',    label: 'MariaDB',     port: 3306,  icon: 'mariadb' },
-            { id: 'sqlite',     label: 'SQLite',      port: null,  icon: 'sqlite' },
-            { id: 'pgsql',      label: 'PostgreSQL',  port: 5432,  icon: 'postgresql' },
+            { id: 'mysql',      label: 'MySQL',       port: 3306,  emoji: '🐬' },
+            { id: 'mariadb',    label: 'MariaDB',     port: 3306,  emoji: '🐬' },
+            { id: 'sqlite',     label: 'SQLite',      port: null,  emoji: '🗄️' },
+            { id: 'pgsql',      label: 'PostgreSQL',  port: 5432,  emoji: '🐘' },
         ];
     }
 
@@ -59,7 +59,7 @@ class ConnectionDialog {
                     <div class="cd-driver-grid" id="cd-driver-grid">
                         ${ConnectionDialog.DRIVERS.map(d => `
                             <div class="cd-driver-card ${d.id === this.selectedDriver ? 'active' : ''}" data-driver="${d.id}">
-                                <div class="cd-driver-icon">${window.DBIcons?.[d.icon] || ''}</div>
+                                <div class="cd-driver-icon">${d.emoji}</div>
                                 <span class="cd-driver-name">${d.label}</span>
                             </div>
                         `).join('')}
@@ -159,12 +159,10 @@ class ConnectionDialog {
             if (e.key === 'Escape' && ov.classList.contains('is-open')) this.close();
         });
 
-        // Driver cards
         ov.querySelectorAll('.cd-driver-card').forEach(c =>
             c.onclick = () => this._pickDriver(c.dataset.driver)
         );
 
-        // Env badges
         ov.querySelectorAll('.cd-env').forEach(b =>
             b.onclick = () => this._pickEnv(b.dataset.status)
         );
@@ -196,36 +194,29 @@ class ConnectionDialog {
         ov.querySelector('#cd-step-1').style.display = step === 1 ? 'block' : 'none';
         ov.querySelector('#cd-step-2').style.display = step === 2 ? 'block' : 'none';
 
-        // Pills
         ov.querySelectorAll('.cd-pill').forEach(p => {
             const s = +p.dataset.step;
             p.className = 'cd-pill' + (s < step ? ' done' : s === step ? ' active' : '');
         });
 
-        // Subtitle
         ov.querySelector('#cd-subtitle').textContent = step === 1
             ? 'Paso 1 — Seleccionar driver'
             : 'Paso 2 — Datos de conexión';
 
-        // Footer buttons
         ov.querySelector('#cd-next-btn').style.display  = step === 1 ? '' : 'none';
         ov.querySelector('#cd-prev-btn').style.display  = step === 2 ? '' : 'none';
         ov.querySelector('#cd-save-btn').style.display  = step === 2 ? '' : 'none';
         ov.querySelector('#cd-test-btn').style.display  = step === 2 ? '' : 'none';
 
-        // Clear result
         const r = ov.querySelector('#cd-result');
         r.textContent = '';
         r.className = 'cd-result';
     }
 
-    // ─── Setup step 2 based on selected driver ────────────────
     _setupStep2() {
         const ov = this.overlay;
         const d = ConnectionDialog.DRIVERS.find(x => x.id === this.selectedDriver);
-        const svg = window.DBIcons?.[d.icon] || '';
-
-        ov.querySelector('#cd-step2-badge').innerHTML = `${svg}<span>${d.label}</span>`;
+        ov.querySelector('#cd-step2-badge').innerHTML = `${d.emoji}<span>${d.label}</span>`;
 
         const isSqlite = this.selectedDriver === 'sqlite';
 
@@ -245,7 +236,6 @@ class ConnectionDialog {
         }
     }
 
-    // ─── Driver selection ─────────────────────────────────────
     _pickDriver(id) {
         this.selectedDriver = id;
         this.overlay.querySelectorAll('.cd-driver-card').forEach(c =>
@@ -253,15 +243,13 @@ class ConnectionDialog {
         );
     }
 
-    // ─── Environment selection ────────────────────────────────
     _pickEnv(status) {
-        this.selectedStatus = status;
+        this.selectedEnvironment = status;
         this.overlay.querySelectorAll('.cd-env').forEach(b =>
             b.classList.toggle('active', b.dataset.status === status)
         );
     }
 
-    // ─── Collect data ─────────────────────────────────────────
     _data() {
         const ov = this.overlay;
         return {
@@ -273,7 +261,8 @@ class ConnectionDialog {
             username:    ov.querySelector('#cd-username').value.trim() || null,
             password:    ov.querySelector('#cd-password').value || null,
             description: ov.querySelector('#cd-description').value.trim() || null,
-            status:      this.selectedStatus,
+            environment: this.selectedEnvironment,
+            status:      'active',
         };
     }
 
@@ -285,7 +274,6 @@ class ConnectionDialog {
         return null;
     }
 
-    // ─── Test connection ──────────────────────────────────────
     async _test() {
         const data = this._data();
         const err = this._validate(data);
@@ -312,7 +300,6 @@ class ConnectionDialog {
         finally { btn.classList.remove('loading'); }
     }
 
-    // ─── Save connection ──────────────────────────────────────
     async _save() {
         const data = this._data();
         const err = this._validate(data);
@@ -338,7 +325,6 @@ class ConnectionDialog {
         finally { btn.classList.remove('loading'); btn.disabled = false; }
     }
 
-    // ─── Open / Close ─────────────────────────────────────────
     open() {
         this._reset();
         this.overlay.classList.add('is-open');
