@@ -3,7 +3,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: #fdfdfd;
+    background: #f5f0e6;
 }
 
 .gv-toolbar {
@@ -51,10 +51,20 @@
 .gv-network {
     flex: 1;
     position: relative;
-    background: #fcfcfc;
+    background: #f5f0e6;
 }
 
-.gv-loading, .gv-empty, .gv-error {
+.gv-network .vis-network {
+    background: #f5f0e6 !important;
+}
+
+.gv-network canvas {
+    background: transparent !important;
+}
+
+.gv-loading,
+.gv-empty,
+.gv-error {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -64,4 +74,6 @@
     text-align: center;
 }
 
-.gv-error { color: #ef4444; }
+.gv-error {
+    color: #ef4444;
+}
