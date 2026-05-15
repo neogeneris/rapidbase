@@ -1,6 +1,8 @@
 /**
  * GraphViewer.js
  * Renders database schema as an interactive graph using vis-network.
+ * Uses exclusively the new API v1 (SchemaExplorer endpoint).
+ * Completely static – no physics, no dragging.
  */
 class GraphViewer {
     constructor(connectionId, options = {}) {
@@ -47,46 +49,60 @@ class GraphViewer {
     async load() {
         const networkContainer = this.container.querySelector('.gv-network');
         try {
-            const resp = await fetch(`api.php?action=schema_graph&connectionId=${this.connectionId}`);
-            const data = await resp.json();
+            const api = new RapidBaseClient('api/v1/index.php');
+            const schema = await api.schemaExplorer.getSchema({ connectionId: this.connectionId });
+            
+            const tables = schema.tables || [];
+            const relations = schema.relations || [];
 
-            if (!data.nodes || data.nodes.length === 0) {
+            if (!tables.length) {
                 networkContainer.innerHTML = '<div class="gv-empty">No se encontraron tablas o relaciones</div>';
                 return;
             }
 
-            const nodes = new vis.DataSet(data.nodes.map(n => ({
-                ...n,
-                color: { background: '#ffffff', border: '#cbd5e1', highlight: { background: '#eff6ff', border: '#3b82f6' } },
+            const nodesArr = tables.map(t => ({
+                id: t.name,
+                label: t.name,
+                title: t.name,
                 shape: 'box',
                 margin: 10,
+                color: { background: '#ffffff', border: '#cbd5e1', highlight: { background: '#eff6ff', border: '#3b82f6' } },
                 font: { face: 'Inter, Segoe UI', size: 12, color: '#1e293b' }
-            })));
+            }));
 
-            const edges = new vis.DataSet(data.edges.map(e => ({
-                ...e,
-                arrows: 'to',
-                color: { color: '#94a3b8', opacity: 0.5, highlight: '#3b82f6' },
-                font: { size: 10, align: 'top', color: '#64748b' }
-            })));
+            // Eliminar relaciones duplicadas
+            const seen = new Set();
+            const edgesArr = [];
+            relations.forEach(r => {
+                const key = [r.sourceTable, r.targetTable].sort().join('|');
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    edgesArr.push({
+                        from: r.sourceTable,
+                        to: r.targetTable,
+                        label: `${r.sourceColumn} → ${r.targetColumn}`,
+                        arrows: 'to',
+                        title: r.type,
+                        color: { color: '#94a3b8', opacity: 0.5, highlight: '#3b82f6' },
+                        font: { size: 10, align: 'top', color: '#64748b' }
+                    });
+                }
+            });
+
+            const nodes = new vis.DataSet(nodesArr);
+            const edges = new vis.DataSet(edgesArr);
 
             const options = {
                 layout: { improvedLayout: true },
-                physics: {
-                    enabled: true,
-                    solver: 'forceAtlas2Based',
-                    forceAtlas2Based: { gravitationalConstant: -50, centralGravity: 0.01, springLength: 100, springConstant: 0.08 },
-                    stabilization: { iterations: 150 }
-                },
-                interaction: { hover: true, tooltipDelay: 200 }
+                physics: false,
+                interaction: {
+                    dragNodes: true,   // no permitir arrastrar nodos
+                    dragView: true,    // no permitir desplazar la vista con el ratón
+                    zoomView: true      // seguir permitiendo zoom con rueda (los botones funcionan igual)
+                }
             };
 
             this.network = new vis.Network(networkContainer, { nodes, edges }, options);
-
-            // Stop physics after initial stabilization to avoid jitter
-            this.network.once('stabilizationIterationsDone', () => {
-                this.network.setOptions({ physics: false });
-            });
 
             this.network.on('click', (params) => {
                 if (params.nodes.length > 0) {
@@ -101,7 +117,6 @@ class GraphViewer {
     }
 
     onActivate() {
-        // Redraw if needed or fit
         if (this.network) {
             setTimeout(() => this.network.fit(), 100);
         }
