@@ -3,7 +3,7 @@ class SchemaExplorer {
         this.container = null;
         this.options = options;
         this.isOpen = false;
-        this.relationsData = null;   // Almacena las relaciones
+        this.relationsData = null;
         this.init();
     }
 
@@ -39,15 +39,23 @@ class SchemaExplorer {
         if (this.options.containerId) this.open();
     }
 
-    /**
-     * Updates the schema explorer with given schema data and optional active tables.
-     * @param {Object} schemaData - Schema map (list_tables format or description format)
-     * @param {Array|string} activeTables - Tables to show. If undefined or empty array, the panel is cleared.
-     */
+    open() {
+        this.isOpen = true;
+        this.container.classList.remove('closed');
+    }
+
+    close() {
+        this.isOpen = false;
+        this.container.classList.add('closed');
+    }
+
+    toggle() {
+        this.isOpen ? this.close() : this.open();
+    }
+
     update(schemaData, activeTables) {
         this.options.schemaData = schemaData;
 
-        // Si no se especifican tablas activas → estado vacío
         if (activeTables === undefined || activeTables === null) {
             this.options.activeTables = undefined;
             this.renderTree([]);
@@ -55,7 +63,6 @@ class SchemaExplorer {
             return;
         }
 
-        // Normalizar a array
         if (typeof activeTables === 'string') {
             try {
                 const parsed = JSON.parse(activeTables);
@@ -69,10 +76,9 @@ class SchemaExplorer {
             this.options.activeTables = [activeTables];
         }
 
-        // Si el array está vacío, también mostramos panel vacío (sin cerrar, para mantener feedback visual)
         if (this.options.activeTables.length === 0) {
             this.renderTree([]);
-            this.open();  // mostramos el panel con el mensaje de "seleccione una tabla"
+            this.open();
             return;
         }
 
@@ -87,7 +93,6 @@ class SchemaExplorer {
         let tablesArray = [];
         this.relationsData = null;
 
-        // Nuevo formato: { tables: [...], views: [], relations: [...] }
         if (data.tables && Array.isArray(data.tables)) {
             tablesArray = data.tables.map(t => ({
                 name: t.name,
@@ -101,9 +106,7 @@ class SchemaExplorer {
             if (data.relations) {
                 this.relationsData = data.relations;
             }
-        }
-        // Formato list_tables antiguo: { schema_tables: [...] }
-        else if (data.schema_tables) {
+        } else if (data.schema_tables) {
             tablesArray = data.schema_tables.map(t => ({
                 name: t.name,
                 columns: (t.columns || []).map(c => ({
@@ -113,9 +116,7 @@ class SchemaExplorer {
                 })),
                 pks: (t.columns || []).filter(c => c.primary).map(c => c.name)
             }));
-        }
-        // X::description() antiguo o array
-        else if (typeof data === 'object' && !Array.isArray(data)) {
+        } else if (typeof data === 'object' && !Array.isArray(data)) {
             tablesArray = Object.keys(data).map(tableName => {
                 const tableData = data[tableName];
                 const cols = tableData.columns || {};
@@ -131,7 +132,6 @@ class SchemaExplorer {
             });
         }
 
-        // Filtrar por tablas activas
         if (this.options.activeTables && this.options.activeTables.length > 0) {
             tablesArray = tablesArray.filter(t => this.options.activeTables.includes(t.name));
         }
@@ -146,7 +146,6 @@ class SchemaExplorer {
         if (!tables || tables.length === 0) {
             html += '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;">Seleccione una tabla en el editor</div>';
         } else {
-            // --- Tablas ---
             tables.forEach(table => {
                 const tableIcon = `<svg viewBox="0 0 24 24" width="14" height="14" style="margin-right:8px;color:#3b82f6;">
                     <path fill="currentColor" d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h10v2H7v-2z"/>
@@ -180,7 +179,6 @@ class SchemaExplorer {
             });
         }
 
-        // --- Relaciones (si existen) ---
         if (this.relationsData && this.relationsData.length > 0) {
             html += `<details class="se-relations" open>
                 <summary style="padding:6px 12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
@@ -240,51 +238,48 @@ class SchemaExplorer {
     }
 
     handleColumnSelection() {
-        const selected = [];
+        const projections = [];
+        const orders = [];
+
         this.container.querySelectorAll('.se-column-item').forEach(li => {
             const cb = li.querySelector('input[type="checkbox"]');
-            if (cb.checked) {
-                selected.push({
-                    column: cb.value,
-                    sort: li.querySelector('.se-sort-select').value
-                });
+            const sortSelect = li.querySelector('.se-sort-select');
+            const colName = cb.value;
+            const sort = sortSelect ? sortSelect.value : 'NONE';
+            const checked = cb.checked;
+
+            if (checked) {
+                projections.push(colName);
+            }
+
+            if (sort !== 'NONE') {
+                orders.push({ column: colName, sort: sort });
             }
         });
-        if (this.options.grid?.updateQuery) this.options.grid.updateQuery(selected);
+
+        const selection = { projections, orders };
+
+        if (this.options.grid?.updateQuery) {
+            this.options.grid.updateQuery(selection);
+        }
+
+        if (typeof this.options.onSelectionChange === 'function') {
+            this.options.onSelectionChange(selection);
+        }
     }
 
-    open() {
-        this.isOpen = true;
-        this.container.classList.remove('closed');
-    }
+    setSelection(selectedColumns, sorts = []) {
+        const cols = Array.isArray(selectedColumns) ? selectedColumns : [];
+        const sortList = Array.isArray(sorts) ? sorts : [];
 
-    close() {
-        this.isOpen = false;
-        this.container.classList.add('closed');
-    }
+        this.container.querySelectorAll('.se-column-item').forEach(li => {
+            const cb = li.querySelector('input[type="checkbox"]');
+            const sel = li.querySelector('.se-sort-select');
 
-    toggle() {
-        this.isOpen ? this.close() : this.open();
-    }
-	
-	handleColumnSelection() {
-		const selected = [];
-		this.container.querySelectorAll('.se-column-item').forEach(li => {
-			const cb = li.querySelector('input[type="checkbox"]');
-			if (cb.checked) {
-				selected.push({
-					column: cb.value,
-					sort: li.querySelector('.se-sort-select').value
-				});
-			}
-		});
-		if (this.options.grid?.updateQuery) this.options.grid.updateQuery(selected);
+            cb.checked = cols.includes(cb.value);
 
-		// 👇 Emitir a cualquier suscriptor (nuevo)
-		if (typeof this.options.onSelectionChange === 'function') {
-			this.options.onSelectionChange(selected);
-		}
-	}	
-	
-	
+            const sortEntry = sortList.find(s => s.field === cb.value);
+            sel.value = sortEntry ? sortEntry.order.toUpperCase() : 'NONE';
+        });
+    }
 }

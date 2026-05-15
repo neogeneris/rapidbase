@@ -6,15 +6,15 @@
     <link rel="stylesheet" href="components/ConnectionFooter/ConnectionFooter.css">
     <link rel="stylesheet" href="components/ConnectionManager/ConnectionManager.css">
     <link rel="stylesheet" href="components/ConnectionDialog/ConnectionDialog.css">
-    <link rel="stylesheet" href="components/TableList/TableList.css">
+    <link rel="stylesheet" href="components/TableList/TableList.css?v=2">
     <link rel="stylesheet" href="components/TabManager/TabManager.css">
-    <link rel="stylesheet" href="components/GraphViewer/GraphViewer.css">
+    <link rel="stylesheet" href="components/GraphViewer/GraphViewer.css?v=2">
     <link rel="stylesheet" href="components/QueryBuilder/QueryBuilder.css">
     <link rel="stylesheet" href="components/SchemaExplorer/SchemaExplorer.css">
     <link rel="stylesheet" href="grid/Grid.css">
     <!-- vis‑network -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
+    <script src="assets/vis/vis.min.js"></script>
+    <link rel="stylesheet" href="assets/vis/vis.min.css">
     
     <style>
         :root {
@@ -40,8 +40,8 @@
 
         #left-sidebar { width: 280px; display: flex; flex-direction: column; }
         #right-sidebar { width: 280px; display: flex; flex-direction: column; }
-        #conn-manager-box { height: 250px; min-height: 100px; flex-shrink: 0; }
-        #table-list-box { flex: 1; }
+        #conn-manager-box { display: flex; flex-direction: column; height: 250px; min-height: 100px; flex-shrink: 0; }
+        #table-list-box { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
         /* --- CLASE PANEL --- */
         .rb-panel {
@@ -68,11 +68,11 @@
             background: #fff; 
             position: relative; 
         }
-
         /* --- SPLITTERS --- */
-        .resizer-h { height: 4px; background: #e2e8f0; cursor: row-resize; z-index: 5; }
-        .resizer-v { width: 4px; background: #e2e8f0; cursor: col-resize; z-index: 10; }
+        .resizer-h { height: 4px; background: #e2e8f0; cursor: row-resize; z-index: 5; flex-shrink: 0; }
+        .resizer-v { width: 4px; background: #e2e8f0; cursor: col-resize; z-index: 10; flex-shrink: 0; }
         .resizer-h:hover, .resizer-v:hover { background: var(--accent-color); }
+        body.is-resizing * { pointer-events: none !important; user-select: none !important; }
 
         /* --- EDITOR --- */
         .editor-area { flex: 1; display: flex; flex-direction: column; padding: 10px; background: #f8fafc; }
@@ -101,7 +101,7 @@
         <div class="resizer-v" id="resizer-v-right"></div>
 
         <aside id="right-sidebar">
-            <div id="schema-explorer-box" style="height: 100%;"></div>
+            <div id="schema-explorer-box" style="flex: 1; display: flex; flex-direction: column; min-height: 0;"></div>
         </aside>
     </div>
 
@@ -112,9 +112,9 @@
     <script src="components/ConnectionFooter/ConnectionFooter.js"></script>
     <script src="components/ConnectionManager/ConnectionManager.js"></script>
     <script src="components/ConnectionDialog/ConnectionDialog.js"></script>
-	<script src="components/TableList/TableList.js"></script>
+	<script src="components/TableList/TableList.js?v=2"></script>
 	<script src="components/TabManager/TabManager.js"></script>
-	<script src="components/GraphViewer/GraphViewer.js"></script>
+	<script src="components/GraphViewer/GraphViewer.js?v=2"></script>
 	<script src="components/QueryBuilder/QueryBuilder.js"></script>
 	<script src="components/GridViewer/GridViewer.js"></script>
 	<script src="components/SchemaExplorer/SchemaExplorer.js"></script>
@@ -154,6 +154,7 @@
         function initResizable(resizer, target, direction, sidebarElement = null) {
             resizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
+                document.body.classList.add('is-resizing');
                 const onMouseMove = (event) => {
                     if (direction === 'h') {
                         const newHeight = event.clientY;
@@ -178,7 +179,10 @@
                         }
                     }
                 };
-                const onMouseUp = () => document.removeEventListener('mousemove', onMouseMove);
+                const onMouseUp = () => {
+                    document.body.classList.remove('is-resizing');
+                    document.removeEventListener('mousemove', onMouseMove);
+                };
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp, { once: true });
             });

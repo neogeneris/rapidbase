@@ -56,23 +56,22 @@ class Q
     ): CompiledQuery {
         $originalFields = $fields ?? '*';
         $selectFields = $originalFields;
-        
-        // Normalización de Sort
-        $sort = $sort ?? []; 
+
+        // Normalización inicial del sort
+        $sort = $sort ?? [];
         if (is_string($sort)) {
-            $sort = str_contains($sort, ',') 
-                ? array_map('trim', explode(',', $sort)) 
+            $sort = str_contains($sort, ',')
+                ? array_map('trim', explode(',', $sort))
                 : [trim($sort)];
         }
 
-        // Obtener estado de tablas y Joins (necesario para saber si hay múltiples tablas)
+        // Obtener estado de tablas y Joins
         $base = $this->buildBaseState();
         $tablesInfo = $base['tablesInfo'];
         $mainAlias = $tablesInfo[0]['alias'] ?? '';
 
-        // ========== Manejo de múltiples tablas (JOIN) ==========
+        // Manejo de múltiples tablas (JOIN)
         if (count($tablesInfo) > 1) {
-            // Expansión completa: todas las columnas de todas las tablas, calificadas con alias
             $allQualifiedColumns = [];
             $map = SchemaMap::getMap();
             foreach ($tablesInfo as $info) {
@@ -83,22 +82,17 @@ class Q
                     $allQualifiedColumns[] = $alias . '.' . $col;
                 }
             }
-            // Si el usuario pidió '*', usamos la lista completa
             if ($originalFields === '*') {
                 $selectFields = $allQualifiedColumns;
             } else {
-                // Si el usuario especificó campos concretos, los calificamos automáticamente
                 $selectFields = $this->qualify($originalFields, $mainAlias);
             }
-            // También calificamos el sort
             $sort = $this->qualifySort($sort, $mainAlias);
         } else {
-            // Una sola tabla: calificación simple (solo si el campo no tiene punto y no es función)
             $selectFields = $this->qualify($originalFields, $mainAlias);
             $sort = $this->qualifySort($sort, $mainAlias);
         }
 
-        // Añadir función ventana si se solicita
         if ($withTotal && empty($groupBy)) {
             $totalFunc = 'COUNT(*) OVER() AS ' . ConditionMatrix::quote('_total');
             if (is_array($selectFields)) {
@@ -110,12 +104,10 @@ class Q
             }
         }
 
-        // Ruta rápida para tablas simples (sin joins, sin group by, etc.)
         if ($groupBy === null && empty($having) && empty($this->compiledParams) && $this->isSimpleTable()) {
             return $this->compileSimpleSelect($selectFields, $pagination, $sort);
         }
 
-        // Construcción normal de la consulta
         $fromClause = $base['fromClause'];
         $whereData  = ['sql' => $base['whereSql'], 'params' => $base['whereParams']];
 
@@ -130,7 +122,6 @@ class Q
 
         $params = array_merge($whereData['params'], $havingData['params']);
 
-        // Convertir selectFields a string si es array
         $selectSql = is_array($selectFields) ? implode(', ', $selectFields) : $selectFields;
 
         $compiledState = [
@@ -164,7 +155,6 @@ class Q
 
         $process = function($field) use ($tableAlias) {
             $field = trim((string)$field);
-            // Si ya tiene un punto o es una función SQL, no se califica
             if (str_contains($field, '.') || str_contains($field, '(') || $field === '*') {
                 return $field;
             }
@@ -187,26 +177,28 @@ class Q
     {
         if (empty($sort)) return $sort;
 
+        // 1. Array asociativo (columna => dirección) – ya viene normalizado, no modificar
+        if (is_array($sort) && !array_is_list($sort)) {
+            return $sort;
+        }
+
+        // 2. String con comas
+        if (is_string($sort)) {
+            $sort = array_map('trim', explode(',', $sort));
+        }
+
+        // 3. Array indexado (lista de strings)
         $process = function($field) use ($tableAlias) {
             $field = trim((string)$field);
             $isDesc = str_starts_with($field, '-');
-            $clean = $isDesc ? substr($field, 1) : $field;
+            $clean  = $isDesc ? substr($field, 1) : $field;
             if (str_contains($clean, '.') || str_contains($clean, '(')) {
                 return $field;
             }
             return ($isDesc ? '-' : '') . $tableAlias . '.' . $clean;
         };
 
-        if (is_string($sort)) {
-            $parts = explode(',', $sort);
-            return implode(', ', array_map($process, $parts));
-        }
-
-        if (is_array($sort)) {
-            return array_map($process, $sort);
-        }
-
-        return $sort;
+        return array_map($process, (array)$sort);
     }
 
     public function insert(array|CompiledQuery $rows, ?callable $transformer = null): CompiledQuery
@@ -373,10 +365,9 @@ class Q
 
     public static function page(mixed $page, int $perPage = 10): array 
     {
-        // Si $page ya es un array [pagina, limite], extraemos los valores
         if (is_array($page)) {
-            $perPage = $page[1] ?? $perPage; // Usa el segundo valor si existe
-            $page = $page[0] ?? 1;           // Usa el primero o asume página 1
+            $perPage = $page[1] ?? $perPage;
+            $page = $page[0] ?? 1;
         }
 
         $page = max(1, (int)$page);
@@ -388,9 +379,69 @@ class Q
     public static function setDriver(string $driver): void { ConditionMatrix::setDriver($driver); }
     public static function quote(string $identifier): string { return ConditionMatrix::quote($identifier); }
 
+    /**
+     * Normalizes any sort representation into a clean [column => direction] array.
+     *
+     * Accepted formats:
+     *   - string:                "id", "-name", "created_at DESC", "id, -name"
+     *   - associative array:     ['id' => 'asc', 'name' => 'desc']
+     *   - indexed array:         ['id', '-name']
+     *   - frontend object array: [['field' => 'id', 'order' => 'desc']]
+     *   - numeric directions:    ['id' => -1, 'name' => 1]
+     *
+     * @param mixed $sort
+     * @return array  e.g. ['id' => 'DESC', 'name' => 'ASC']
+     */
+    public static function sort(mixed $sort): array
+    {
+        if (empty($sort)) return [];
+
+        // Already an associative array with numeric or string directions
+        if (is_array($sort) && !array_is_list($sort)) {
+            $normalized = [];
+            foreach ($sort as $col => $dir) {
+                if (is_int($dir)) {
+                    $normalized[$col] = $dir <= 0 ? 'DESC' : 'ASC';
+                } else {
+                    $normalized[$col] = (strtoupper((string)$dir) === 'DESC') ? 'DESC' : 'ASC';
+                }
+            }
+            return $normalized;
+        }
+
+        // String with commas: "id, -name, created_at ASC"
+        if (is_string($sort)) {
+            $sort = array_map('trim', explode(',', $sort));
+        }
+
+        // Indexed array (list)
+        if (is_array($sort)) {
+            $normalized = [];
+            foreach ($sort as $item) {
+                if (is_array($item)) {
+                    // Object-like array: ['field' => 'id', 'order' => 'desc'] or ['column' => 'id', 'direction' => 'DESC']
+                    $col = $item['field'] ?? $item['column'] ?? $item[0] ?? '';
+                    $dir = $item['order'] ?? $item['direction'] ?? $item[1] ?? 'ASC';
+                    $normalized[$col] = (strtoupper((string)$dir) === 'DESC') ? 'DESC' : 'ASC';
+                } elseif (is_string($item)) {
+                    if (str_starts_with($item, '-')) {
+                        $col = ltrim($item, '-');
+                        $dir = 'DESC';
+                    } else {
+                        $col = $item;
+                        $dir = 'ASC';
+                    }
+                    $normalized[$col] = $dir;
+                }
+            }
+            return $normalized;
+        }
+
+        return [];
+    }
+
     // ========== Private helpers ==========
 
-    /** Builds LIMIT/OFFSET with inline integers - no placeholders for MariaDB compatibility */
     private function buildLimitClause(?array $pagination): string
     {
         if ($pagination === null) return '';
@@ -513,17 +564,52 @@ class Q
         $w = ConditionMatrix::parse($this->state[self::F]); $w['params'] = array_merge($this->compiledParams, $w['params']); return $w;
     }
 
+    /**
+     * Builds the ORDER BY clause from a normalized sort array.
+     * Handles associative arrays (col => dir), indexed arrays and strings.
+     */
     private function buildOrderClause($order): string
     {   
         if (empty($order)) return '';
-        if (is_array($order)) {
+
+        // 1. Associative array (col => direction) – produced by Q::sort()
+        if (is_array($order) && !array_is_list($order)) {
             $p = [];
-            foreach ($order as $f) { $f = trim($f); $d = 'ASC'; if (str_starts_with($f, '-')) { $d = 'DESC'; $f = substr($f, 1); } $p[] = ConditionMatrix::quote($f) . ' ' . $d; }
+            foreach ($order as $col => $dir) {
+                $dir = strtoupper((string)$dir) === 'DESC' ? 'DESC' : 'ASC';
+                $p[] = ConditionMatrix::quote($col) . ' ' . $dir;
+            }
             return implode(', ', $p);
         }
-        $fields = explode(',', $order); $p = [];
-        foreach ($fields as $f) { $f = trim($f); $d = 'ASC'; if (str_starts_with($f, '-')) { $d = 'DESC'; $f = substr($f, 1); } $p[] = ConditionMatrix::quote($f) . ' ' . $d; }
-        return implode(', ', $p);
+
+        // 2. String with commas
+        if (is_string($order)) {
+            $order = array_map('trim', explode(',', $order));
+        }
+
+        // 3. Indexed array (list of strings or object arrays)
+        if (is_array($order)) {
+            $p = [];
+            foreach ($order as $item) {
+                if (is_string($item)) {
+                    $item = trim($item);
+                    $d = 'ASC';
+                    if (str_starts_with($item, '-')) {
+                        $d = 'DESC';
+                        $item = substr($item, 1);
+                    }
+                    $p[] = ConditionMatrix::quote($item) . ' ' . $d;
+                } elseif (is_array($item)) {
+                    $col = $item['field'] ?? $item[0] ?? '';
+                    $dir = $item['order'] ?? $item[1] ?? 'ASC';
+                    $dir = strtoupper((string)$dir) === 'DESC' ? 'DESC' : 'ASC';
+                    $p[] = ConditionMatrix::quote($col) . ' ' . $dir;
+                }
+            }
+            return implode(', ', $p);
+        }
+
+        return '';
     }
 
     private function resolveSingleTableName(): string

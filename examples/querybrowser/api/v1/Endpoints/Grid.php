@@ -50,28 +50,59 @@ class Grid extends BaseEndpoint
         $decoded = json_decode($table, true);
         $tables = is_array($decoded) ? $decoded : [$table];
 
+        // Leer columnas opcionales (JSON array)
+        $columnsParam = $this->context->params['columns'] ?? null;
+        $columns = null;
+        if ($columnsParam) {
+            $decodedCols = json_decode($columnsParam, true);
+            if (is_array($decodedCols)) {
+                $columns = $decodedCols;
+            }
+        }
+
         $conditions = [];
-        // Si se implementa búsqueda global, se podría usar Search::class aquí
 
         $x = X::con($connId)->from($tables, $conditions);
 
-        $driver = SchemaMap::getMap()['driver'] ?? 'sqlite';
-        $x->totalStrategy($driver === 'mysql' ? 'window' : 'separate');
+        // Usar siempre 'separate' para tener un total fiable
+        $x->totalStrategy('separate');
 
         $pagination = [$page, $limit];
-        $gridData = $x->grid('*', $pagination, $sort, 300);
+        $sortArray  = \RapidBase\Core\SQL\Q::sort($sort);
+        $gridData   = $x->grid($columns ?? '*', $pagination, $sortArray, 300);
+
+        // Forzar el total real con COUNT(*) (en caso de que X::grid falle)
+        $total = $gridData['total'] ?? 0;
+        if ($total <= 0) {
+            $total = X::con($connId)->from($tables, $conditions)->count();
+        }
+
+        $lastPage = $limit > 0 ? (int) ceil($total / $limit) : 1;
+
+        // Asegurar que las columnas/títulos coincidan con la proyección
+        if ($columns) {
+            $shortCols = array_map(function ($col) {
+                return strpos($col, '.') !== false ? substr($col, strrpos($col, '.') + 1) : $col;
+            }, $columns);
+            $gridData['columns'] = $shortCols;
+            $gridData['titles']  = array_map(function ($c) {
+                return ucwords(str_replace('_', ' ', $c));
+            }, $shortCols);
+        }
+
+        $sql = $gridData['debug']['sql'] ?? '';
 
         return [
             'success'   => true,
             'data'      => $gridData['data'],
-            'total'     => $gridData['total'],
-            'columns'   => $gridData['columns'],
-            'titles'    => $gridData['titles'],
-            'page'      => $gridData['page'],
-            'limit'     => $gridData['limit'],
-            'last_page' => $gridData['last_page'],
-            'stats'     => $gridData['stats'],
-            'debug'     => $gridData['debug'],
+            'total'     => $total,
+            'columns'   => $gridData['columns'] ?? [],
+            'titles'    => $gridData['titles'] ?? [],
+            'page'      => $page,
+            'limit'     => $limit,
+            'last_page' => $lastPage,
+            'stats'     => $gridData['stats'] ?? [],
+            'sql'       => $sql,
         ];
     }
 }

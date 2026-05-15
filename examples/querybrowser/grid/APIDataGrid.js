@@ -1,6 +1,6 @@
 /**
- * APIDataGrid
- * Componente de grilla con scroll infinito y ordenamiento cíclico (asc → desc → sin orden)
+ * APIDataGrid – Componente de grilla con scroll infinito y ordenamiento cíclico.
+ * Ahora guarda la última respuesta y ofrece fallback para columnas.
  */
 class APIDataGrid extends GridBuilder {
     constructor(containerSelector, apiUrl, options = {}) {
@@ -14,7 +14,8 @@ class APIDataGrid extends GridBuilder {
         this.filter = options.filter || {};
         this.searchTerm = '';
         this.sortField = null;
-        this.sortOrder = null; // 'asc', 'desc', o null
+        this.sortOrder = null;
+        this.lastResponse = null;   // ← guarda la última respuesta completa
         this.controlsContainer = this.container.querySelector('.grid-controls');
         this.loadingIndicator = this.container.querySelector('.grid-loading');
         this.errorContainer = this.container.querySelector('.grid-error');
@@ -28,7 +29,6 @@ class APIDataGrid extends GridBuilder {
         if (this.mode === 'infinite') this.enableInfiniteScroll();
         this.scrollCleanup = null;
 
-        // Delegación de eventos
         this.container.addEventListener('click', (e) => {
             const th = e.target.closest('th');
             if (th && th.dataset.column) {
@@ -61,7 +61,6 @@ class APIDataGrid extends GridBuilder {
         if (urlParts.length > 1) new URLSearchParams(urlParts[1]).forEach((v, k) => p.set(k, v));
         p.set('page', this.currentPage);
         p.set('limit', this.pageSize);
-        // Enviar sort solo si hay orden activo
         if (this.sortField && this.sortOrder) {
             const prefix = this.sortOrder === 'desc' ? '-' : '';
             p.set('sort', `${prefix}${this.sortField}`);
@@ -79,18 +78,54 @@ class APIDataGrid extends GridBuilder {
         try {
             const url = `${this.apiUrl.split('?')[0]}?${this.buildParams().toString()}`;
             const r = await fetch(url);
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            if (!r.ok) {
+                let errMessage = `HTTP ${r.status}`;
+                try {
+                    const errData = await r.json();
+                    if (errData.error) errMessage = errData.error;
+                } catch(e) {}
+                throw new Error(errMessage);
+            }
             const d = await r.json();
+            this.lastResponse = d;   // ← guardar respuesta completa
+
             if (d.error) throw new Error(d.error);
+
             const rows = d.data || [];
-            const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
-            const total = d.total || rows.length;
-            const duration = d.stats?.duration ? (Number(d.stats.duration) / 1000).toFixed(4) + 's' : (d.time ? Number(d.time).toFixed(4) + 's' : 'N/A');
-            this.footerContainer.innerHTML = `📄 Total: ${total.toLocaleString()} registros | ${d.columns?.length || rows[0]?.length || 0} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
-            
+            let meta = null;
+
+            // 1. Intentar metadata del servidor
+            if (d.columns && d.titles) {
+                meta = { columns: d.columns, titles: d.titles };
+            }
+            // 2. Fallback desde los datos
+            else if (rows.length > 0) {
+                if (Array.isArray(rows[0])) {
+                    const cols = rows[0].map((_, i) => `col_${i}`);
+                    meta = {
+                        columns: cols,
+                        titles: cols.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+                    };
+                } else if (typeof rows[0] === 'object') {
+                    const keys = Object.keys(rows[0]);
+                    meta = {
+                        columns: keys,
+                        titles: keys.map(k => k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+                    };
+                }
+            }
+
+            const total = d.total ?? rows.length;
+            const colCount = meta ? meta.columns.length : (rows[0]?.length || 0);
+            const duration = d.stats?.duration
+                ? (Number(d.stats.duration) / 1000).toFixed(4) + 's'
+                : (d.time ? Number(d.time).toFixed(4) + 's' : 'N/A');
+
+            this.footerContainer.innerHTML = `📄 Total: ${total.toLocaleString()} registros | ` +
+                `${colCount} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
+
             if (rows.length > 0) {
                 if (this.currentPage === 1) {
-                    // Llamamos a nuestro propio método renderHeaders y renderBody
                     this.renderHeaders(meta);
                     this.renderBody(rows, meta);
                 } else {
@@ -103,6 +138,9 @@ class APIDataGrid extends GridBuilder {
                 }
             } else {
                 this.hasMore = false;
+                if (this.currentPage === 1) {
+                    this.bodyContainer.innerHTML = `<div class="grid-empty-state">…</div>`;
+                }
                 if (this.scrollCleanup) {
                     this.scrollCleanup();
                     this.scrollCleanup = null;
@@ -117,17 +155,10 @@ class APIDataGrid extends GridBuilder {
         }
     }
 
-    /**
-     * Dibuja las cabeceras con indicador de orden activo.
-     */
     renderHeaders(metadata) {
-        if (!metadata || !metadata.columns || !metadata.titles) {
-            // si no hay metadata, no hacemos nada
-            return;
-        }
+        if (!metadata || !metadata.columns || !metadata.titles) return;
         let columns = metadata.columns;
         let titles = metadata.titles;
-        // Filtrar columnas no deseadas (*, _total, COUNT...)
         const filtered = [];
         columns.forEach((col, idx) => {
             if (col !== '*' && col !== '_total' && !col.startsWith('COUNT(')) {
@@ -140,18 +171,14 @@ class APIDataGrid extends GridBuilder {
             if (this.sortField === col && this.sortOrder) {
                 sortAttr = ` data-sort="${this.sortOrder}"`;
             }
-            return `<th data-column="${this.escapeHtml(col)}"${sortAttr} style="width:150px;">${this.escapeHtml(title)}<div class="grid-resizer"></div></th>`;
+            return `<th data-column="${this.escapeHtml(col)}"${sortAttr}>${this.escapeHtml(title)}</th>`;
         }).join('');
         this.headerTemplate.innerHTML = html;
     }
 
-    /**
-     * Dibuja las filas del cuerpo.
-     */
     renderBody(rows, metadata) {
         const isNum = Array.isArray(rows[0]);
         if (!isNum && (!this.columns || this.columns.length === 0)) {
-            // Si no hay columnas definidas (caso raro), usar las llaves de la primera fila
             this.columns = Object.keys(rows[0]);
         }
         const html = rows.map(row => {
@@ -195,16 +222,11 @@ class APIDataGrid extends GridBuilder {
         this.fetchData();
     }
 
-    /**
-     * Ordenamiento cíclico: null → asc → desc → null
-     */
     sortBy(field) {
         if (this.sortField !== field) {
-            // Nueva columna → asc
             this.sortField = field;
             this.sortOrder = 'asc';
         } else {
-            // Misma columna → ciclar
             if (this.sortOrder === 'asc') {
                 this.sortOrder = 'desc';
             } else if (this.sortOrder === 'desc') {
@@ -217,29 +239,24 @@ class APIDataGrid extends GridBuilder {
         this.resetAndFetch();
     }
 
-    setFilter(f) {
-        this.filter = f;
-        this.resetAndFetch();
+    setSort(field, order) {
+        this.sortField = field;
+        this.sortOrder = order;
+        this.updateSortIndicator();
     }
 
-    showLoading() {
-        if (this.loadingIndicator) this.loadingIndicator.style.display = 'block';
-    }
-    hideLoading() {
-        if (this.loadingIndicator) this.loadingIndicator.style.display = 'none';
-    }
+    setFilter(f) { this.filter = f; this.resetAndFetch(); }
+
+    showLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'block'; }
+    hideLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'none'; }
     showError(m) {
         if (this.errorContainer) {
             this.errorContainer.textContent = 'Error: ' + m;
             this.errorContainer.style.display = 'block';
         }
     }
-    hideError() {
-        if (this.errorContainer) this.errorContainer.style.display = 'none';
-    }
-    load() {
-        this.fetchData();
-    }
+    hideError() { if (this.errorContainer) this.errorContainer.style.display = 'none'; }
+    load() { this.fetchData(); }
 
     escapeHtml(str) {
         if (!str) return '';
