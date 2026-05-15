@@ -1,9 +1,6 @@
 /**
  * QueryBuilder.js – Sincronizado con SchemaExplorer y Grid (API v1)
- * 
- * El grid devuelve el SQL real (campo 'sql') que se acaba de ejecutar.
- * El editor de texto simplemente muestra ese SQL, garantizando que
- * grid y editor estén siempre alineados.
+ * IDs únicos por pestaña para evitar conflictos.
  */
 class QueryBuilder {
     constructor(connectionId, tableName, options = {}) {
@@ -17,51 +14,57 @@ class QueryBuilder {
 
         this.api = window.RapidBaseClient ? new RapidBaseClient('api/v1/index.php') : null;
 
+        // ID único para esta instancia
+        this.instanceId = `qb_${connectionId}_${tableName}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
         this.state = {
-            columns: null,               // null = todas las columnas ("tabla.col")
-            sort: [],                    // [{ field: "tabla.col", order: "asc"|"desc" }]
-            search: ''
+            columns: null,
+            sort: [],
+            search: '',
+            strategy: 'auto'
         };
     }
 
     init(parentElement) {
         this.parentElement = parentElement;
+        const id = this.instanceId;
+
         this.parentElement.innerHTML = `
             <div class="qb-wrapper">
                 <div class="qb-toolbar">
                     <div class="qb-mode-toggle">
                         <label class="qb-switch">
-                            <input type="checkbox" id="qb-mode-chk">
+                            <input type="checkbox" id="${id}-mode-chk">
                             <span class="qb-slider"></span>
                         </label>
-                        <span class="qb-mode-label" id="qb-mode-text">Navegación</span>
+                        <span class="qb-mode-label" id="${id}-mode-text">Navegación</span>
                     </div>
-                    <div class="qb-chips-container" id="qb-chips"></div>
-                    <div class="qb-relations" id="qb-rels">
-                        <div class="qb-rel-group" id="qb-rel-to">
+                    <div class="qb-chips-container" id="${id}-chips"></div>
+                    <div class="qb-relations" id="${id}-rels">
+                        <div class="qb-rel-group" id="${id}-rel-to">
                             <span class="qb-rel-label">belongsTo:</span>
                             <div class="qb-rel-list"></div>
                         </div>
-                        <div class="qb-rel-group" id="qb-rel-from">
+                        <div class="qb-rel-group" id="${id}-rel-from">
                             <span class="qb-rel-label">hasMany:</span>
                             <div class="qb-rel-list"></div>
                         </div>
                     </div>
                 </div>
-                <div class="qb-editor-pane" id="qb-editor-container">
-                    <textarea class="qb-sql-editor" id="qb-sql" readonly rows="3"></textarea>
+                <div class="qb-editor-pane" id="${id}-editor-container">
+                    <textarea class="qb-sql-editor" id="${id}-sql" readonly rows="3"></textarea>
                     <div class="qb-editor-actions">
-                        <button class="qb-btn qb-run-btn" id="qb-run" style="display:none;">▶ Ejecutar</button>
+                        <button class="qb-btn qb-run-btn" id="${id}-run" style="display:none;">▶ Ejecutar</button>
                         <label class="qb-debug-toggle">
-                            <input type="checkbox" id="qb-debug-chk">
+                            <input type="checkbox" id="${id}-debug-chk">
                             <span>🐞 Debug</span>
                         </label>
                     </div>
-                    <div class="qb-error" id="qb-error" style="display:none;"></div>
+                    <div class="qb-error" id="${id}-error" style="display:none;"></div>
                 </div>
-                <div class="qb-resizer-h" id="qb-resizer"></div>
+                <div class="qb-resizer-h" id="${id}-resizer"></div>
                 <div class="qb-grid-pane">
-                    <div class="grid-container" id="qb-grid">
+                    <div class="grid-container" id="${id}-grid">
                         <div class="grid-controls"></div>
                         <div class="grid-loading" style="display:none;">Cargando...</div>
                         <div class="grid-error" style="display:none;"></div>
@@ -73,7 +76,7 @@ class QueryBuilder {
                         </div>
                         <div class="grid-footer"></div>
                     </div>
-                    <div class="qb-debug-output" id="qb-debug" style="display:none; padding: 12px; background: #fefcbf; color: #975a16; font-family: monospace; font-size: 0.75rem; border-top: 1px solid #faf089; max-height: 150px; overflow-y: auto;"></div>
+                    <div class="qb-debug-output" id="${id}-debug" style="display:none; padding: 12px; background: #fefcbf; color: #975a16; font-family: monospace; font-size: 0.75rem; border-top: 1px solid #faf089; max-height: 150px; overflow-y: auto;"></div>
                 </div>
             </div>
         `;
@@ -84,13 +87,9 @@ class QueryBuilder {
         this._loadRelations();
     }
 
-    // ─── Grid ────────────────────────────────────────────────
-
     _initGrid() {
         const apiUrl = `api/v1/index.php?ep=Grid&action=data`;
-        this.grid = new APIDataGrid('#qb-grid', apiUrl, { mode: 'infinite', pageSize: 50 });
-
-        // Desactivar ordenamiento automático del grid
+        this.grid = new APIDataGrid(`#${this.instanceId}-grid`, apiUrl, { mode: 'infinite', pageSize: 50 });
         this.grid.sortBy = () => {};
 
         const origBuildParams = this.grid.buildParams.bind(this.grid);
@@ -108,7 +107,6 @@ class QueryBuilder {
                 p.set('sort', sortString);
             }
 
-            // Enviar columnas si hay proyección seleccionada
             if (this.state.columns && this.state.columns.length > 0) {
                 p.set('columns', JSON.stringify(this.state.columns));
             }
@@ -116,40 +114,39 @@ class QueryBuilder {
             return p;
         };
 
-        // ── Obtener el SQL desde la respuesta del grid ─────
         const origFetchData = this.grid.fetchData.bind(this.grid);
         this.grid.fetchData = async () => {
             await origFetchData();
-            // El grid guarda la última respuesta en this.lastResponse
             if (this.grid.lastResponse && this.grid.lastResponse.sql) {
-                this.parentElement.querySelector('#qb-sql').value = this.grid.lastResponse.sql;
+                const sqlEl = this.parentElement.querySelector(`#${this.instanceId}-sql`);
+                if (sqlEl) sqlEl.value = this.grid.lastResponse.sql;
             }
-            this._debugLog();   // actualiza también el div de debug
+            this._debugLog();
         };
 
         this.grid.load();
     }
 
-    // ─── Eventos ─────────────────────────────────────────────
-
     _bindEvents() {
-        const modeChk = this.parentElement.querySelector('#qb-mode-chk');
+        const id = this.instanceId;
+
+        const modeChk = this.parentElement.querySelector(`#${id}-mode-chk`);
         modeChk.onchange = () => {
             this.mode = modeChk.checked ? 'edit' : 'navigate';
             this._updateUI();
         };
 
-        const debugChk = this.parentElement.querySelector('#qb-debug-chk');
+        const debugChk = this.parentElement.querySelector(`#${id}-debug-chk`);
         debugChk.onchange = () => {
-            const debugDiv = this.parentElement.querySelector('#qb-debug');
+            const debugDiv = this.parentElement.querySelector(`#${id}-debug`);
             debugDiv.style.display = debugChk.checked ? 'block' : 'none';
             if (debugChk.checked) this._debugLog();
         };
 
-        const runBtn = this.parentElement.querySelector('#qb-run');
+        const runBtn = this.parentElement.querySelector(`#${id}-run`);
         runBtn.onclick = () => this._executeSQL();
 
-        const sqlEditor = this.parentElement.querySelector('#qb-sql');
+        const sqlEditor = this.parentElement.querySelector(`#${id}-sql`);
         sqlEditor.onkeydown = (e) => {
             if (e.ctrlKey && e.key === 'Enter' && this.mode === 'edit') {
                 this._executeSQL();
@@ -169,8 +166,8 @@ class QueryBuilder {
             }
         };
 
-        const resizer = this.parentElement.querySelector('#qb-resizer');
-        const editorPane = this.parentElement.querySelector('#qb-editor-container');
+        const resizer = this.parentElement.querySelector(`#${id}-resizer`);
+        const editorPane = this.parentElement.querySelector(`#${id}-editor-container`);
         resizer.onmousedown = (e) => {
             e.preventDefault();
             const startY = e.clientY;
@@ -226,18 +223,17 @@ class QueryBuilder {
         }
     }
 
-    // ─── UI ──────────────────────────────────────────────────
-
     _updateUI() {
+        const id = this.instanceId;
         const isEdit = this.mode === 'edit';
-        this.parentElement.querySelector('#qb-mode-text').textContent = isEdit ? 'Edición SQL' : 'Navegación';
-        const sqlEditor = this.parentElement.querySelector('#qb-sql');
+        this.parentElement.querySelector(`#${id}-mode-text`).textContent = isEdit ? 'Edición SQL' : 'Navegación';
+        const sqlEditor = this.parentElement.querySelector(`#${id}-sql`);
         sqlEditor.readOnly = !isEdit;
         sqlEditor.classList.toggle('editable', isEdit);
-        this.parentElement.querySelector('#qb-run').style.display = isEdit ? 'block' : 'none';
+        this.parentElement.querySelector(`#${id}-run`).style.display = isEdit ? 'block' : 'none';
 
-        this.parentElement.querySelector('#qb-chips').style.display = isEdit ? 'none' : 'flex';
-        this.parentElement.querySelector('#qb-rels').style.display = isEdit ? 'none' : 'flex';
+        this.parentElement.querySelector(`#${id}-chips`).style.display = isEdit ? 'none' : 'flex';
+        this.parentElement.querySelector(`#${id}-rels`).style.display = isEdit ? 'none' : 'flex';
 
         if (!isEdit) {
             this._renderChips();
@@ -246,7 +242,8 @@ class QueryBuilder {
     }
 
     _renderChips() {
-        const container = this.parentElement.querySelector('#qb-chips');
+        const id = this.instanceId;
+        const container = this.parentElement.querySelector(`#${id}-chips`);
         container.innerHTML = this.tables.map((t, i) => `
             <div class="qb-chip">
                 <span>${window.escapeHtml(t)}</span>
@@ -272,8 +269,6 @@ class QueryBuilder {
             window.app.schemaExplorer.setSelection(this.state.columns, this.state.sort);
         }
     }
-
-    // ─── Relaciones y descripciones ──────────────────────────
 
     async _loadRelations() {
         if (this.mode === 'edit') return;
@@ -317,6 +312,7 @@ class QueryBuilder {
 
     _renderRelList(containerId, list) {
         const container = this.parentElement.querySelector(`#${containerId} .qb-rel-list`);
+        if (!container) return;
         container.innerHTML = list.map(t => `<span class="qb-rel-item" data-table="${t}">${window.escapeHtml(t)}</span>`).join('');
         container.querySelectorAll('.qb-rel-item').forEach(item => {
             item.onclick = () => {
@@ -336,37 +332,34 @@ class QueryBuilder {
         }
     }
 
-    // ─── Sincronización ─────────────────────────────────────
-
     async _updateQuery() {
         if (this.mode !== 'navigate') return;
 
-        // Sincronizar cabeceras del grid
         if (this.grid && typeof this.grid.setSort === 'function') {
             const primarySort = this.state.sort.length > 0 ? this.state.sort[0] : { field: null, order: null };
             const shortField = primarySort.field ? primarySort.field.split('.').pop() : null;
             this.grid.setSort(shortField, primarySort.order);
         }
 
-        // Sincronizar SchemaExplorer
         if (this.schemaExplorer && typeof this.schemaExplorer.setSelection === 'function') {
             this.schemaExplorer.setSelection(this.state.columns, this.state.sort);
         }
 
-        // Un único fetch que obtiene datos + SQL
         this.grid.resetAndFetch();
     }
 
     _debugLog() {
-        const debugChk = this.parentElement?.querySelector('#qb-debug-chk');
-        const debugDiv = this.parentElement?.querySelector('#qb-debug');
+        const id = this.instanceId;
+        const debugChk = this.parentElement?.querySelector(`#${id}-debug-chk`);
+        const debugDiv = this.parentElement?.querySelector(`#${id}-debug`);
         if (!debugChk?.checked) {
             if (debugDiv) debugDiv.textContent = '';
             return;
         }
 
         const stateCopy = JSON.parse(JSON.stringify(this.state));
-        const sql = this.parentElement.querySelector('#qb-sql')?.value || '';
+        const sqlEl = this.parentElement?.querySelector(`#${id}-sql`);
+        const sql = sqlEl?.value || '';
 
         console.group('🐞 QueryBuilder Debug');
         console.log('State:', stateCopy);
@@ -378,16 +371,15 @@ class QueryBuilder {
         }
     }
 
-    // ─── Ejecución manual ──────────────────────────────────
-
     _executeSQL() {
-        const sql = this.parentElement.querySelector('#qb-sql').value.trim();
+        const id = this.instanceId;
+        const sql = this.parentElement.querySelector(`#${id}-sql`).value.trim();
         if (!sql) return;
 
-        const errorEl = this.parentElement.querySelector('#qb-error');
+        const errorEl = this.parentElement.querySelector(`#${id}-error`);
         errorEl.style.display = 'none';
 
-        const btn = this.parentElement.querySelector('#qb-run');
+        const btn = this.parentElement.querySelector(`#${id}-run`);
         const origBtnHtml = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<img src="assets/icon/reloj.gif" style="height:16px;vertical-align:middle;margin-right:8px;"> Ejecutando...';
@@ -421,8 +413,6 @@ class QueryBuilder {
         })();
     }
 
-    // ─── Selección desde SchemaExplorer ─────────────────────
-
     setSelectedColumns(selection) {
         this.state.columns = selection.projections && selection.projections.length > 0
             ? selection.projections
@@ -448,8 +438,6 @@ class QueryBuilder {
             this.grid.setSort(shortField, primarySort.order);
         }
     }
-
-    // ─── Helpers ────────────────────────────────────────────
 
     _qualifyColumn(col) {
         if (!this.tables.length) return col;
