@@ -292,21 +292,37 @@ class X
             $compiled = $query->select($selectFields, $pagination, (array)$sort, null, [], true);
             $result = $compiled->run(PDO::FETCH_NUM);
             $rows = $result['rows'] ?? [];
-            $projectionMap = $compiled->getProjectionMap();
+			$projectionMap = $compiled->getProjectionMap();
 
-            $total = 0;
-            if (!empty($rows) && isset($projectionMap['_total'])) {
-                $totalIndex = $projectionMap['_total'];
-                $total = (int) $rows[0][$totalIndex];
-                foreach ($rows as &$row) {
-                    unset($row[$totalIndex]);
-                    $row = array_values($row);
-                }
-                unset($row);
-                unset($projectionMap['_total']);
-            } else {
-                $total = count($rows);
-            }
+			if (!empty($rows)) {
+				// Hay filas → extraer _total de la ventana COUNT(*) OVER()
+				if (isset($projectionMap['_total'])) {
+					$totalIndex = $projectionMap['_total'];
+					$total = (int) $rows[0][$totalIndex];
+					foreach ($rows as &$row) {
+						unset($row[$totalIndex]);
+						$row = array_values($row);
+					}
+					unset($row);
+					unset($projectionMap['_total']);
+				} else {
+					$total = count($rows);
+				}
+
+				// Cachear el total para futuras páginas (evita consultar COUNT(*) OVER() de nuevo)
+				CountCache::remember(
+					$this->resolveTable(),
+					$this->filter,
+					fn() => $total
+				);
+			} else {
+				// Página vacía → recuperar total de caché o calcularlo una sola vez
+				$total = CountCache::remember(
+					$this->resolveTable(),
+					$this->filter,
+					fn() => $this->count()
+				);
+			}
 
             // Reordenar proyección si expandimos *
             if ($selectFields !== '*' && is_array($selectFields)) {
