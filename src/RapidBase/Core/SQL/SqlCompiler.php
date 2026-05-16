@@ -25,7 +25,8 @@ class SqlCompiler
     public const PARAMS = 7;
 
     // Plantillas sprintf
-    private const TPL_SELECT = 'SELECT %s %s %s %s %s %s %s';
+    // La plantilla de SELECT ya NO incluye "FROM" porque $from ya lo contiene.
+    private const TPL_SELECT = "SELECT\n    %s\n%s%s%s%s%s%s";
     private const TPL_DELETE = 'DELETE FROM %s%s';
     private const TPL_COUNT  = 'SELECT COUNT(*) FROM %s%s';
     private const TPL_EXISTS = 'SELECT EXISTS(SELECT 1 FROM %s%s)';
@@ -33,35 +34,50 @@ class SqlCompiler
     private const TPL_INSERT = 'INSERT INTO %s (%s) VALUES %s';
 
     /**
-     * Compila un SELECT.
+     * Compila un SELECT con formato legible.
      */
-    public static function compileSelect(array $state): array
-    {
-        $sel    = self::normalizeField($state[self::SEL] ?? '*');
-        $from   = $state[self::FROM]   ?? '';
-        $where  = $state[self::WHERE]  ? ' WHERE ' . $state[self::WHERE] : '';
-        $group  = ($g = self::normalizeField($state[self::GROUP] ?? '')) ? ' GROUP BY ' . $g : '';
-        $having = $state[self::HAVING] ? ' HAVING ' . $state[self::HAVING] : '';
-        $order  = ($o = self::normalizeField($state[self::ORDER] ?? '')) ? ' ORDER BY ' . $o : '';
-        $limit  = $state[self::LIMIT]  ?  $state[self::LIMIT] : '';
-        $params = $state[self::PARAMS] ?? [];
+	public static function compileSelect(array $state): array
+	{
+		$sel    = self::normalizeField($state[self::SEL] ?? '*');
+		
+		// Agrupar columnas de a 3 por línea
+		if ($sel !== '*') {
+			$columns = array_map('trim', explode(',', $sel));
+			$groups = array_chunk($columns, 3);
+			$sel = implode(",\n    ", array_map(fn($group) => implode(', ', $group), $groups));
+		}
 
-        $sql = sprintf(
-            self::TPL_SELECT,
-            $sel,
-            $from,
-            $where,
-            $group,
-            $having,
-            $order,
-            $limit
-        );
+		$from   = $state[self::FROM]   ?? '';
+		$where  = $state[self::WHERE]  ? "\nWHERE\n    " . $state[self::WHERE] : '';
+		$group  = ($g = self::normalizeField($state[self::GROUP] ?? '')) ? "\nGROUP BY\n    " . $g : '';
+		$having = $state[self::HAVING] ? "\nHAVING\n    " . $state[self::HAVING] : '';
+		$order  = ($o = self::normalizeField($state[self::ORDER] ?? '')) ? "\nORDER BY\n    " . $o : '';
+		$limit  = $state[self::LIMIT]  ? "\n" . $state[self::LIMIT] : '';
+		$params = $state[self::PARAMS] ?? [];
 
-        $projectionMap = self::buildProjectionMap($state[self::SEL] ?? '*', $from);
+		// Cada JOIN en su propia línea
+		$from = preg_replace_callback(
+			'/\s+((?:LEFT|RIGHT|INNER|OUTER|CROSS)\s+)?JOIN\s+/i',
+			function($matches) {
+				return "\n    " . $matches[0];
+			},
+			$from
+		);
 
-        return [$sql, $params, $projectionMap];
-    }
+		$sql = sprintf(
+			self::TPL_SELECT,   // "SELECT\n    %s\n%s%s%s%s%s%s"
+			$sel,
+			$from,
+			$where,
+			$group,
+			$having,
+			$order,
+			$limit
+		);
 
+		$projectionMap = self::buildProjectionMap($state[self::SEL] ?? '*', $from);
+		return [$sql, $params, $projectionMap];
+	}
     public static function compileDelete(array $state): array
     {
         $from   = $state[self::FROM] ?? '';

@@ -15,7 +15,16 @@
     <!-- vis‑network -->
     <script src="assets/vis/vis.min.js"></script>
     <link rel="stylesheet" href="assets/vis/vis.min.css">
-    
+    <!-- CodeMirror 6 (mínimo necesario para SQL) -->
+	<!-- CodeMirror 5 (estable) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/sql/sql.min.js"></script>
+
+<!-- Add‑ons para autocompletado -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/sql-hint.min.js"></script>
     <style>
         :root {
             --accent-color: #3182ce;

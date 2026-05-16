@@ -1,6 +1,7 @@
 /**
  * QueryBuilder.js – Sincronizado con SchemaExplorer y Grid (API v1)
  * IDs únicos por pestaña para evitar conflictos.
+ * Soporta CodeMirror como editor avanzado opcional con autocompletado.
  */
 class QueryBuilder {
     constructor(connectionId, tableName, options = {}) {
@@ -16,6 +17,10 @@ class QueryBuilder {
 
         // ID único para esta instancia
         this.instanceId = `qb_${connectionId}_${tableName}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+        // Editor avanzado (CodeMirror)
+        this.useAdvancedEditor = true;   // activado por defecto
+        this.cmEditor = null;            // instancia de CodeMirror
 
         this.state = {
             columns: null,
@@ -59,6 +64,10 @@ class QueryBuilder {
                             <input type="checkbox" id="${id}-debug-chk" name="qb-debug">
                             <span>🐞 Debug</span>
                         </label>
+                        <label class="qb-editor-toggle">
+                            <input type="checkbox" id="${id}-editor-chk" name="qb-editor" checked>
+                            <span>📝 Editor avanzado</span>
+                        </label>
                     </div>
                     <div class="qb-error" id="${id}-error" style="display:none;"></div>
                 </div>
@@ -85,6 +94,11 @@ class QueryBuilder {
         this._bindEvents();
         this._updateUI();
         this._loadRelations();
+
+        // Activar CodeMirror si el switch está marcado por defecto
+        if (this.useAdvancedEditor) {
+            this._toggleEditor();
+        }
     }
 
     _initGrid() {
@@ -118,8 +132,12 @@ class QueryBuilder {
         this.grid.fetchData = async () => {
             await origFetchData();
             if (this.grid.lastResponse && this.grid.lastResponse.sql) {
-                const sqlEl = this.parentElement.querySelector(`#${this.instanceId}-sql`);
-                if (sqlEl) sqlEl.value = this.grid.lastResponse.sql;
+                if (this.useAdvancedEditor && this.cmEditor) {
+                    this.cmEditor.setValue(this.grid.lastResponse.sql);
+                } else {
+                    const sqlEl = this.parentElement.querySelector(`#${this.instanceId}-sql`);
+                    if (sqlEl) sqlEl.value = this.grid.lastResponse.sql;
+                }
             }
             this._debugLog();
         };
@@ -134,6 +152,7 @@ class QueryBuilder {
         modeChk.onchange = () => {
             this.mode = modeChk.checked ? 'edit' : 'navigate';
             this._updateUI();
+            this._toggleEditor();   // actualizar readOnly
         };
 
         const debugChk = this.parentElement.querySelector(`#${id}-debug-chk`);
@@ -141,6 +160,12 @@ class QueryBuilder {
             const debugDiv = this.parentElement.querySelector(`#${id}-debug`);
             debugDiv.style.display = debugChk.checked ? 'block' : 'none';
             if (debugChk.checked) this._debugLog();
+        };
+
+        const editorChk = this.parentElement.querySelector(`#${id}-editor-chk`);
+        editorChk.onchange = () => {
+            this.useAdvancedEditor = editorChk.checked;
+            this._toggleEditor();
         };
 
         const runBtn = this.parentElement.querySelector(`#${id}-run`);
@@ -227,9 +252,7 @@ class QueryBuilder {
         const id = this.instanceId;
         const isEdit = this.mode === 'edit';
         this.parentElement.querySelector(`#${id}-mode-text`).textContent = isEdit ? 'Edición SQL' : 'Navegación';
-        const sqlEditor = this.parentElement.querySelector(`#${id}-sql`);
-        sqlEditor.readOnly = !isEdit;
-        sqlEditor.classList.toggle('editable', isEdit);
+
         this.parentElement.querySelector(`#${id}-run`).style.display = isEdit ? 'block' : 'none';
 
         this.parentElement.querySelector(`#${id}-chips`).style.display = isEdit ? 'none' : 'flex';
@@ -239,6 +262,76 @@ class QueryBuilder {
             this._renderChips();
             this.grid.resetAndFetch();
         }
+    }
+
+	_toggleEditor() {
+		const id = this.instanceId;
+		const textarea = this.parentElement.querySelector(`#${id}-sql`);
+		if (!textarea) return;
+
+		if (typeof CodeMirror === 'undefined' || typeof CodeMirror.hint === 'undefined') {
+			// CodeMirror o los add‑ons no disponibles → usar solo textarea
+			textarea.style.display = '';
+			textarea.readOnly = (this.mode !== 'edit');
+			return;
+		}
+
+		const isEdit = this.mode === 'edit';
+		const hintConfig = {
+			tables: this._getAutocompleteTables(),
+			completeSingle: false
+		};
+
+		if (this.useAdvancedEditor) {
+			if (!this.cmEditor) {
+				this.cmEditor = CodeMirror.fromTextArea(textarea, {
+					mode: 'text/x-sql',
+					theme: 'default',
+					lineNumbers: true,
+					readOnly: !isEdit,
+					viewportMargin: Infinity,
+					extraKeys: {
+						"Ctrl-Space": "autocomplete",          // manual
+						".": function(cm) {                     // automático tras un punto
+							cm.replaceSelection(".");
+							CodeMirror.showHint(cm, CodeMirror.hint.sql);
+						}
+					},
+					hintOptions: hintConfig
+				});
+				this.cmEditor.setValue(textarea.value);
+				setTimeout(() => {
+					this.cmEditor?.refresh();
+					const wrapper = this.cmEditor?.getWrapperElement();
+					if (wrapper) wrapper.style.minHeight = '80px';
+				}, 20);
+			} else {
+				this.cmEditor.getWrapperElement().style.display = '';
+				this.cmEditor.setOption('readOnly', !isEdit);
+				this.cmEditor.setOption('hintOptions', hintConfig);
+				this.cmEditor.refresh();
+			}
+			textarea.style.display = 'none';
+		} else {
+			if (this.cmEditor) {
+				this.cmEditor.getWrapperElement().style.display = 'none';
+				textarea.value = this.cmEditor.getValue();
+			}
+			textarea.style.display = '';
+			textarea.readOnly = !isEdit;
+		}
+	}
+    _getAutocompleteTables() {
+        const schema = window.app?.activeSchemaData;
+        if (!schema) return {};
+
+        const tables = {};
+        for (const [tableName, tableData] of Object.entries(schema)) {
+            if (tableData.columns) {
+                tables[tableName] = Object.keys(tableData.columns);
+            }
+        }
+        return tables;
     }
 
     _renderChips() {
@@ -306,6 +399,12 @@ class QueryBuilder {
                     window.app.schemaExplorer.update(result.description, this.tables);
                     window.app.schemaExplorer.setSelection(this.state.columns, this.state.sort);
                 }
+                // Actualizar tablas para autocompletado
+                if (this.cmEditor) {
+                    this.cmEditor.setOption('hintOptions', {
+                        tables: this._getAutocompleteTables()
+                    });
+                }
             }
         } catch (e) { console.error("Error loading table description", e); }
     }
@@ -360,8 +459,9 @@ class QueryBuilder {
         }
 
         const stateCopy = JSON.parse(JSON.stringify(this.state));
-        const sqlEl = this.parentElement?.querySelector(`#${id}-sql`);
-        const sql = sqlEl?.value || '';
+        const sql = this.useAdvancedEditor && this.cmEditor
+            ? this.cmEditor.getValue()
+            : this.parentElement?.querySelector(`#${id}-sql`)?.value || '';
 
         console.group('🐞 QueryBuilder Debug');
         console.log('State:', stateCopy);
@@ -375,7 +475,9 @@ class QueryBuilder {
 
     _executeSQL() {
         const id = this.instanceId;
-        const sql = this.parentElement.querySelector(`#${id}-sql`).value.trim();
+        const sql = this.useAdvancedEditor && this.cmEditor
+            ? this.cmEditor.getValue()
+            : this.parentElement.querySelector(`#${id}-sql`).value.trim();
         if (!sql) return;
 
         const errorEl = this.parentElement.querySelector(`#${id}-error`);
