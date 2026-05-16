@@ -2,6 +2,7 @@
  * APIDataGrid – Componente de grilla con scroll infinito y ordenamiento cíclico.
  * Ahora guarda la última respuesta, ofrece fallback para columnas,
  * y asegura que las flechas de ordenación se muestren tras cada recarga.
+ * Además, evita solicitar páginas más allá del total conocido.
  */
 class APIDataGrid extends GridBuilder {
     constructor(containerSelector, apiUrl, options = {}) {
@@ -32,15 +33,13 @@ class APIDataGrid extends GridBuilder {
 
         // Delegación de eventos
         this.container.addEventListener('click', (e) => {
-			if (e.target.closest('.grid-resizer')) return;   // añadir esta línea
-			const th = e.target.closest('th');
-			if (th && th.dataset.column) {
-				this.sortBy(th.dataset.column);
-			}
-		});
-		
-		
-	}
+            if (e.target.closest('.grid-resizer')) return;   // ignorar clics en el resizer
+            const th = e.target.closest('th');
+            if (th && th.dataset.column) {
+                this.sortBy(th.dataset.column);
+            }
+        });
+    }
 
     addControls() {
         if (!this.controlsContainer) return;
@@ -80,6 +79,12 @@ class APIDataGrid extends GridBuilder {
         this.isLoading = true;
         this.showLoading();
         this.hideError();
+
+        // ── Evitar solicitar una página más allá del total conocido ──
+        if (this.lastResponse?.last_page && this.currentPage > this.lastResponse.last_page) {
+            this.currentPage = this.lastResponse.last_page;
+        }
+
         try {
             const url = `${this.apiUrl.split('?')[0]}?${this.buildParams().toString()}`;
             const r = await fetch(url);
@@ -135,7 +140,8 @@ class APIDataGrid extends GridBuilder {
                 } else {
                     this.appendRows(rows);
                 }
-                this.hasMore = rows.length === this.pageSize;
+                // hasMore se determina por la página actual vs el total de páginas
+                this.hasMore = this.currentPage < (d.last_page || 1);
                 if (!this.hasMore && this.scrollCleanup) {
                     this.scrollCleanup();
                     this.scrollCleanup = null;
@@ -179,7 +185,6 @@ class APIDataGrid extends GridBuilder {
         this.columns = filtered.map(f => f.col);
         const html = filtered.map(({col, title}) => {
             let sortAttr = '';
-            // El atributo data-sort se asigna aquí temporalmente, pero será sobrescrito por updateSortIndicator si es necesario
             if (this.sortField === col && this.sortOrder) {
                 sortAttr = ` data-sort="${this.sortOrder}"`;
             }
