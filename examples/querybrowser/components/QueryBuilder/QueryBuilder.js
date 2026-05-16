@@ -191,7 +191,6 @@ class QueryBuilder {
             const th = e.target.closest('th');
             if (!th || !th.dataset.column) return;
             const col = th.dataset.column;
-            // Usar el nombre tal cual si ya está calificado, si no, calificar
             const qualified = col.includes('.') ? col : this._qualifyColumn(col);
 
             const current = this.state.sort.length > 0 && this.state.sort[0].field === qualified
@@ -278,8 +277,8 @@ class QueryBuilder {
                 connectionId: this.connectionId,
                 tables: JSON.stringify(this.tables)
             });
-            this._renderRelList('qb-rel-to', data.to || []);
-            this._renderRelList('qb-rel-from', data.from || []);
+            this._renderRelList(`${this.instanceId}-rel-to`, data.to || []);
+            this._renderRelList(`${this.instanceId}-rel-from`, data.from || []);
             this._loadTableDescription();
         } catch (e) { console.error("Error loading relations", e); }
     }
@@ -338,10 +337,9 @@ class QueryBuilder {
 
         if (this.grid && typeof this.grid.setSort === 'function') {
             const primarySort = this.state.sort.length > 0 ? this.state.sort[0] : { field: null, order: null };
-            // Para una sola tabla, el data-column del grid es el nombre corto
-const shortField = primarySort.field
-    ? (primarySort.field.includes('.') ? primarySort.field.split('.').pop() : primarySort.field)
-    : null;
+            const shortField = primarySort.field
+                ? (primarySort.field.includes('.') ? primarySort.field.split('.').pop() : primarySort.field)
+                : null;
             this.grid.setSort(shortField, primarySort.order);
         }
 
@@ -449,10 +447,10 @@ const shortField = primarySort.field
         return `${mainTable}.${col}`;
     }
 
-	   _qualifySortField(field) {
-		if (this.tables.length <= 1) {
-			return field.includes('.') ? field.split('.').pop() : field;
-		}
-		return field.includes('.') ? field : this._qualifyColumn(field);
-	}
+    _qualifySortField(field) {
+        if (this.tables.length <= 1) {
+            return field.includes('.') ? field.split('.').pop() : field;
+        }
+        return field.includes('.') ? field : this._qualifyColumn(field);
+    }
 }
