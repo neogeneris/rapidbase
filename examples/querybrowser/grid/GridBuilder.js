@@ -1,7 +1,3 @@
-/**
- * GridBuilder
- * Clase base para construir grids con <table> nativa.
- */
 class GridBuilder {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
@@ -12,56 +8,60 @@ class GridBuilder {
         this.columns = [];
         this.sortField = null;
         this.sortOrder = null;
-        
-        this._initResizing();
-    }
 
-    _initResizing() {
-        let th = null, startX = 0, startWidth = 0;
-        
-        this.container.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('grid-resizer')) {
-                th = e.target.parentElement;
-                startX = e.clientX;
-                startWidth = th.offsetWidth;
+        // ── Redimensionamiento de columnas ─────────────────
+        let resizeStartX = 0;
+        let resizeStartWidth = 0;
+        let resizing = false;
+
+        if (this.headerTemplate) {
+            this.headerTemplate.addEventListener('mousedown', (e) => {
+                const resizer = e.target.closest('.grid-resizer');
+                if (!resizer) return;
                 e.preventDefault();
                 e.stopPropagation();
+
+                const th = resizer.closest('th');
+                if (!th) return;
+
+                resizeStartX = e.clientX;
+                resizeStartWidth = th.offsetWidth;
+                resizing = true;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+
+                const onMouseMove = (moveEvent) => {
+                    const delta = moveEvent.clientX - resizeStartX;
+                    const newWidth = Math.max(50, resizeStartWidth + delta);
+                    th.style.width = newWidth + 'px';
+                    th.style.minWidth = newWidth + 'px';
+                };
+
+                const onMouseUp = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    // Evitar que el clic se propague al header tras soltar
+                    setTimeout(() => { resizing = false; }, 10);
+                };
+
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp, { once: true });
-                e.target.classList.add('grid-resizing');
-            }
-        });
+            });
 
-        const onMouseMove = (e) => {
-            if (!th) return;
-            const newWidth = startWidth + (e.clientX - startX);
-            if (newWidth > 40) {
-                th.style.width = newWidth + 'px';
-                th.style.minWidth = newWidth + 'px';
-                // Force table layout to respect column widths
-                const table = th.closest('table');
-                if (table) {
-                    table.style.tableLayout = 'fixed';
+            // Prevención de ordenación si venimos de redimensionar
+            this.headerTemplate.addEventListener('click', (e) => {
+                if (resizing) {
+                    e.stopPropagation();
+                    e.preventDefault();
                 }
-            }
-        };
-
-        const onMouseUp = (e) => {
-            if (th) {
-                th.querySelector('.grid-resizer').classList.remove('grid-resizing');
-                // Restore auto layout after resize for proper horizontal scroll
-                const table = th.closest('table');
-                if (table) {
-                    setTimeout(() => {
-                        table.style.tableLayout = 'auto';
-                    }, 50);
-                }
-                th = null;
-                document.removeEventListener('mousemove', onMouseMove);
-            }
-        };
+            }, true); // captura antes que el listener del grid
+        }
     }
 
+
+    // ─── Render y helpers ──────────────────────────────────
     render(data, metadata = null) {
         this.currentMetadata = metadata;
         if (!data || data.length === 0) {
@@ -77,40 +77,45 @@ class GridBuilder {
     renderNumericMode(data, metadata = null) {
         if (metadata?.columns && metadata?.titles) {
             this.columns = metadata.columns;
-            this.headerTemplate.innerHTML = metadata.titles.map((t, i) => 
-                `<th data-column="${this.escapeHtml(metadata.columns[i])}" style="width:150px;">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
+            this.headerTemplate.innerHTML = metadata.titles.map((t, i) =>
+                `<th data-column="${this.escapeHtml(metadata.columns[i])}">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
             ).join('');
         }
-        this.bodyContainer.innerHTML = data.map(row => 
+        this.bodyContainer.innerHTML = data.map(row =>
             `<tr>${row.map(v => `<td>${v ?? ''}</td>`).join('')}</tr>`
         ).join('');
     }
 
     renderAssociativeMode(data, metadata = null) {
-        const keys = Object.keys(data[0]); 
+        const keys = Object.keys(data[0]);
         this.columns = keys;
         if (metadata?.columns && metadata?.titles) {
-            this.headerTemplate.innerHTML = metadata.titles.map((t, i) => 
-                `<th data-column="${this.escapeHtml(metadata.columns[i])}" style="width:150px;">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
+            this.headerTemplate.innerHTML = metadata.titles.map((t, i) =>
+                `<th data-column="${this.escapeHtml(metadata.columns[i])}">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
             ).join('');
         } else if (!this.headerTemplate?.querySelectorAll('th').length) {
-            this.headerTemplate.innerHTML = keys.map(k => 
-                `<th data-column="${k}" style="width:150px;">${this.formatKey(k)}<div class="grid-resizer"></div></th>`
+            this.headerTemplate.innerHTML = keys.map(k =>
+                `<th data-column="${k}">${this.formatKey(k)}<div class="grid-resizer"></div></th>`
             ).join('');
         }
-        this.bodyContainer.innerHTML = data.map(row => 
+        this.bodyContainer.innerHTML = data.map(row =>
             `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`
         ).join('');
     }
 
-    /**
-     * Actualiza los indicadores visuales basándose en el estado de 3 niveles.
-     */
     updateSortIndicator() {
         if (!this.headerTemplate) return;
-        this.headerTemplate.querySelectorAll('th').forEach(th => {
+        const sortColShort = this.sortField
+            ? (this.sortField.includes('.') ? this.sortField.split('.').pop() : this.sortField)
+            : null;
+
+        const headers = this.headerTemplate.querySelectorAll('th');
+        headers.forEach(th => {
             th.removeAttribute('data-sort');
-            if (this.sortField && th.dataset.column === this.sortField && this.sortOrder) {
+            if (!sortColShort || !this.sortOrder) return;
+            const col = th.dataset.column || '';
+            const colShort = col.includes('.') ? col.split('.').pop() : col;
+            if (colShort === sortColShort) {
                 th.setAttribute('data-sort', this.sortOrder);
             }
         });

@@ -10,7 +10,7 @@ class GridViewer {
             <div class="grid-container" id="${id}">
                 <div class="grid-controls">
                     <div class="grid-search-wrapper">
-                        <input type="text" class="grid-search" placeholder="Buscar..." value="${this.qb.state.search}">
+                        <input type="text" class="grid-search" placeholder="Buscar..." value="${this.qb.state.search}" name="grid-search" >
                         <span class="kbd-hint">/</span>
                     </div>
                 </div>

@@ -84,17 +84,17 @@
     position: absolute;
     top: 0;
     right: 0;
-    width: 2px;
+    width: 5px;                
     height: 100%;
     cursor: col-resize;
-    z-index: 11;
+    z-index: 12;
+    background: transparent;   /* invisible pero funcional */
     transition: background 0.2s;
-	background: gray;
 }
 
-.grid-resizer:hover, .grid-resizing {
+.grid-resizer:hover {
     background: #3b82f6;
-    opacity: 0.5;
+    opacity: 0.4;
 }
 
 .grid-head th:hover { background: #f1f5f9; }

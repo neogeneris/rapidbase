@@ -34,7 +34,7 @@ class QueryBuilder {
                 <div class="qb-toolbar">
                     <div class="qb-mode-toggle">
                         <label class="qb-switch">
-                            <input type="checkbox" id="${id}-mode-chk">
+                            <input type="checkbox" id="${id}-mode-chk" name="qb-mode">
                             <span class="qb-slider"></span>
                         </label>
                         <span class="qb-mode-label" id="${id}-mode-text">Navegación</span>
@@ -52,11 +52,11 @@ class QueryBuilder {
                     </div>
                 </div>
                 <div class="qb-editor-pane" id="${id}-editor-container">
-                    <textarea class="qb-sql-editor" id="${id}-sql" readonly rows="3"></textarea>
+                    <textarea class="qb-sql-editor" id="${id}-sql" name="qb-sql" readonly rows="3"></textarea>
                     <div class="qb-editor-actions">
                         <button class="qb-btn qb-run-btn" id="${id}-run" style="display:none;">▶ Ejecutar</button>
                         <label class="qb-debug-toggle">
-                            <input type="checkbox" id="${id}-debug-chk">
+                            <input type="checkbox" id="${id}-debug-chk" name="qb-debug">
                             <span>🐞 Debug</span>
                         </label>
                     </div>
@@ -191,7 +191,8 @@ class QueryBuilder {
             const th = e.target.closest('th');
             if (!th || !th.dataset.column) return;
             const col = th.dataset.column;
-            const qualified = this._qualifyColumn(col);
+            // Usar el nombre tal cual si ya está calificado, si no, calificar
+            const qualified = col.includes('.') ? col : this._qualifyColumn(col);
 
             const current = this.state.sort.length > 0 && this.state.sort[0].field === qualified
                 ? this.state.sort[0]
@@ -337,7 +338,10 @@ class QueryBuilder {
 
         if (this.grid && typeof this.grid.setSort === 'function') {
             const primarySort = this.state.sort.length > 0 ? this.state.sort[0] : { field: null, order: null };
-            const shortField = primarySort.field ? primarySort.field.split('.').pop() : null;
+            // Para una sola tabla, el data-column del grid es el nombre corto
+const shortField = primarySort.field
+    ? (primarySort.field.includes('.') ? primarySort.field.split('.').pop() : primarySort.field)
+    : null;
             this.grid.setSort(shortField, primarySort.order);
         }
 
@@ -439,15 +443,16 @@ class QueryBuilder {
         }
     }
 
-    _qualifyColumn(col) {
+    _qualifyColumn(col) {	
         if (!this.tables.length) return col;
         const mainTable = this.tables[0];
         return `${mainTable}.${col}`;
     }
 
-    _qualifySortField(field) {
-        if (this.tables.length <= 1) return field;
-        if (field.includes('.')) return field;
-        return this._qualifyColumn(field);
-    }
+	   _qualifySortField(field) {
+		if (this.tables.length <= 1) {
+			return field.includes('.') ? field.split('.').pop() : field;
+		}
+		return field.includes('.') ? field : this._qualifyColumn(field);
+	}
 }

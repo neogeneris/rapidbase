@@ -1,6 +1,7 @@
 /**
  * APIDataGrid – Componente de grilla con scroll infinito y ordenamiento cíclico.
- * Ahora guarda la última respuesta y ofrece fallback para columnas.
+ * Ahora guarda la última respuesta, ofrece fallback para columnas,
+ * y asegura que las flechas de ordenación se muestren tras cada recarga.
  */
 class APIDataGrid extends GridBuilder {
     constructor(containerSelector, apiUrl, options = {}) {
@@ -14,8 +15,8 @@ class APIDataGrid extends GridBuilder {
         this.filter = options.filter || {};
         this.searchTerm = '';
         this.sortField = null;
-        this.sortOrder = null;
-        this.lastResponse = null;   // ← guarda la última respuesta completa
+        this.sortOrder = null; // 'asc', 'desc', o null
+        this.lastResponse = null;   // guarda la última respuesta completa
         this.controlsContainer = this.container.querySelector('.grid-controls');
         this.loadingIndicator = this.container.querySelector('.grid-loading');
         this.errorContainer = this.container.querySelector('.grid-error');
@@ -29,13 +30,17 @@ class APIDataGrid extends GridBuilder {
         if (this.mode === 'infinite') this.enableInfiniteScroll();
         this.scrollCleanup = null;
 
+        // Delegación de eventos
         this.container.addEventListener('click', (e) => {
-            const th = e.target.closest('th');
-            if (th && th.dataset.column) {
-                this.sortBy(th.dataset.column);
-            }
-        });
-    }
+			if (e.target.closest('.grid-resizer')) return;   // añadir esta línea
+			const th = e.target.closest('th');
+			if (th && th.dataset.column) {
+				this.sortBy(th.dataset.column);
+			}
+		});
+		
+		
+	}
 
     addControls() {
         if (!this.controlsContainer) return;
@@ -87,10 +92,9 @@ class APIDataGrid extends GridBuilder {
                 throw new Error(errMessage);
             }
             const d = await r.json();
-            this.lastResponse = d;   // ← guardar respuesta completa
+            this.lastResponse = d;   // guardar respuesta completa
 
             if (d.error) throw new Error(d.error);
-
             const rows = d.data || [];
             let meta = null;
 
@@ -146,6 +150,10 @@ class APIDataGrid extends GridBuilder {
                     this.scrollCleanup = null;
                 }
             }
+
+            // 🔁 Restaurar flechas de ordenación según el estado actual
+            this.updateSortIndicator();
+
         } catch(e) {
             console.error(e);
             this.showError(e.message);
@@ -155,6 +163,9 @@ class APIDataGrid extends GridBuilder {
         }
     }
 
+    /**
+     * Dibuja las cabeceras con indicador de orden activo.
+     */
     renderHeaders(metadata) {
         if (!metadata || !metadata.columns || !metadata.titles) return;
         let columns = metadata.columns;
@@ -168,10 +179,11 @@ class APIDataGrid extends GridBuilder {
         this.columns = filtered.map(f => f.col);
         const html = filtered.map(({col, title}) => {
             let sortAttr = '';
+            // El atributo data-sort se asigna aquí temporalmente, pero será sobrescrito por updateSortIndicator si es necesario
             if (this.sortField === col && this.sortOrder) {
                 sortAttr = ` data-sort="${this.sortOrder}"`;
             }
-            return `<th data-column="${this.escapeHtml(col)}"${sortAttr}>${this.escapeHtml(title)}</th>`;
+            return `<th data-column="${this.escapeHtml(col)}"${sortAttr}>${this.escapeHtml(title)}<div class="grid-resizer"></div></th>`;
         }).join('');
         this.headerTemplate.innerHTML = html;
     }
@@ -222,6 +234,9 @@ class APIDataGrid extends GridBuilder {
         this.fetchData();
     }
 
+    /**
+     * Ordenamiento cíclico: null → asc → desc → null
+     */
     sortBy(field) {
         if (this.sortField !== field) {
             this.sortField = field;
@@ -239,13 +254,19 @@ class APIDataGrid extends GridBuilder {
         this.resetAndFetch();
     }
 
+    /**
+     * Sincroniza visualmente las flechas de ordenación desde una fuente externa.
+     */
     setSort(field, order) {
         this.sortField = field;
         this.sortOrder = order;
         this.updateSortIndicator();
     }
 
-    setFilter(f) { this.filter = f; this.resetAndFetch(); }
+    setFilter(f) {
+        this.filter = f;
+        this.resetAndFetch();
+    }
 
     showLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'block'; }
     hideLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'none'; }

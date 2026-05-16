@@ -144,7 +144,7 @@ class ConnectionManager {
                 <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
             </button>
             <div class="l-search">
-                <input type="text" class="launcher-input" placeholder="Buscar...">
+                <input type="text" class="launcher-input" name="cm-search" placeholder="Buscar...">
             </div>
             <button class="l-btn l-add" onclick="app.showNewConnection()"><span>+</span></button>
         `;
