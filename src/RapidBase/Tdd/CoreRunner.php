@@ -125,6 +125,52 @@ class CoreRunner {
     }
 
     /**
+     * Obtiene todos los métodos públicos de una clase de producción
+     * Para verificar cobertura 1:1 con los tests
+     */
+    public function getProductionMethods(string $className): array {
+        if (!class_exists($className)) {
+            return [];
+        }
+        
+        $reflection = new ReflectionClass($className);
+        $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
+        $productionMethods = [];
+
+        foreach ($methods as $method) {
+            // Solo métodos definidos directamente en esta clase (no heredados)
+            if ($method->class === $className) {
+                $productionMethods[] = $method->getName();
+            }
+        }
+
+        return $productionMethods;
+    }
+
+    /**
+     * Verifica la cobertura de tests para una clase
+     * Devuelve métodos de producción sin test correspondiente
+     */
+    public function checkCoverage(string $testClassName, string $productionClassName): array {
+        $testMethods = $this->getTestMethods($testClassName);
+        $productionMethods = $this->getProductionMethods($productionClassName);
+        
+        $missing = [];
+        
+        foreach ($productionMethods as $prodMethod) {
+            $expectedTestMethod = 'test' . ucfirst($prodMethod);
+            if (!in_array($expectedTestMethod, $testMethods)) {
+                $missing[] = [
+                    'method' => $prodMethod,
+                    'expected_test' => $expectedTestMethod
+                ];
+            }
+        }
+        
+        return $missing;
+    }
+
+    /**
      * Ejecuta un método de prueba específico
      */
     public function runTest($instance, string $methodName, string $testId): array {
