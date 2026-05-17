@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>RapidBase - Unified Layout</title>
+	
     <link rel="stylesheet" href="components/ConnectionFooter/ConnectionFooter.css">
     <link rel="stylesheet" href="components/ConnectionManager/ConnectionManager.css">
     <link rel="stylesheet" href="components/ConnectionDialog/ConnectionDialog.css">
@@ -12,6 +13,8 @@
     <link rel="stylesheet" href="components/QueryBuilder/QueryBuilder.css">
     <link rel="stylesheet" href="components/SchemaExplorer/SchemaExplorer.css">
     <link rel="stylesheet" href="grid/Grid.css">
+	<link rel="stylesheet" href="assets/css/glass.css">
+	
     <!-- vis‑network -->
     <script src="assets/vis/vis.min.js"></script>
     <link rel="stylesheet" href="assets/vis/vis.min.css">
@@ -25,19 +28,25 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/show-hint.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/hint/sql-hint.min.js"></script>
-    <style>
+<style>
         :root {
             --accent-color: #3182ce;
-            --border-color: #cbd5e0;
+            --border-color: rgba(255, 255, 255, 0.15); /* Bordes más finos estilo cristal */
             --footer-height: 28px;
-            --panel-header-bg: #f1f5f9;
+            --panel-header-bg: rgba(255, 255, 255, 0.05);
         }
 
-        body {
-            margin: 0; padding: 0; height: 100vh;
+        /* El fondo se adueña de la raíz desde el primer instante */
+        html, body {
+            margin: 0; padding: 0; height: 100vh; width: 100vw;
             display: flex; flex-direction: column;
             font-family: 'Segoe UI', system-ui, sans-serif;
-            background-color: #fff; overflow: hidden;
+            background-image: url('assets/img/background.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-color: #0f172a; /* Fondo oscuro de respaldo */
+            overflow: hidden;
         }
 
         .main-wrapper { 
@@ -45,6 +54,7 @@
             flex: 1; 
             overflow: hidden; 
             height: calc(100vh - var(--footer-height)); 
+            background: transparent; /* Totalmente transparente */
         }
 
         #left-sidebar { width: 280px; display: flex; flex-direction: column; }
@@ -52,20 +62,26 @@
         #conn-manager-box { display: flex; flex-direction: column; height: 250px; min-height: 100px; flex-shrink: 0; }
         #table-list-box { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-        /* --- CLASE PANEL --- */
+        /* --- CLASE PANEL (Ahora con la base transparente de cristal) --- */
         .rb-panel {
             display: flex; flex-direction: column;
-            background: #ffffff; height: 100%; width: 100%;
-            overflow: hidden; border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.06); 
+            backdrop-filter: blur(4px) saturate(110%);
+            -webkit-backdrop-filter: blur(4px) saturate(110%);
+            height: 100%; width: 100%;
+            overflow: hidden; 
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
         }
         .rb-panel-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: 6px 12px; background: var(--panel-header-bg);
             border-bottom: 1px solid var(--border-color); user-select: none;
             flex-shrink: 0;
+            backdrop-filter: blur(2px);
         }
         .rb-panel-title {
-            font-size: 11px; font-weight: 700; color: #475569;
+            font-size: 11px; font-weight: 700; color: #1e293b;
             text-transform: uppercase; letter-spacing: 0.5px;
             display: flex; align-items: center; gap: 8px;
         }
@@ -74,20 +90,23 @@
             display: flex;
             flex-direction: column;
             overflow: hidden; 
-            background: #fff; 
+            background: transparent; /* Desbloqueado para ver el fondo */
             position: relative; 
         }
+
         /* --- SPLITTERS --- */
-        .resizer-h { height: 4px; background: #e2e8f0; cursor: row-resize; z-index: 5; flex-shrink: 0; }
-        .resizer-v { width: 4px; background: #e2e8f0; cursor: col-resize; z-index: 10; flex-shrink: 0; }
+        .resizer-h { height: 4px; background: rgba(255, 255, 255, 0.1); cursor: row-resize; z-index: 5; flex-shrink: 0; }
+        .resizer-v { width: 4px; background: rgba(255, 255, 255, 0.1); cursor: col-resize; z-index: 10; flex-shrink: 0; }
         .resizer-h:hover, .resizer-v:hover { background: var(--accent-color); }
         body.is-resizing * { pointer-events: none !important; user-select: none !important; }
 
-        /* --- EDITOR --- */
-        .editor-area { flex: 1; display: flex; flex-direction: column; padding: 10px; background: #f8fafc; min-width: 0; }
-        .sql-textarea { 
-            flex: 1; border: 1px solid var(--border-color); border-radius: 4px;
-            padding: 15px; font-family: 'Consolas', monospace; outline: none; resize: none;
+        /* --- WORKSPACE CENTRAL --- */
+        .editor-area { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background: transparent; /* Limpio del gris plano */
+            min-width: 0; 
         }
     </style>
 </head>

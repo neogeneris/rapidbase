@@ -318,4 +318,142 @@
     background: #f59e0b;
     animation: blink 0.8s ease-in-out infinite;
 }
-
+/* ==========================================================================
+   21. COMPONENTE CONNECTION MANAGER: MODO CRISTAL (UNIFICADO Y COMPLETADO)
+   ========================================================================== */
+
+/* 1. Base del contenedor: Forzado por ID y clases activas del layout */
+div#conn-manager-box,
+#conn-manager-box .cm-wrapper,
+.tm-pane-active,
+.cm-wrapper {
+    background: transparent !important;
+    background-color: transparent !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                backdrop-filter 0.3s ease !important;
+}
+
+/* Forzar que la lista interna no herede fondos opacos del tema nórdico */
+#conn-manager-box .cm-list,
+.cm-list {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 2. Barra de Herramientas Superior (Launcher Compacto) */
+#conn-manager-box .cm-launcher,
+.cm-launcher {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    transition: background-color 0.3s ease !important;
+}
+
+/* Separadores verticales del launcher */
+#conn-manager-box .cm-divider,
+.cm-divider {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Botones de acción del Launcher (.l-btn) pasivos */
+#conn-manager-box .l-btn,
+.l-btn {
+    color: #cbd5e1 !important;
+}
+#conn-manager-box .l-btn:hover,
+.l-btn:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: #ffffff !important;
+}
+
+/* 3. Items de Conexión Individuales pasivos (Flotando sobre la montaña) */
+#conn-manager-box .conn-item,
+.conn-item {
+    background: transparent !important;
+    background-color: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+    transition: all 0.25s ease !important;
+}
+
+/* Textos claros iniciales para que resalten sobre el fondo oscuro */
+#conn-manager-box .conn-name { color: #f1f5f9 !important; transition: color 0.25s ease !important; }
+#conn-manager-box .conn-real-db { color: #94a3b8 !important; transition: color 0.25s ease !important; }
+#conn-manager-box .conn-driver { color: #64748b !important; transition: color 0.25s ease !important; }
+#conn-manager-box .conn-host-port { color: #94a3b8 !important; transition: color 0.25s ease !important; }
+#conn-manager-box .latency-tag { color: #64748b !important; transition: color 0.25s ease !important; }
+#conn-manager-box .conn-icon-box { color: #94a3b8 !important; transition: color 0.25s ease !important; }
+
+/* Scrollbar lateral sutil pasiva */
+#conn-manager-box .cm-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15) !important;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   EL TRUCO MAESTRO REFORZADO: HOVER DIRECTO EN EL CONTENEDOR ENLAZADO
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Al pasar el mouse, el contenedor principal activa la bruma blanca de vidrio */
+#conn-manager-box:hover .cm-wrapper,
+#conn-manager-box .cm-wrapper:hover,
+.tm-pane-active:hover,
+.cm-wrapper:hover {
+    background-color: rgba(255, 255, 255, 0.22) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Sincronización del launcher superior en modo hover */
+#conn-manager-box:hover .cm-launcher,
+.cm-wrapper:hover .cm-launcher {
+    background: rgba(0, 0, 0, 0.02) !important;
+    border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+}
+#conn-manager-box:hover .cm-divider,
+.cm-wrapper:hover .cm-divider {
+    background-color: rgba(0, 0, 0, 0.08) !important;
+}
+#conn-manager-box:hover .l-btn,
+.cm-wrapper:hover .l-btn {
+    color: #475569 !important;
+}
+#conn-manager-box:hover .l-btn:hover,
+.cm-wrapper:hover .l-btn:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: #0f172a !important;
+}
+
+/* Mutación completa de textos a negro asfáltico hiper-legible en hover */
+#conn-manager-box:hover .conn-name, .cm-wrapper:hover .conn-name { color: #0f172a !important; }
+#conn-manager-box:hover .conn-real-db, .cm-wrapper:hover .conn-real-db { color: #334155 !important; font-weight: 550 !important; }
+#conn-manager-box:hover .conn-driver, .cm-wrapper:hover .conn-driver { color: #475569 !important; font-weight: 600 !important; }
+#conn-manager-box:hover .conn-host-port, .cm-wrapper:hover .conn-host-port { color: #334155 !important; }
+#conn-manager-box:hover .latency-tag, .cm-wrapper:hover .latency-tag { color: #0f172a !important; font-weight: 600 !important; }
+#conn-manager-box:hover .conn-icon-box, .cm-wrapper:hover .conn-icon-box { color: #475569 !important; }
+
+/* Destello blanco extra sobre la fila específica que estás pisando con el cursor */
+#conn-manager-box .conn-item:hover,
+.cm-wrapper:hover .conn-item:hover {
+    background-color: rgba(255, 255, 255, 0.45) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Preservación estricta del item activo seleccionado dentro del ambiente claro */
+#conn-manager-box .conn-item.active,
+.cm-wrapper:hover .conn-item.active {
+    background-color: rgba(59, 130, 246, 0.12) !important;
+    border-left: 3px solid #3b82f6 !important;
+}
+#conn-manager-box .conn-item.active .conn-name,
+.cm-wrapper:hover .conn-item.active .conn-name {
+    color: #1d4ed8 !important;
+}
+
+/* Protección de contraste para el borde de los círculos de estado (Pings) */
+body .status-dot {
+    border-color: rgba(255, 255, 255, 0.6) !important;
+}
+#conn-manager-box:hover .status-dot,
+.cm-wrapper:hover .status-dot {
+    border-color: #ffffff !important;
+}

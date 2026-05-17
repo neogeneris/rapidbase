@@ -95,14 +95,14 @@ class GraphViewer {
             const options = {
                 layout: { improvedLayout: true },
                 physics: {
-                    enabled: false,
-                    stabilization: false
+                    enabled: true,
+                    stabilization: true
                 },
                 edges: {
                     smooth: false
                 },
                 interaction: {
-                    dragNodes: false,  // no permitir arrastrar nodos
+                    dragNodes: true,  // no permitir arrastrar nodos
                     dragView: true,    // permitir desplazar la vista con el ratón
                     zoomView: true     // permitir zoom con rueda
                 }

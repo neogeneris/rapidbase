@@ -1,9 +1,7 @@
 /**
  * ConnectionDialog.js
  * Two‑step wizard for creating new database connections.
- *
- * Step 1 — Driver grid, connection name, environment, description
- * Step 2 — Connection details (host, port, database, user, password)
+ * Refactored for deep esmerilated glassmorphism design.
  */
 class ConnectionDialog {
     constructor() {
@@ -16,14 +14,34 @@ class ConnectionDialog {
 
     static get DRIVERS() {
         return [
-            { id: 'mysql',      label: 'MySQL',       port: 3306,  emoji: '🐬' },
-            { id: 'mariadb',    label: 'MariaDB',     port: 3306,  emoji: '🐬' },
-            { id: 'sqlite',     label: 'SQLite',      port: null,  emoji: '🗄️' },
-            { id: 'pgsql',      label: 'PostgreSQL',  port: 5432,  emoji: '🐘' },
+            { 
+                id: 'mysql', 
+                label: 'MySQL', 
+                port: 3306, 
+                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v12M6 12h12"/></svg>` 
+            },
+            { 
+                id: 'mariadb', 
+                label: 'MariaDB', 
+                port: 3306, 
+                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 16v-4M12 8h.01"/></svg>` 
+            },
+            { 
+                id: 'sqlite', 
+                label: 'SQLite', 
+                port: null, 
+                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>` 
+            },
+            { 
+                id: 'pgsql', 
+                label: 'PostgreSQL', 
+                port: 5432, 
+                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 7.54 16.59A10 10 0 1 1 4.46 5.41 9.94 9.94 0 0 1 12 2z"/><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/></svg>` 
+            },
         ];
     }
 
-    // ─── Build & Inject ──────────────────────────────────────
+    // ─── Build & Inject Semántico ────────────────────────────
     _build() {
         if (document.getElementById('cd-overlay')) {
             this.overlay = document.getElementById('cd-overlay');
@@ -37,108 +55,112 @@ class ConnectionDialog {
         ov.innerHTML = `
             <div class="cd-dialog">
 
-                <!-- HEADER -->
-                <div class="cd-header">
-                    <div>
-                        <div class="cd-title">🔌 Nueva Conexión</div>
-                        <div class="cd-subtitle" id="cd-subtitle">Paso 1 — Seleccionar driver</div>
+                <header class="cd-header">
+                    <div class="cd-header-meta">
+                        <h3 class="cd-title">Nueva Conexión</h3>
+                        <p class="cd-subtitle" id="cd-subtitle">Paso 1 — Seleccionar driver</p>
                     </div>
-                    <div class="cd-header-right">
+                    <div class="cd-header-actions">
                         <div class="cd-pills">
-                            <div class="cd-pill active" data-step="1"></div>
-                            <div class="cd-pill" data-step="2"></div>
+                            <span class="cd-pill active" data-step="1"></span>
+                            <span class="cd-pill" data-step="2"></span>
                         </div>
-                        <button class="cd-x" id="cd-close">&times;</button>
+                        <button class="cd-close-btn" id="cd-close" aria-label="Cerrar">&times;</button>
                     </div>
-                </div>
+                </header>
 
-                <!-- STEP 1 -->
-                <div class="cd-body" id="cd-step-1">
+                <main class="cd-body" id="cd-step-1">
+                    <section class="cd-section">
+                        <h4 class="cd-section-title">Seleccione el motor de base de datos</h4>
+                        <div class="cd-driver-grid" id="cd-driver-grid">
+                            ${ConnectionDialog.DRIVERS.map(d => `
+                                <div class="cd-driver-card ${d.id === this.selectedDriver ? 'active' : ''}" data-driver="${d.id}" role="radio">
+                                    <div class="cd-driver-icon">${d.svg}</div>
+                                    <span class="cd-driver-name">${d.label}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </section>
 
-                    <div class="cd-section">Seleccione el tipo de base de datos</div>
-                    <div class="cd-driver-grid" id="cd-driver-grid">
-                        ${ConnectionDialog.DRIVERS.map(d => `
-                            <div class="cd-driver-card ${d.id === this.selectedDriver ? 'active' : ''}" data-driver="${d.id}">
-                                <div class="cd-driver-icon">${d.emoji}</div>
-                                <span class="cd-driver-name">${d.label}</span>
+                    <section class="cd-section fields-gap">
+                        <div class="cd-field">
+                            <label class="cd-label">Nombre de la conexión <span class="cd-req">*</span></label>
+                            <input type="text" class="cd-input" id="cd-name" placeholder="Ej: Producción Main" autocomplete="off">
+                        </div>
+
+                        <div class="cd-field">
+                            <label class="cd-label">Entorno</label>
+                            <div class="cd-env-group" role="radiogroup">
+                                <button class="cd-env-pill active" data-status="dev">
+                                    <span class="cd-env-dot dev"></span> Desarrollo
+                                </button>
+                                <button class="cd-env-pill" data-status="qa">
+                                    <span class="cd-env-dot qa"></span> QA
+                                </button>
+                                <button class="cd-env-pill" data-status="production">
+                                    <span class="cd-env-dot prod"></span> Producción
+                                </button>
                             </div>
-                        `).join('')}
-                    </div>
-
-                    <div class="cd-field">
-                        <label class="cd-label">Nombre de la conexión <span class="cd-req">*</span></label>
-                        <input type="text" class="cd-input" id="cd-name" placeholder="Ej: Mi Proyecto Local" autocomplete="off">
-                    </div>
-
-                    <div class="cd-field" style="margin-top:12px;">
-                        <label class="cd-label">Entorno</label>
-                        <div class="cd-env-group">
-                            <div class="cd-env active" data-status="dev"><span class="cd-dot dev"></span>Desarrollo</div>
-                            <div class="cd-env" data-status="qa"><span class="cd-dot qa"></span>QA</div>
-                            <div class="cd-env" data-status="production"><span class="cd-dot prod"></span>Producción</div>
                         </div>
-                    </div>
 
-                    <div class="cd-field" style="margin-top:12px;">
-                        <label class="cd-label">Descripción</label>
-                        <textarea class="cd-textarea" id="cd-description" placeholder="Notas opcionales sobre esta conexión..."></textarea>
-                    </div>
+                        <div class="cd-field">
+                            <label class="cd-label">Descripción</label>
+                            <textarea class="cd-textarea" id="cd-description" placeholder="Notas contextuales sobre esta infraestructura..."></textarea>
+                        </div>
+                    </section>
+                </main>
 
-                </div>
-
-                <!-- STEP 2 -->
-                <div class="cd-body" id="cd-step-2" style="display:none;">
-
+                <main class="cd-body" id="cd-step-2" style="display:none;">
                     <div class="cd-driver-badge" id="cd-step2-badge"></div>
 
-                    <div class="cd-row" id="cd-network-row">
-                        <div class="cd-field" style="flex:2">
-                            <label class="cd-label">Host</label>
-                            <input type="text" class="cd-input" id="cd-host" value="localhost">
+                    <section class="cd-section fields-gap">
+                        <div class="cd-row" id="cd-network-row">
+                            <div class="cd-field" style="flex: 2.5">
+                                <label class="cd-label">Host de red</label>
+                                <input type="text" class="cd-input" id="cd-host" value="localhost">
+                            </div>
+                            <div class="cd-field" style="flex: 1">
+                                <label class="cd-label">Puerto</label>
+                                <input type="number" class="cd-input" id="cd-port" value="3306">
+                            </div>
                         </div>
-                        <div class="cd-field" style="flex:1">
-                            <label class="cd-label">Puerto</label>
-                            <input type="number" class="cd-input" id="cd-port" value="3306">
+
+                        <div class="cd-field" id="cd-db-field">
+                            <label class="cd-label" id="cd-db-label">Base de datos <span class="cd-req">*</span></label>
+                            <input type="text" class="cd-input" id="cd-database" placeholder="nombre_esquema">
                         </div>
-                    </div>
 
-                    <div class="cd-field" id="cd-db-field" style="margin-bottom:12px;">
-                        <label class="cd-label" id="cd-db-label">Base de datos <span class="cd-req">*</span></label>
-                        <input type="text" class="cd-input" id="cd-database" placeholder="nombre_base_datos">
-                    </div>
-
-                    <div class="cd-row" id="cd-auth-row">
-                        <div class="cd-field">
-                            <label class="cd-label">Usuario</label>
-                            <input type="text" class="cd-input" id="cd-username" placeholder="root">
+                        <div class="cd-row" id="cd-auth-row">
+                            <div class="cd-field">
+                                <label class="cd-label">Usuario</label>
+                                <input type="text" class="cd-input" id="cd-username" placeholder="root">
+                            </div>
+                            <div class="cd-field">
+                                <label class="cd-label">Contraseña</label>
+                                <input type="password" class="cd-input" id="cd-password" placeholder="••••••••">
+                            </div>
                         </div>
-                        <div class="cd-field">
-                            <label class="cd-label">Contraseña</label>
-                            <input type="password" class="cd-input" id="cd-password" placeholder="••••••">
-                        </div>
-                    </div>
+                    </section>
+                </main>
 
-                </div>
-
-                <!-- FOOTER -->
-                <div class="cd-footer">
-                    <div class="cd-footer-left">
-                        <button class="cd-btn cd-ghost" id="cd-test-btn" style="display:none;">
+                <footer class="cd-footer">
+                    <div class="cd-footer-status">
+                        <button class="cd-btn cd-btn-ghost" id="cd-test-btn" style="display:none;">
                             <span class="cd-spinner"></span>
                             <span class="cd-btn-text">⚡ Probar conexión</span>
                         </button>
                         <span class="cd-result" id="cd-result"></span>
                     </div>
-                    <div class="cd-footer-right">
-                        <button class="cd-btn cd-ghost" id="cd-cancel-btn">Cancelar</button>
-                        <button class="cd-btn cd-ghost" id="cd-prev-btn" style="display:none;">← Anterior</button>
-                        <button class="cd-btn cd-primary" id="cd-next-btn">Siguiente →</button>
-                        <button class="cd-btn cd-success" id="cd-save-btn" style="display:none;">
+                    <div class="cd-footer-buttons">
+                        <button class="cd-btn cd-btn-ghost" id="cd-cancel-btn">Cancelar</button>
+                        <button class="cd-btn cd-btn-ghost" id="cd-prev-btn" style="display:none;">← Anterior</button>
+                        <button class="cd-btn cd-btn-primary" id="cd-next-btn">Siguiente →</button>
+                        <button class="cd-btn cd-btn-success" id="cd-save-btn" style="display:none;">
                             <span class="cd-spinner"></span>
                             <span class="cd-btn-text">✔ Finalizar</span>
                         </button>
                     </div>
-                </div>
+                </footer>
 
             </div>
         `;
@@ -148,7 +170,7 @@ class ConnectionDialog {
         this._events();
     }
 
-    // ─── Events ──────────────────────────────────────────────
+    // ─── Control de Eventos Actualizado ──────────────────────
     _events() {
         const ov = this.overlay;
 
@@ -163,7 +185,7 @@ class ConnectionDialog {
             c.onclick = () => this._pickDriver(c.dataset.driver)
         );
 
-        ov.querySelectorAll('.cd-env').forEach(b =>
+        ov.querySelectorAll('.cd-env-pill').forEach(b =>
             b.onclick = () => this._pickEnv(b.dataset.status)
         );
 
@@ -173,7 +195,7 @@ class ConnectionDialog {
         ov.querySelector('#cd-save-btn').onclick = () => this._save();
     }
 
-    // ─── Navigation ──────────────────────────────────────────
+    // ─── Navegación Funcional Estricta ───────────────────────
     _goTo(step) {
         const ov = this.overlay;
 
@@ -181,9 +203,9 @@ class ConnectionDialog {
             const name = ov.querySelector('#cd-name').value.trim();
             if (!name) {
                 const inp = ov.querySelector('#cd-name');
-                inp.style.borderColor = '#ef4444';
+                inp.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.35)';
                 inp.focus();
-                setTimeout(() => inp.style.borderColor = '', 1500);
+                setTimeout(() => inp.style.boxShadow = '', 1500);
                 return;
             }
             this._setupStep2();
@@ -216,7 +238,7 @@ class ConnectionDialog {
     _setupStep2() {
         const ov = this.overlay;
         const d = ConnectionDialog.DRIVERS.find(x => x.id === this.selectedDriver);
-        ov.querySelector('#cd-step2-badge').innerHTML = `${d.emoji}<span>${d.label}</span>`;
+        ov.querySelector('#cd-step2-badge').innerHTML = `${d.svg}<span>Motor Seleccionado: <strong>${d.label}</strong></span>`;
 
         const isSqlite = this.selectedDriver === 'sqlite';
 
@@ -228,10 +250,10 @@ class ConnectionDialog {
 
         if (isSqlite) {
             dbLabel.innerHTML = 'Ruta del archivo SQLite <span class="cd-req">*</span>';
-            dbInput.placeholder = '/ruta/al/archivo.sqlite';
+            dbInput.placeholder = '/absoluta/infraestructura/archivo.sqlite';
         } else {
             dbLabel.innerHTML = 'Base de datos <span class="cd-req">*</span>';
-            dbInput.placeholder = 'nombre_base_datos';
+            dbInput.placeholder = 'nombre_esquema_db';
             ov.querySelector('#cd-port').value = d.port;
         }
     }
@@ -245,7 +267,7 @@ class ConnectionDialog {
 
     _pickEnv(status) {
         this.selectedEnvironment = status;
-        this.overlay.querySelectorAll('.cd-env').forEach(b =>
+        this.overlay.querySelectorAll('.cd-env-pill').forEach(b =>
             b.classList.toggle('active', b.dataset.status === status)
         );
     }
@@ -269,7 +291,7 @@ class ConnectionDialog {
     _validate(d) {
         if (!d.name) return 'El nombre es obligatorio.';
         if (!d.database) return this.selectedDriver === 'sqlite'
-            ? 'La ruta del archivo es obligatoria.'
+            ? 'La ruta del archivo SQLite es obligatoria.'
             : 'El nombre de la base de datos es obligatorio.';
         return null;
     }
@@ -293,10 +315,10 @@ class ConnectionDialog {
                 resultEl.textContent = `✓ Conectado (${Math.round(res.latency)}ms)`;
                 resultEl.className = 'cd-result ok';
             } else {
-                resultEl.textContent = `✗ ${res.error || 'Error'}`;
+                resultEl.textContent = `✗ ${res.error || 'Error de negociación'}`;
                 resultEl.className = 'cd-result error';
             }
-        } catch { resultEl.textContent = '✗ Error de red'; resultEl.className = 'cd-result error'; }
+        } catch { resultEl.textContent = '✗ Error de enlace de red'; resultEl.className = 'cd-result error'; }
         finally { btn.classList.remove('loading'); }
     }
 
@@ -318,10 +340,10 @@ class ConnectionDialog {
                 this.close();
                 window.app?.connManager?.init();
             } else {
-                resultEl.textContent = `✗ ${res.error || 'Error al guardar'}`;
+                resultEl.textContent = `✗ ${res.error || 'Fallo de persistencia'}`;
                 resultEl.className = 'cd-result error';
             }
-        } catch { resultEl.textContent = '✗ Error de red'; resultEl.className = 'cd-result error'; }
+        } catch { resultEl.textContent = '✗ Fallo crítico de red'; resultEl.className = 'cd-result error'; }
         finally { btn.classList.remove('loading'); btn.disabled = false; }
     }
 
@@ -343,7 +365,6 @@ class ConnectionDialog {
         ov.querySelector('#cd-username').value = '';
         ov.querySelector('#cd-password').value = '';
         ov.querySelector('#cd-description').value = '';
-        ov.querySelector('#cd-name').style.borderColor = '';
         this._pickDriver('mysql');
         this._pickEnv('dev');
         this._goTo(1);

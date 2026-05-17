@@ -1,0 +1,1407 @@
+/* ==========================================================================
+   RAPIDBASE CENTRALIZED GLASS THEME (assets/css/glass.css)
+   ========================================================================== */
+
+
+
+
+#app-root, 
+.app-container,
+.main-layout, 
+.layout-wrapper,
+.main-content,
+.center-panel {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Si tu layout utiliza un contenedor específico para el área de trabajo central */
+.workspace,
+.workspace-container,
+.query-browser-layout {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+
+/* ─── 2. CABECERA SUPERIOR (Selector de Conexión y Menús) ─── */
+.top-bar-container, .main-header, .navbar {
+    background: rgba(15, 23, 42, 0.15) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+/* ==========================================================================
+   8. COMPONENTE PANEL MACRO (.rb-panel / Contenedores de Módulos)
+   ========================================================================== */
+
+/* El contenedor principal del panel: le quitamos el fondo sólido */
+.rb-panel {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* La cabecera del panel: un gris traslúcido muy sutil estilo IDE */
+.rb-panel-header {
+    background: rgba(241, 245, 249, 0.5) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* Título de la cabecera: texto oscuro con buen contraste */
+.rb-panel-title {
+    color: #1e293b !important;
+}
+
+/* Botones de acción de la cabecera (Minimizar, cerrar, configuraciones) */
+.rb-panel-btn {
+    color: #64748b !important;
+    transition: all 0.15s ease !important;
+}
+
+.rb-panel-btn:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: #020617 !important;
+}
+
+/* El cuerpo interno del panel: COMPLETAMENTE transparente */
+/* Esto es vital para que el cristal del componente que metas dentro (como el Grid) */
+/* se fusione directamente con el fondo de la montaña sin capas blancas intermedias */
+.rb-panel-body {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+/* ==========================================================================
+   3. INTERFAZ DE PESTAÑAS (TabManager - Selectores Reales)
+   ========================================================================== */
+
+/* Contenedor o barra que aloja las pestañas */
+.tm-header {
+    background: rgba(15, 23, 42, 0.08) !important; /* Capa muy sutil para delimitar la zona */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Scrollbar interno delgado de la barra de pestañas */
+.tm-header::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Pestañas inactivas: translúcidas y oscurecidas para integrarse al fondo */
+.tm-tab {
+    background: rgba(15, 23, 42, 0.35) !important;
+    color: #cbd5e1 !important; /* Texto claro para lectura sobre fondo oscuro */
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-bottom: 2px solid transparent !important;
+}
+
+.tm-tab:hover {
+    background: rgba(15, 23, 42, 0.5) !important;
+    color: #ffffff !important;
+}
+
+/* Pestaña Activa: Blanca Sólida con firma Amarillo Mostaza */
+.tm-tab.active {
+    background: #ffffff !important;
+    color: #020617 !important; /* Tipografía asfáltica de alto contraste */
+    font-weight: 700 !important;
+    border-bottom: 2px solid #eab308 !important; /* ¡Línea Amarillo Mostaza! */
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Iconos y botones internos de la pestaña activa */
+.tm-tab.active .tm-tab-icon,
+.tm-tab.active .tm-tab-close {
+    color: #020617 !important;
+    opacity: 0.8;
+}
+
+/* Botón de cerrar pestaña en hover */
+.tm-tab-close:hover {
+    background: #fee2e2 !important;
+    color: #ef4444 !important;
+    opacity: 1 !important;
+}
+
+/* Contenedor macro de los paneles (.tm-content): COMPLETAMENTE transparente */
+/* Esto remueve la plasta blanca base y permite que los paneles hijos (.rb-panel, .grid-container) */
+/* muestren el cristal esmerilado directamente sobre el body de la app */
+.tm-content {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Los contenedores internos de cada pestaña activa */
+.tm-pane {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+
+
+
+
+/* ==========================================================================
+   5. CONNECTION MANAGER (Cristal Blanco Translúcido Central/Modal)
+   ========================================================================== */
+
+/* ==========================================================================
+   4. PANEL IZQUIERDO: UNIFICACIÓN EN CRISTAL BLANCO (TableList & ConnectionManager)
+   ========================================================================== */
+
+/* Contenedores macro de la barra izquierda: Vidrio lechoso claro unificado */
+.tl-wrapper,
+#table-list-box,
+#conn-manager-box,
+.cm-wrapper {
+    background: rgba(255, 255, 255, 0.4) !important; /* Capa clara traslúcida base */
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Transparencia total en el interior para que actúe el cristal del contenedor macro */
+.tl-tree, 
+.tl-col-list, 
+.cm-list {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Toolbars superiores (Buscadores / Filtros) */
+.tl-toolbar,
+.cm-launcher {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    backdrop-filter: blur(2px) !important;
+}
+
+/* Separadores internos del Launcher de Conexiones */
+.cm-divider {
+    background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Botones de acción del Launcher (Compactos) */
+.l-btn {
+    color: #475569 !important;
+}
+.l-btn:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: #0f172a !important;
+}
+.l-btn.active {
+    color: #16a34a !important;
+    background: rgba(22, 163, 74, 0.1) !important;
+    border-color: rgba(22, 163, 74, 0.2) !important;
+}
+
+/* Inputs de búsqueda integrados (Esbeltos y limpios) */
+.tl-search, 
+.launcher-input {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #020617 !important; /* Tipografía oscura de alto contraste */
+    border-radius: 4px !important;
+}
+.tl-search::placeholder, 
+.launcher-input::placeholder {
+    color: #64748b !important;
+}
+
+/* Filas e Ítems (Árbol de tablas y Lista de conexiones) */
+.tl-table-row, 
+.tl-col-row, 
+.conn-item {
+    background: transparent !important;
+    color: #1e293b !important; /* Texto oscuro para máxima lectura sobre el vidrio claro */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03) !important;
+    transition: background 0.15s !important;
+}
+
+/* Hovers en ambas listas */
+.tl-table-row:hover, 
+.tl-col-row:hover, 
+.conn-item:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: #000000 !important;
+}
+
+/* Estados Activos o Seleccionados (Mapeados a tu línea azul/mostaza según zona) */
+.tl-table-row.active {
+    background: rgba(59, 130, 246, 0.12) !important;
+    color: #1d4ed8 !important;
+    border-left: 3px solid #3b82f6 !important;
+}
+
+.conn-item.active {
+    background: rgba(59, 130, 246, 0.12) !important;
+    border-left: 3px solid #3b82f6 !important;
+}
+
+/* Ajustes de contraste para las fuentes internas del Connection Manager */
+.conn-name {
+    color: #0f172a !important;
+    font-weight: 600 !important;
+}
+.conn-item.active .conn-name {
+    color: #1d4ed8 !important;
+}
+.conn-real-db, 
+.conn-host-port {
+    color: #475569 !important;
+}
+.conn-driver, 
+.conn-desc, 
+.latency-tag {
+    color: #64748b !important;
+}
+
+/* Separador azul de Base de Datos en el árbol */
+.tl-db-name {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #2563eb !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    font-weight: 600 !important;
+}
+/* ─── 3. INTERFAZ DE PESTAÑAS (TabManager) ─── */
+.tm-header {
+    background: rgba(15, 23, 42, 0.1) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Pestañas inactivas: Oscuras integradas al fondo de montaña */
+.tm-tab {
+    background: rgba(15, 23, 42, 0.4) !important;
+    color: #94a3b8 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-bottom: 3px solid transparent !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.tm-tab:hover {
+    background: rgba(15, 23, 42, 0.6) !important;
+    color: #e2e8f0 !important;
+}
+
+/* Pestaña activa: Blanca Sólida con firma Amarillo Mostaza */
+.tm-tab.active {
+    background: #ffffff !important;
+    color: #020617 !important;
+    font-weight: 700 !important;
+    border-bottom: 3px solid #eab308 !important; /* Acento Mostaza */
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+.tm-tab.active .tm-tab-close, 
+.tm-tab.active .tm-tab-icon {
+    color: #020617 !important;
+    opacity: 0.7;
+}
+
+/* ─── 4. PANEL IZQUIERDO: TableList & Connection Manager (El estilo que te gusta) ─── */
+/* Contenedores macro que manejan el cristal esmerilado oscuro */
+/* ─── 4. PANEL IZQUIERDO: TableList & Connection Manager (Cristal Blanco Traslucido) ─── */
+/* Contenedores macro de la barra izquierda: Cristal lechoso claro unificado */
+.connection-sidebar, 
+.conn-manager-panel, 
+#table-list-box, 
+#conn-manager-box,
+.tl-wrapper {
+    background: rgba(255, 255, 255, 0.4) !important; /* Cristal claro e integrado */
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Transparencia total en subcapas para que no se sumen opacidades ni parches oscuros */
+.tl-tree, 
+.tl-col-list,
+.conn-manager-content {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Toolbar de búsqueda superior */
+.tl-toolbar {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    backdrop-filter: blur(2px) !important;
+}
+
+/* Inputs de búsqueda integrados en el cristal claro */
+.tl-search, .conn-search-input, .connection-sidebar input {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    color: #020617 !important; /* Texto oscuro de alta legibilidad */
+    border-radius: 4px !important;
+}
+
+.tl-search::placeholder, .conn-search-input::placeholder {
+    color: #64748b !important;
+}
+
+/* Filas del árbol (Tablas, Columnas y Conexiones) */
+.tl-table-row, .tl-col-row, .conn-item-row {
+    background: transparent !important;
+    color: #1e293b !important; /* Texto oscuro para contraste impecable sobre el vidrio blanco */
+    transition: background 0.15s !important;
+}
+
+/* Hovers en la barra lateral */
+.tl-table-row:hover, .tl-col-row:hover, .conn-item-row:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: #000000 !important;
+}
+
+/* Elementos activos o seleccionados en las listas izquierdas */
+.tl-table-row.active, .conn-item-row.active {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #1d4ed8 !important;
+    border-left: 3px solid #3b82f6 !important;
+}
+
+/* Tipografías internas del árbol */
+.tl-col-name { color: #475569 !important; }
+.tl-table-name { color: #0f172a !important; font-weight: 500 !important; }
+
+/* Separador de la Base de Datos */
+.tl-db-name {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #2563eb !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    font-weight: 600 !important;
+}
+
+/* ─── 5. PANEL DERECHO: SchemaExplorer (Cristal Blanco Translúcido) ─── */
+.se-embedded, #schema-explorer-box, .schema-explorer-sidebar, .se-table ul {
+    background: rgba(255, 255, 255, 0.42) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.se-header {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+.se-header h3 {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+.se-table-summary, .se-col-label, .se-column-item {
+    color: #1e293b !important;
+    font-weight: 500 !important;
+}
+
+.se-column-item:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    color: #000000 !important;
+}
+
+.se-col-label input[type="checkbox"] {
+    accent-color: #eab308;
+}
+/* ==========================================================================
+   6. ZONA CENTRAL: DATAGRID DEFINITIVO (Cristal Blanco Lechoso Calibrado)
+   ========================================================================== */
+
+/* ==========================================================================
+   6. ZONA CENTRAL: DATAGRID (Fusión Completa y Contraste Asfáltico)
+   ========================================================================== */
+
+/* Contenedor principal: Capa protectora translúcida blanca */
+.grid-container {
+    background: rgba(255, 255, 255, 0.75) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Barra superior de herramientas (Buscador y Controles) */
+.grid-controls {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Inputs de búsqueda integrados */
+.grid-search {
+    background-color: rgba(255, 255, 255, 0.5) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    color: #020617 !important;
+}
+.grid-search:focus {
+    background-color: #ffffff !important;
+    border-color: #3b82f6 !important;
+}
+
+/* Forzado de transparencia en la estructura elástica interna */
+.grid-scroll-wrapper,
+.grid-table,
+.grid-body,
+.grid-body tr {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Cabeceras Fijas Superiores (TH): Fondo denso para frenar el texto en el scroll vertical */
+.grid-head th {
+    background: rgba(241, 245, 249, 0.94) !important;
+    color: #0f172a !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.04) !important;
+    border-bottom: 2px solid rgba(15, 23, 42, 0.08) !important;
+}
+.grid-head th:hover {
+    background: rgba(226, 232, 240, 0.96) !important;
+}
+
+/* Intersección de cabeceras fijas de Acciones (Z-Index 20) */
+.grid-head th.grid-action-header {
+    background: rgba(241, 245, 249, 0.96) !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Celdas del Cuerpo Estándar (TD): Total transparencia para ver la montaña */
+.grid-body td {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #020617 !important; /* Tipografía asfáltica oscura de alto contraste */
+    font-weight: 550 !important; /* Peso extra sutil para romper la textura de la imagen */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Filas cebradas (Pares): Tinte claro sutil para no perder la guía de lectura */
+.grid-body tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Columna Estática Izquierda (Celdas de Acciones): Cristal denso protector */
+/* Oculta los datos que pasan por detrás en el scroll horizontal */
+.grid-body td.grid-action-cell {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Hovers dinámicos sobre las filas del Grid */
+.grid-body tr:hover td {
+    background: rgba(59, 130, 246, 0.08) !important; /* Reflejo azul traslúcido */
+}
+.grid-body tr:hover td.grid-action-cell {
+    background: rgba(241, 245, 249, 0.94) !important;
+}
+
+/* Footer / Barra inferior del Grid */
+.grid-footer {
+    background: rgba(248, 250, 252, 0.4) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
+}
+/* ─── 7. ENTORNO GENERAL, SPLITTERS Y SCROLLBARS ─── */
+.resizer-h, .resizer-v {
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+.resizer-h:hover, .resizer-v:hover {
+    background: rgba(234, 179, 8, 0.5) !important;
+}
+
+#footer-container {
+    background: rgba(15, 23, 42, 0.3) !important;
+    backdrop-filter: blur(8px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Scrollbars mimetizados minimalistas */
+::-webkit-scrollbar { width: 6px !important; height: 6px !important; }
+::-webkit-scrollbar-track { background: transparent !important; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12) !important; border-radius: 10px !important; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3) !important; }
+* { scrollbar-width: thin !important; scrollbar-color: rgba(255, 255, 255, 0.12) transparent !important; }
+
+/* ==========================================================================
+   14. COMPONENTE QUERYBUILDER (.qb-wrapper - SELECTORES NATIVOS)
+   ========================================================================== */
+
+/* Contenedor macro: eliminamos su color sólido para que exponga la montaña */
+.qb-wrapper {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Barra superior de herramientas (Modos, Chips de filtros) */
+.qb-toolbar {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Texto de las etiquetas de modo */
+.qb-mode-label {
+    color: #0f172a !important;
+}
+
+/* Chips de filtros activos (Efecto cristal azulado flotante) */
+.qb-chip {
+    background: rgba(239, 246, 255, 0.6) !important;
+    border: 1px solid rgba(29, 78, 216, 0.2) !important;
+    color: #1d4ed8 !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+/* Elementos de Relaciones (BelongsTo / HasMany) */
+.qb-rel-item {
+    background: rgba(255, 255, 255, 0.5) !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    color: #334155 !important;
+}
+.qb-rel-item:hover {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Panel que envuelve al Editor SQL */
+.qb-editor-pane {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Caja de Texto del Editor SQL (CodeMirror / Textarea) */
+.qb-sql-editor {
+    background: rgba(248, 250, 252, 0.65) !important; /* Opacidad óptima para mantener contraste del texto */
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #0f172a !important;
+    backdrop-filter: blur(4px) !important;
+}
+.qb-sql-editor.editable {
+    background: #ffffff !important;
+    border-color: #3b82f6 !important;
+}
+
+/* Caja de CodeMirror si se inicializa dinámicamente */
+.CodeMirror {
+    background: rgba(255, 255, 255, 0.65) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+/* Línea divisoria ajustable (Resizer horizontal) */
+.qb-resizer-h {
+    background: rgba(15, 23, 42, 0.05) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.03) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03) !important;
+}
+.qb-resizer-h:hover {
+    background: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Contenedor inferior donde se monta el Grid */
+/* Al volverlo transparente, el cristal lechoso que ya le configuramos a tu .grid-container */
+/* se fusionará directamente con el fondo del body sin capas blancas en el medio */
+.qb-grid-pane {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Salidas de Depuración y Errores de sintaxis SQL */
+.qb-error {
+    background: rgba(254, 242, 242, 0.8) !important;
+    backdrop-filter: blur(4px) !important;
+    border: 1px solid rgba(153, 27, 27, 0.2) !important;
+}
+.qb-debug-output {
+    background: rgba(255, 251, 235, 0.8) !important;
+    backdrop-filter: blur(4px) !important;
+    border: 1px solid rgba(146, 64, 14, 0.2) !important;
+}
+
+/* ==========================================================================
+   15. FIJACIÓN DE GLASSMORPHISM ULTRA-ESPECÍFICA (ANTI-RENDER DINÁMICO)
+   ========================================================================== */
+
+/* ─── A. BARRA LATERAL IZQUIERDA (ConnectionManager.css) ─── */
+body .cm-wrapper {
+    background: rgba(255, 255, 255, 0.45) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+}
+
+body .cm-launcher {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body .launcher-input {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #0f172a !important;
+}
+
+body .conn-item {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.02) !important;
+}
+
+body .conn-item:hover {
+    background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+body .conn-item.active {
+    background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+
+/* ─── B. ESTRUCTURA CENTRAL (QueryBuilder.css) ─── */
+body .qb-wrapper {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+body .qb-toolbar {
+    background: rgba(255, 255, 255, 0.3) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body .qb-editor-pane {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* El área contenedora donde el Grid es inyectado */
+body .qb-grid-pane {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+
+/* ─── C. CONTROL DE INTERSECCIÓN SOBRE EL GRID NATIVO ─── */
+/* Forzamos que el contenedor del Grid respete el fondo transparente de su padre */
+body .grid-container {
+    background: rgba(255, 255, 255, 0.72) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+body .grid-controls {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Aniquilación total de fondos en tablas, filas y envolturas al refrescar el DOM */
+body .grid-scroll-wrapper,
+body .grid-table,
+body .grid-body,
+body .grid-body tr,
+body .grid-body td:not(.grid-action-cell) {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Mantenemos legibilidad en la columna estática de acciones */
+body .grid-body td.grid-action-cell {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* ==========================================================================
+   16. INYECCIÓN DE CONTRASTE ASCO Y ACCESIBILIDAD (ANTI-TEXTO GRIS)
+   ========================================================================== */
+
+/* ─── 1. BARRA LATERAL IZQUIERDA (ConnectionManager & TableList) ─── */
+
+/* Nombres de los drivers (MYSQL, SQLITE) y nombres de las bases de datos activas */
+body .conn-driver, 
+body .conn-real-db,
+body .conn-item strong {
+    color: #0f172a !important; /* Negro asfáltico puro */
+    font-weight: 700 !important; /* Engrosamos para romper el desenfoque */
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important; /* Separador sutil del fondo */
+}
+
+/* Subtextos de host, puertos, rutas de archivos (/workspace/tests/...) y estados */
+body .conn-desc, 
+body .conn-host-port,
+body .conn-item span,
+body .table-list-container .table-item span {
+    color: #2c3e50 !important; /* Gris carbón de alta densidad */
+    font-weight: 600 !important;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Indicadores de latencia activos (ej: 0ms) */
+body .latency-tag, 
+body .conn-meta {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Títulos de secciones en mayúsculas (CONNECTION, TABLES, TABLAS 10) */
+body .cm-wrapper h3,
+body .table-list-container h3,
+body .sidebar-section-title {
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.05em !important;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Placeholders del buscador de tablas y conexiones */
+body .launcher-input::placeholder,
+body .table-search::placeholder,
+body .sidebar-input::placeholder {
+    color: #475569 !important;
+    font-weight: 550 !important;
+}
+
+
+/* ─── 2. BARRA DE HERRAMIENTAS CENTRAL (QueryBuilder) ─── */
+
+/* Etiquetas de tipo de relación (belongsTo, hasMany) */
+body .qb-rel-label {
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Chips/Botones de tablas relacionadas (rb_test_order_items, etc.) */
+body .qb-rel-item {
+    background: rgba(255, 255, 255, 0.8) !important; /* Base ligeramente más sólida */
+    color: #0f172a !important;
+    border: 1px solid rgba(15, 23, 42, 0.2) !important;
+    font-weight: 600 !important;
+}
+body .qb-rel-item:hover {
+    background: #ffffff !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+}
+
+/* Texto del switch de Modo Navegación */
+body .qb-mode-label {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+
+/* ─── 3. BARRA LATERAL DERECHA (Metadata Explorer) ─── */
+
+/* Título superior (METADATA EXPLORER) y buscador de columnas */
+body .metadata-explorer h3,
+body .me-title {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+/* Nombre de la tabla bajo exploración (rb_test_products) */
+body .me-table-name,
+body .metadata-explorer .tree-node-label {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+/* Tipos de datos de las columnas de la derecha (int, varchar, text, decimal) */
+body .metadata-explorer .type-badge,
+body .metadata-explorer span[class*="type-"],
+body .metadata-explorer .field-type {
+    color: #334155 !important; /* De gris lavado a pizarra oscuro legible */
+    font-weight: 600 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+
+/* ─── 4. PIE DE PÁGINA GLOBAL (DataGrid Footer) ─── */
+
+/* Contador de registros, páginas y tiempo de ejecución SQL */
+body .grid-footer,
+body .statusbar-text {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+}
+
+/* ==========================================================================
+   17. EFECTO DINÁMICO EN TABLELIST: TRANSPARENTE A BLANCO TRANSLÚCIDO
+   ========================================================================== */
+
+/* 1. Base del contenedor: 100% transparente por defecto */
+.tl-wrapper,
+.tl-tree,
+.tl-col-list,
+#table-list-box {
+    background: transparent !important;
+    background-color: transparent !important;
+    transition: background-color 0.3s ease, backdrop-filter 0.3s ease !important;
+}
+
+/* 2. Barra de búsqueda y toolbar superior (Sutil cristal oscuro base) */
+.tl-toolbar {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(2px) !important;
+}
+
+.tl-search {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #f1f5f9 !important;
+    border-radius: 4px !important;
+}
+.tl-search::placeholder {
+    color: #94a3b8 !important;
+}
+
+/* 3. Filas pasivas (Tablas y Columnas): Transparentes y letras claras */
+.tl-table-row, 
+.tl-col-row {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+    transition: all 0.2s ease !important;
+    border-radius: 4px !important;
+}
+
+/* Nombres de tablas y columnas en estado pasivo */
+.tl-table-name { color: #e2e8f0 !important; }
+.tl-col-name { color: #94a3b8 !important; }
+
+/* Separador azul de la base de datos */
+.tl-db-name {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #60a5fa !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   EL TRUCO MAESTRO: HOVER SOBRE EL CONTENEDOR PRINCIPAL (.tl-wrapper)
+   Cuando el mouse entra a la zona del TableList, el cristal se activa 
+   y reajusta los textos a oscuro para máxima legibilidad.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Al pasar el mouse sobre el wrapper, se genera la bruma blanca translúcida */
+.tl-wrapper:hover {
+    background-color: rgba(255, 255, 255, 0.22) !important; /* Capa blanca tipo vidrio */
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Al estar en hover, las filas individuales ganan un resalte blanco más denso al apuntarlas */
+.tl-wrapper:hover .tl-table-row:hover, 
+.tl-wrapper:hover .tl-col-row:hover {
+    background: rgba(255, 255, 255, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Transición de textos: Cambian de claro a negro asfáltico al encenderse el fondo blanco */
+.tl-wrapper:hover .tl-table-name,
+.tl-wrapper:hover .tl-table-row:hover .tl-table-name {
+    color: #0f172a !important; /* Contraste total */
+    font-weight: 600 !important;
+}
+
+.tl-wrapper:hover .tl-col-name,
+.tl-wrapper:hover .tl-col-row:hover .tl-col-name {
+    color: #334155 !important; /* Columnas legibles */
+    font-weight: 550 !important;
+}
+
+/* Ajuste del buscador superior cuando el panel se vuelve blanco */
+.tl-wrapper:hover .tl-search {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+    color: #0f172a !important;
+}
+.tl-wrapper:hover .tl-search::placeholder {
+    color: #475569 !important;
+}
+
+/* ==========================================================================
+   18. TRANSICIÓN DEL DATAGRID CENTRAL A MODO CRISTAL FLOTANTE
+   ========================================================================== */
+
+/* 1. Contenedor macro del Grid: Capa base esmerilada premium */
+body .grid-container {
+    background: rgba(255, 255, 255, 0.28) !important; /* Vidrio fino */
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08) !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Barra superior de controles del Grid (Filtros, botones de acción) */
+body .grid-controls {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 2. Disolución total de fondos sólidos en la estructura de la tabla */
+body .grid-scroll-wrapper,
+body .grid-table,
+body .grid-body,
+body .grid-body tr {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Cabecera de la tabla (Nombres de las columnas): Un toque más densa para separar */
+body .grid-table th {
+    background: rgba(255, 255, 255, 0.45) !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Celdas de datos estándar en estado pasivo */
+body .grid-body td {
+    background: transparent !important;
+    color: #0f172a !important; /* Texto oscuro de alta densidad para máxima lectura */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+    transition: background-color 0.2s ease !important;
+}
+
+/* 3. TRUCO DE HOVER RECO: Iluminación dinámica de la fila completa */
+body .grid-body tr:hover td {
+    background-color: rgba(255, 255, 255, 0.35) !important; /* Destello blanco translúcido al enfocar */
+    color: #000000 !important; /* Contraste absoluto */
+}
+
+/* 4. Columna fija de Acciones (Ojo, Lápiz, Papelera) */
+/* Al ser "sticky", necesita mantener un vidrio ligeramente más denso para que los datos */
+/* que hacen scroll por debajo no generen ruido visual confuso */
+body .grid-body td.grid-action-cell {
+    background: rgba(255, 255, 255, 0.55) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Resalte de la celda de acciones cuando la fila está en hover */
+body .grid-body tr:hover td.grid-action-cell {
+    background: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* 5. Barra de paginación inferior (Footer del Grid) */
+body .grid-footer {
+    background: rgba(255, 255, 255, 0.25) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #0f172a !important;
+    font-weight: 600 !important;
+}
+
+/* ==========================================================================
+   19. SINCRONIZACIÓN DE BLOQUE CENTRAL (QUERY BUILDER + DATAGRID)
+   ========================================================================== */
+
+/* Aseguramos transiciones suaves en el panel superior del constructor */
+body .qb-wrapper {
+    background: transparent !important;
+    transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body .qb-toolbar,
+body .qb-editor-pane {
+    transition: all 0.35s ease !important;
+}
+
+/* ─── EFECTO ECO: Cuando el usuario interactúa con la zona del Grid ─── */
+/* Hacemos que la barra de herramientas superior se aclare en sintonía con la tabla */
+body .grid-container:hover ~ .qb-wrapper,
+body .tm-pane-active:hover .qb-toolbar {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Forzamos que los botones de relaciones ganen el contraste oscuro asfáltico al encenderse el centro */
+body .tm-pane-active:hover .qb-rel-label {
+    color: #0f172a !important;
+}
+
+body .tm-pane-active:hover .qb-rel-item {
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: #0f172a !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* El texto de "Modo Navegación" y etiquetas secundarias del editor */
+body .tm-pane-active:hover .qb-mode-label,
+body .tm-pane-active:hover .editor-label-fix {
+    color: #0f172a !important;
+    font-weight: 600 !important;
+}
+
+/* ==========================================================================
+   20. REFINAMIENTO DE METADATA EXPLORER Y UNIFICACIÓN DE INPUTS NATIVOS
+   ========================================================================== */
+
+/* ─── 1. SIMETRÍA EN PANEL DERECHO (Metadata Explorer) ─── */
+
+/* Volvemos el contenedor macro completamente transparente en reposo */
+body .metadata-explorer,
+body #metadata-explorer-box,
+body .me-wrapper {
+    background: transparent !important;
+    background-color: transparent !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+    transition: background-color 0.3s ease, backdrop-filter 0.3s ease !important;
+}
+
+/* Estado Pasivo: Forzamos textos claros para que se lean sobre la montaña */
+body .metadata-explorer h3,
+body .metadata-explorer .me-table-name,
+body .metadata-explorer .tree-node-label {
+    color: #e2e8f0 !important;
+    transition: color 0.3s ease !important;
+}
+
+/* Tipos de datos en estado pasivo (int, varchar...) */
+body .metadata-explorer .type-badge,
+body .metadata-explorer .field-type {
+    color: #94a3b8 !important;
+    transition: color 0.3s ease !important;
+}
+
+/* EFECTO HOVER: Activación del cristal lechoso en el panel derecho */
+body .metadata-explorer:hover {
+    background-color: rgba(255, 255, 255, 0.22) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* Inversión de color a asfalto ultra-legible en hover */
+body .metadata-explorer:hover h3,
+body .metadata-explorer:hover .me-table-name,
+body .metadata-explorer:hover .tree-node-label {
+    color: #0f172a !important;
+}
+
+body .metadata-explorer:hover .type-badge,
+body .metadata-explorer:hover .field-type {
+    color: #334155 !important;
+    font-weight: 600 !important;
+}
+
+
+/* ─── 2. DETOX DE INPUTS (Buscador superior izquierdo e input derecho) ─── */
+
+/* Estilo unificado traslúcido para TODOS los buscadores internos */
+body .launcher-input,
+body .sidebar-input,
+body .metadata-explorer input[type="text"],
+body .tl-toolbar input {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #f1f5f9 !important;
+    border-radius: 4px !important;
+    padding: 6px 12px !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Modificación cuando sus respectivos páneles entran en hover */
+body .cm-wrapper:hover .launcher-input,
+body .metadata-explorer:hover input[type="text"] {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+    color: #0f172a !important;
+}
+
+body .cm-wrapper:hover .launcher-input::placeholder,
+body .metadata-explorer:hover input[type="text"]::placeholder {
+    color: #475569 !important;
+}
+
+/* ==========================================================================
+   22. DIÁLOGO DE CONEXIÓN: ASISTENTE DE DOS PASOS (ESTILO GLASSMORPHISM)
+   ========================================================================== */
+
+/* ─── OVERLAY: Fondo oscuro ultra-tenue con desenfoque de fondo ─── */
+body .cd-overlay {
+    background: rgba(15, 23, 42, 0.25) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* ─── DIÁLOGO: Ventana esmerilada profunda tipo iOS ─── */
+body .cd-dialog {
+    background: rgba(255, 255, 255, 0.42) !important; /* Vidrio lechoso translúcido */
+    backdrop-filter: blur(25px) !important; /* Esmerilado pesado para aislar el ruido de fondo */
+    -webkit-backdrop-filter: blur(25px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.45) !important; /* Hilo de luz perimetral */
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15), 
+                0 4px 16px rgba(0, 0, 0, 0.05) !important;
+    color: #0f172a !important;
+}
+
+/* ─── HEADER Y SUBTÍTULOS ─── */
+body .cd-header {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+body .cd-title {
+    color: #0f172a !important;
+}
+body .cd-subtitle {
+    color: #475569 !important;
+    font-weight: 500 !important;
+}
+
+/* Botón de cierre (X) */
+body .cd-x {
+    color: #475569 !important;
+}
+body .cd-x:hover {
+    background: rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+}
+
+/* Pastillas de pasos (Pills) */
+body .cd-pill {
+    background: rgba(0, 0, 0, 0.08) !important;
+}
+body .cd-pill.active { background: #3b82f6 !important; }
+body .cd-pill.done   { background: #16a34a !important; }
+
+/* Cuerpo interno */
+body .cd-body {
+    background: transparent !important;
+}
+
+/* Etiquetas de sección (Labels de ingeniería) */
+body .cd-section {
+    color: #334155 !important;
+    font-weight: 800 !important;
+}
+body .cd-label {
+    color: #334155 !important;
+}
+
+/* ─── STEP 1: GRILLA DE DRIVERS (Tarjetas Compactas de Cristal) ─── */
+body .cd-driver-grid {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body .cd-driver-card {
+    background: rgba(255, 255, 255, 0.35) !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+body .cd-driver-card:hover {
+    background: rgba(255, 255, 255, 0.65) !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Driver Card Seleccionada (Estado Activo) */
+body .cd-driver-card.active {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.15) !important;
+}
+body .cd-driver-name {
+    color: #475569 !important;
+}
+body .cd-driver-card.active .cd-driver-name {
+    color: #1d4ed8 !important;
+}
+
+/* ─── ENTRADAS DE DATOS (Cápsulas de Texto Limpias) ─── */
+body .cd-input,
+body .cd-textarea {
+    background: rgba(255, 255, 255, 0.5) !important; /* Cápsula suave traslúcida */
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #0f172a !important;
+    font-weight: 550 !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+}
+body .cd-input:focus,
+body .cd-textarea:focus {
+    background: #ffffff !important; /* Se vuelve sólida al escribir para evitar distracciones */
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14) !important;
+}
+body .cd-input::placeholder,
+body .cd-textarea::placeholder {
+    color: #64748b !important;
+}
+
+/* ─── PASTILLAS DE ENTORNO (Dev, QA, Prod) ─── */
+body .cd-env {
+    background: rgba(255, 255, 255, 0.4) !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    color: #475569 !important;
+}
+body .cd-env:hover {
+    background: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Estados de Entorno Activos (Aislados del fondo blanco para que resalten quirúrgicamente) */
+body .cd-env[data-status="dev"].active { border-color: #22c55e !important; background: rgba(34, 197, 94, 0.12) !important; color: #15803d !important; font-weight: 600 !important; }
+body .cd-env[data-status="qa"].active { border-color: #f59e0b !important; background: rgba(245, 158, 11) !important; background: rgba(245, 158, 11, 0.12) !important; color: #b45309 !important; font-weight: 600 !important; }
+body .cd-env[data-status="production"].active { border-color: #ef4444 !important; background: rgba(239, 68, 68, 0.12) !important; color: #b91c1c !important; font-weight: 600 !important; }
+
+/* Indicador de Driver en Step 2 */
+body .cd-driver-badge {
+    background: rgba(255, 255, 255, 0.4) !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    color: #334155 !important;
+}
+
+/* ─── FOOTER Y BOTONES DE ACCIÓN FLUIDOS ─── */
+body .cd-footer {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Botón Fantasma / Secundario (Atrás, Cancelar) */
+body .cd-ghost {
+    background: rgba(255, 255, 255, 0.5) !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+    color: #334155 !important;
+}
+body .cd-ghost:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.8) !important;
+    color: #0f172a !important;
+}
+
+/* Botones Primarios Solidos (Para mantener jerarquía estricta de acción) */
+body .cd-primary {
+    background: #3b82f6 !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2) !important;
+}
+body .cd-primary:hover:not(:disabled) { background: #2563eb !important; }
+
+body .cd-success {
+    background: #16a34a !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2) !important;
+}
+body .cd-success:hover:not(:disabled) { background: #15803d !important; }
+
+/* Resultados del test de conexión */
+body .cd-result.ok { color: #16a34a !important; font-weight: 600 !important; }
+body .cd-result.error { color: #dc2626 !important; font-weight: 600 !important; }
+
+/* Ajuste del scroll interno del modal */
+body .cd-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.08) !important;
+}
+
+
+/* ==========================================================================
+   23. GRAPH VIEWER: DIAGRAMA ER ENTORNO OSCURO TRANSLÚCIDO (vis.js)
+   ========================================================================== */
+
+/* Contenedor Envolvente Principal (Transparente para ver el Wallpaper) */
+.gv-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: transparent !important;
+}
+
+/* Barra de Herramientas Superior Esmerilada (Estilo Apple Control) */
+.gv-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: rgba(15, 23, 42, 0.35) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    flex-shrink: 0;
+}
+
+/* Texto del Estado del Esquema */
+.gv-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85) !important;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.gv-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* Botones de la Barra de Herramientas Compactos y Traslúcidos */
+.gv-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gv-btn:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* El Lienzo de Red: Implementación de la Cuadrícula de Ingeniería Oscura
+   Crea una matriz de puntos finos espaciados a 24px que reaccionan al fondo.
+*/
+.gv-network {
+    flex: 1;
+    position: relative;
+    background-color: rgba(15, 23, 42, 0.45) !important;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px) !important;
+    background-size: 24px 24px !important;
+    backdrop-filter: blur(4px);
+}
+
+/* Forzar Transparencia Absoluta sobre los contenedores internos de vis.js */
+.gv-network .vis-network,
+.gv-network .vis-network div,
+.gv-network canvas {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Estados de Carga, Vacío o Error Flotando en el Cristal */
+.gv-loading,
+.gv-empty,
+.gv-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255, 255, 255, 0.45) !important;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    padding: 16px 24px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    pointer-events: none;
+}
+
+.gv-error {
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 110, 0.2) !important;
+    background: rgba(220, 38, 38, 0.1) !important;
+}
