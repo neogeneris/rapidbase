@@ -460,16 +460,23 @@ class Runner {
     }
 
     /**
+     * Imprime una línea horizontal separadora
+     */
+    private function hr(int $size = 70, string $char = '_'): void {
+        echo str_repeat($char, $size) . "\n";
+    }
+
+    /**
      * Muestra reporte en consola
      */
     public function printReport(array $results): void {
         echo "\n";
-        echo str_repeat("=", 70) . "\n";
+        $this->hr(70, '=');
         echo "              RAPIDBASE TDD TEST REPORT                   \n";
-        echo str_repeat("=", 70) . "\n";
+        $this->hr(70, '=');
         printf("  Total: %-4d  Success: %-4d  Failure: %-4d                  \n", 
                $results['total'], $results['pass'], $results['fail']);
-        echo str_repeat("-", 70) . "\n";
+        $this->hr(70);
         
         foreach ($results['tests'] as $test) {
             $status = $test['status'] === 'PASS' ? '[SUCCESS]' : '[FAILURE]';
@@ -485,7 +492,8 @@ class Runner {
                    $errorInfo);
         }
         
-        echo str_repeat("=", 70) . "\n\n";
+        $this->hr(70, '=');
+        echo "\n";
     }
 
     /**
