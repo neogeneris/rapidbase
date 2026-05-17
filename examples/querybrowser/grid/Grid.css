@@ -1,14 +1,14 @@
-
-
 /* Grid Component Styles */
 .grid-container {
+    --grid-max-width: 100%;
+    width: 100%;
+    max-width: var(--grid-max-width);
     display: flex;
     flex-direction: column;
-    height: 100%; /* Force fill height for infinite scroll */
+    height: 100%;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    overflow: hidden;
     position: relative;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
@@ -45,24 +45,23 @@
     flex: 1;
     overflow: auto;
     min-height: 0;
-	width:1020px;
+    width: 100%;
 }
 
 .grid-table {
-    /*width: max-content;  Allow table to be wider than container */
-    width-max: 25%;
-    /*border-collapse: collapse;*/
-    table-layout: auto; /* Changed from fixed to allow proper horizontal scroll */
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: auto;
 }
 
-.grid-head {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: #f8fafc;
-}
-
+/* ─── Cabeceras de datos: fijas verticalmente, se mueven horizontalmente ─── */
 .grid-head th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+    background: #f8fafc !important;
     padding: 10px 16px;
     font-weight: 600;
     cursor: pointer;
@@ -71,51 +70,100 @@
     border-bottom: 1px solid #e2e8f0;
     text-align: left;
     min-width: 100px;
-    max-width: none; /* Allow columns to expand */
+    max-width: none;
     color: #475569;
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     white-space: nowrap;
-    position: relative; /* Added for resizer positioning */
 }
 
+
+.grid-head th:hover {
+    background: #f1f5f9 !important;
+}
+
+/* ─── Cabecera de acciones: fija en ambas direcciones ─── */
+.grid-head th.grid-action-header {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 20 !important;
+    background: #f8fafc !important;
+}
+
+/* ─── Celdas de acciones: fijas horizontalmente ─── */
+.grid-body td.grid-action-cell {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 5 !important;
+    background: #ffffff !important;
+}
+
+.grid-body tr:hover td.grid-action-cell {
+    background: #f8fafc !important;
+}
+
+
+.grid-action-cell {
+    white-space: nowrap;
+    width: 1%;
+    padding: 4px 8px !important;
+}
+
+.grid-action-header {
+    width: 1%;
+    min-width: 80px !important;
+}
+
+/* ─── Resizer ─── */
+/* ─── Resizer (funciona con position:sticky también) ─── */
 .grid-resizer {
     position: absolute;
     top: 0;
     right: 0;
-    width: 5px;                
+    width: 8px;
     height: 100%;
     cursor: col-resize;
     z-index: 12;
-    background: transparent;   /* invisible pero funcional */
+    background: transparent;
     transition: background 0.2s;
 }
 
 .grid-resizer:hover {
     background: #3b82f6;
-    opacity: 0.4;
+    opacity: 0.25;
 }
 
-.grid-head th:hover { background: #f1f5f9; }
+/* ─── Sort Indicators ─── */
+.grid-head th[data-sort="asc"]::after {
+    content: " ▲";
+    color: #3b82f6;
+    font-size: 0.7rem;
+}
 
-.grid-head th[data-sort="asc"]::after { content: " ▲"; color: #3b82f6; font-size: 0.7rem; }
-.grid-head th[data-sort="desc"]::after { content: " ▼"; color: #3b82f6; font-size: 0.7rem; }
+.grid-head th[data-sort="desc"]::after {
+    content: " ▼";
+    color: #3b82f6;
+    font-size: 0.7rem;
+}
 
+/* ─── Body Cells ─── */
 .grid-body td {
     padding: 10px 16px;
     border-bottom: 1px solid #f1f5f9;
-    border-left: 2px solid #f1f5f9;
     font-size: 0.8rem;
     color: #334155;
     white-space: nowrap;
-    
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.grid-body tr:hover td { background: #f8fafc; 	}
+.grid-body tr:hover td {
+    background: #f8fafc;
+}
 
+/* ─── Footer ─── */
 .grid-footer {
     padding: 8px 16px;
     background: #f8fafc;
@@ -126,6 +174,7 @@
     flex-shrink: 0;
 }
 
+/* ─── Loading Indicator ─── */
 .grid-loading {
     position: absolute;
     bottom: 20px;
@@ -141,6 +190,7 @@
     pointer-events: none;
 }
 
+/* ─── Error Message ─── */
 .grid-error {
     padding: 10px 16px;
     background: #fff5f5;
@@ -151,9 +201,42 @@
     border: 1px solid #fed7d7;
 }
 
+/* ─── Empty State ─── */
 .grid-empty {
     padding: 40px;
     text-align: center;
     color: #94a3b8;
     font-size: 0.85rem;
+}
+
+/* ─── Action Buttons ─── */
+.qb-action-btn {
+    background: transparent;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 12px;
+    margin: 0 2px;
+    transition: all 0.15s;
+}
+
+.qb-action-btn:hover {
+    background: #f1f5f9;
+    transform: scale(1.1);
+}
+
+.qb-view-btn:hover {
+    color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.qb-edit-btn:hover {
+    color: #f59e0b;
+    border-color: #f59e0b;
+}
+
+.qb-delete-btn:hover {
+    color: #ef4444;
+    border-color: #ef4444;
 }

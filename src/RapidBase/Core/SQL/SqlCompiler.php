@@ -52,7 +52,7 @@ class SqlCompiler
 		$group  = ($g = self::normalizeField($state[self::GROUP] ?? '')) ? "\nGROUP BY\n    " . $g : '';
 		$having = $state[self::HAVING] ? "\nHAVING\n    " . $state[self::HAVING] : '';
 		$order  = ($o = self::normalizeField($state[self::ORDER] ?? '')) ? "\nORDER BY\n    " . $o : '';
-		$limit  = $state[self::LIMIT]  ? "\n" . $state[self::LIMIT] : '';
+		$limit  = $state[self::LIMIT]  ? "\n" . trim($state[self::LIMIT]) : '';
 		$params = $state[self::PARAMS] ?? [];
 
 		// Cada JOIN en su propia línea

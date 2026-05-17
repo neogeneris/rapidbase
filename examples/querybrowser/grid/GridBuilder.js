@@ -2,20 +2,28 @@ class GridBuilder {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
         if (!this.container) throw new Error("Container not found: " + containerSelector);
-        this.headerTemplate = this.container.querySelector('.grid-head');
-        this.bodyContainer = this.container.querySelector('.grid-body') || this.container;
-        this.currentMetadata = null;
+
+        this.bodyContainer = this.container.querySelector('.grid-body, tbody');
+        this.headContainer = this.container.querySelector('.grid-head, thead');
+
+        this.headerRowTemplate = this.headContainer?.querySelector('tr');
+        this.headerTemplate = this.headContainer?.querySelector('th, .grid-header');
+        this.rowTemplate = this.bodyContainer?.querySelector('tr, .grid-row');
+
+        if (this.headerRowTemplate) this.headerRowTemplate.style.display = 'none';
+        else if (this.headerTemplate) this.headerTemplate.style.display = 'none';
+
+        if (this.rowTemplate) this.rowTemplate.style.display = 'none';
+
         this.columns = [];
         this.sortField = null;
         this.sortOrder = null;
 
-        // ── Redimensionamiento de columnas ─────────────────
-        let resizeStartX = 0;
-        let resizeStartWidth = 0;
+        // ── Redimensionamiento de columnas con protección anti-ordenación ──
         let resizing = false;
 
-        if (this.headerTemplate) {
-            this.headerTemplate.addEventListener('mousedown', (e) => {
+        if (this.headContainer) {
+            this.headContainer.addEventListener('mousedown', (e) => {
                 const resizer = e.target.closest('.grid-resizer');
                 if (!resizer) return;
                 e.preventDefault();
@@ -24,15 +32,15 @@ class GridBuilder {
                 const th = resizer.closest('th');
                 if (!th) return;
 
-                resizeStartX = e.clientX;
-                resizeStartWidth = th.offsetWidth;
+                const startX = e.clientX;
+                const startWidth = th.offsetWidth;
                 resizing = true;
                 document.body.style.cursor = 'col-resize';
                 document.body.style.userSelect = 'none';
 
                 const onMouseMove = (moveEvent) => {
-                    const delta = moveEvent.clientX - resizeStartX;
-                    const newWidth = Math.max(50, resizeStartWidth + delta);
+                    const delta = moveEvent.clientX - startX;
+                    const newWidth = Math.max(50, startWidth + delta);
                     th.style.width = newWidth + 'px';
                     th.style.minWidth = newWidth + 'px';
                 };
@@ -42,90 +50,159 @@ class GridBuilder {
                     document.removeEventListener('mouseup', onMouseUp);
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
-                    // Evitar que el clic se propague al header tras soltar
-                    setTimeout(() => { resizing = false; }, 10);
+
+                    // Pequeña demora para evitar que el clic active la ordenación
+                    setTimeout(() => { resizing = false; }, 50);
                 };
 
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp, { once: true });
             });
 
-            // Prevención de ordenación si venimos de redimensionar
-            this.headerTemplate.addEventListener('click', (e) => {
+            // Prevenir ordenación si acabamos de redimensionar
+            this.headContainer.addEventListener('click', (e) => {
                 if (resizing) {
                     e.stopPropagation();
                     e.preventDefault();
                 }
-            }, true); // captura antes que el listener del grid
+            }, true); // captura antes que el listener de APIDataGrid
         }
     }
 
-
-    // ─── Render y helpers ──────────────────────────────────
     render(data, metadata = null) {
-        this.currentMetadata = metadata;
-        if (!data || data.length === 0) {
-            this.bodyContainer.innerHTML = '<tr><td colspan="100" class="grid-empty">No hay datos</td></tr>';
-            return;
+        if (!data || data.length === 0) return;
+        this.columns = metadata?.columns || [];
+        const titles = metadata?.titles || this.columns;
+
+        if (this.headerTemplate && titles.length > 0) {
+            this._renderHeaders(titles);
         }
-        const isNumericArray = Array.isArray(data[0]);
-        if (isNumericArray) this.renderNumericMode(data, metadata);
-        else this.renderAssociativeMode(data, metadata);
+
+        if (this.rowTemplate) {
+            this._renderRows(data);
+        }
+    }
+
+    _renderHeaders(titles) {
+        const head = this.headContainer;
+        head.innerHTML = '';
+
+        if (!this.headerRowTemplate) return;
+
+        const wrapper = document.createElement('tr');
+        head.appendChild(wrapper);
+
+        const originalThs = Array.from(this.headerRowTemplate.querySelectorAll('th, td, .grid-header'));
+
+        originalThs.forEach(th => {
+            const html = th.outerHTML;
+            if (html.includes('${header}')) {
+                titles.forEach((title, idx) => {
+                    let thHtml = html.replace(/\$\{header\}/g, title);
+                    if (!thHtml.includes('grid-resizer')) {
+                        thHtml = thHtml.replace('</th>', '<div class="grid-resizer"></div></th>');
+                    }
+                    const el = this._createElement(thHtml);
+                    el.style.display = '';
+                    el.dataset.column = this.columns[idx] || idx;
+                    wrapper.appendChild(el);
+                });
+            } else {
+                let fixedHtml = html;
+                if (!fixedHtml.includes('grid-resizer') && th.tagName === 'TH') {
+                    fixedHtml = fixedHtml.replace('</th>', '<div class="grid-resizer"></div></th>');
+                }
+                const el = this._createElement(fixedHtml);
+                el.style.display = '';
+                wrapper.appendChild(el);
+            }
+        });
+
         this.updateSortIndicator();
     }
 
-    renderNumericMode(data, metadata = null) {
-        if (metadata?.columns && metadata?.titles) {
-            this.columns = metadata.columns;
-            this.headerTemplate.innerHTML = metadata.titles.map((t, i) =>
-                `<th data-column="${this.escapeHtml(metadata.columns[i])}">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
-            ).join('');
-        }
-        this.bodyContainer.innerHTML = data.map(row =>
-            `<tr>${row.map(v => `<td>${v ?? ''}</td>`).join('')}</tr>`
-        ).join('');
-    }
+    _renderRows(data) {
+        const body = this.bodyContainer;
+        body.innerHTML = '';
 
-    renderAssociativeMode(data, metadata = null) {
-        const keys = Object.keys(data[0]);
-        this.columns = keys;
-        if (metadata?.columns && metadata?.titles) {
-            this.headerTemplate.innerHTML = metadata.titles.map((t, i) =>
-                `<th data-column="${this.escapeHtml(metadata.columns[i])}">${this.escapeHtml(t)}<div class="grid-resizer"></div></th>`
-            ).join('');
-        } else if (!this.headerTemplate?.querySelectorAll('th').length) {
-            this.headerTemplate.innerHTML = keys.map(k =>
-                `<th data-column="${k}">${this.formatKey(k)}<div class="grid-resizer"></div></th>`
-            ).join('');
-        }
-        this.bodyContainer.innerHTML = data.map(row =>
-            `<tr>${keys.map(k => `<td>${row[k] ?? ''}</td>`).join('')}</tr>`
-        ).join('');
+        const rowHtml = this.rowTemplate.outerHTML;
+
+        data.forEach(row => {
+            const clone = this._createElement(rowHtml);
+            clone.style.display = '';
+
+            let html = clone.outerHTML;
+
+            row.forEach((val, idx) => {
+                html = html.replace(new RegExp(`\\$\\{${idx}\\}`, 'g'), val ?? '');
+            });
+
+            this.columns.forEach((colName, idx) => {
+                if (colName) {
+                    html = html.replace(new RegExp(`\\$\\{${colName}\\}`, 'g'), row[idx] ?? '');
+                }
+            });
+
+            if (html.includes('${value}')) {
+                let dataCells = '';
+                row.forEach(val => {
+                    dataCells += `<td class="grid-item">${val ?? ''}</td>`;
+                });
+                html = html.replace(/<td[^>]*>\s*\$\{value\}\s*<\/td>/, dataCells);
+            }
+
+            const finalEl = this._createElement(html);
+            finalEl.style.display = '';
+            body.appendChild(finalEl);
+        });
     }
 
     updateSortIndicator() {
-        if (!this.headerTemplate) return;
-        const sortColShort = this.sortField
-            ? (this.sortField.includes('.') ? this.sortField.split('.').pop() : this.sortField)
-            : null;
-
-        const headers = this.headerTemplate.querySelectorAll('th');
+        if (!this.headContainer) return;
+        const headers = this.headContainer.querySelectorAll('th[data-column]');
         headers.forEach(th => {
             th.removeAttribute('data-sort');
-            if (!sortColShort || !this.sortOrder) return;
-            const col = th.dataset.column || '';
+            const col = th.dataset.column;
+            if (!col || !this.sortField || !this.sortOrder) return;
+
+            const shortField = this.sortField.includes('.') ? this.sortField.split('.').pop() : this.sortField;
             const colShort = col.includes('.') ? col.split('.').pop() : col;
-            if (colShort === sortColShort) {
+
+            if (colShort === shortField) {
                 th.setAttribute('data-sort', this.sortOrder);
             }
         });
     }
 
-    formatKey(key) { return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '); }
-    escapeHtml(value) {
-        if (value === null || value === undefined) return '';
+    setSort(field, order) {
+        this.sortField = field;
+        this.sortOrder = order;
+        this.updateSortIndicator();
+    }
+
+    _createElement(html) {
+        const trimmed = html.trim();
+        if (/^<tr/i.test(trimmed)) {
+            const tbody = document.createElement('tbody');
+            tbody.innerHTML = trimmed;
+            return tbody.firstElementChild;
+        }
+        if (/^<(th|td)/i.test(trimmed)) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = trimmed;
+            return tr.firstElementChild;
+        }
         const div = document.createElement('div');
-        div.textContent = value;
-        return div.innerHTML;
+        div.innerHTML = trimmed;
+        return div.firstElementChild || div;
+    }
+
+    clear() {
+        if (this.bodyContainer) {
+            const children = Array.from(this.bodyContainer.children);
+            children.forEach(child => {
+                if (child !== this.rowTemplate) child.remove();
+            });
+        }
     }
 }

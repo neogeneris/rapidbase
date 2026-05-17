@@ -1,7 +1,7 @@
 <?php
 return array (
-  'key' => 'db_select_posts AS p_user_id_id_u_id_post_id_pt_tag_id_id_t_6f671639',
-  'expires_at' => 1778637524,
+  'key' => 'db_select_posts AS p_user_id_id_u_id_post_id_pt_tag_id_id_t_45f451c9',
+  'expires_at' => 1778966145,
   'data' => 
   array (
     'data' => 
@@ -461,7 +461,7 @@ return array (
     'page' => 1,
     'limit' => 50,
     'source' => 'database',
-    'timestamp' => 1778633924.523229,
+    'timestamp' => 1778962545.501875,
     'projectionMap' => 
     array (
       'p.id' => 0,
@@ -484,8 +484,14 @@ return array (
         4 => 'user_name',
         5 => 'tag_name',
       ),
-      'execution_time' => 0.16498565673828125,
-      'sql' => 'SELECT p.*, u.name as user_name, t.name as tag_name FROM "posts" AS "p" LEFT JOIN "users" AS "u" ON "p"."user_id" = "u"."id" LEFT JOIN "post_tag" AS "pt" ON "u"."id" = "pt"."post_id" LEFT JOIN "tags" AS "t" ON "pt"."tag_id" = "t"."id"      LIMIT 50 OFFSET 0',
+      'execution_time' => 0.1690387725830078,
+      'sql' => 'SELECT
+    p.*, u.name as user_name, t.name as tag_name
+FROM "posts" AS "p"
+     LEFT JOIN "users" AS "u" ON "p"."user_id" = "u"."id"
+     LEFT JOIN "post_tag" AS "pt" ON "u"."id" = "pt"."post_id"
+     LEFT JOIN "tags" AS "t" ON "pt"."tag_id" = "t"."id"
+LIMIT 50 OFFSET 0',
     ),
   ),
 );

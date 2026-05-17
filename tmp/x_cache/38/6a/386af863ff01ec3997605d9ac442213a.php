@@ -1,7 +1,7 @@
 <?php
 return array (
-  'key' => 'db_select_posts AS p_user_id_id_u_33ba25f5',
-  'expires_at' => 1778637524,
+  'key' => 'db_select_posts AS p_user_id_id_u_64811899',
+  'expires_at' => 1778966145,
   'data' => 
   array (
     'data' => 
@@ -411,7 +411,7 @@ return array (
     'page' => 1,
     'limit' => 50,
     'source' => 'database',
-    'timestamp' => 1778633924.490986,
+    'timestamp' => 1778962545.472015,
     'projectionMap' => 
     array (
       'p.id' => 0,
@@ -432,8 +432,12 @@ return array (
         3 => 'p.content',
         4 => 'user_name',
       ),
-      'execution_time' => 0.11587142944335938,
-      'sql' => 'SELECT p.*, u.name as user_name FROM "posts" AS "p" LEFT JOIN "users" AS "u" ON "p"."user_id" = "u"."id"      LIMIT 50 OFFSET 0',
+      'execution_time' => 0.11301040649414062,
+      'sql' => 'SELECT
+    p.*, u.name as user_name
+FROM "posts" AS "p"
+     LEFT JOIN "users" AS "u" ON "p"."user_id" = "u"."id"
+LIMIT 50 OFFSET 0',
     ),
   ),
 );

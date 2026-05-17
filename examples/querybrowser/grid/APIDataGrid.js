@@ -1,12 +1,7 @@
-/**
- * APIDataGrid – Componente de grilla con scroll infinito y ordenamiento cíclico.
- * Ahora guarda la última respuesta, ofrece fallback para columnas,
- * y asegura que las flechas de ordenación se muestren tras cada recarga.
- * Además, evita solicitar páginas más allá del total conocido.
- */
 class APIDataGrid extends GridBuilder {
     constructor(containerSelector, apiUrl, options = {}) {
         super(containerSelector);
+
         this.apiUrl = apiUrl;
         this.mode = options.mode || 'infinite';
         this.currentPage = 1;
@@ -15,48 +10,38 @@ class APIDataGrid extends GridBuilder {
         this.isLoading = false;
         this.filter = options.filter || {};
         this.searchTerm = '';
-        this.sortField = null;
-        this.sortOrder = null; // 'asc', 'desc', o null
-        this.lastResponse = null;   // guarda la última respuesta completa
-        this.controlsContainer = this.container.querySelector('.grid-controls');
+        this.lastResponse = null;
+
+        this.searchInput = this.container.querySelector('.grid-search');
         this.loadingIndicator = this.container.querySelector('.grid-loading');
         this.errorContainer = this.container.querySelector('.grid-error');
         this.footerContainer = this.container.querySelector('.grid-footer');
-        if (!this.footerContainer) {
-            this.footerContainer = document.createElement('div');
-            this.footerContainer.className = 'grid-footer';
-            this.container.appendChild(this.footerContainer);
-        }
-        this.addControls();
-        if (this.mode === 'infinite') this.enableInfiniteScroll();
-        this.scrollCleanup = null;
 
-        // Delegación de eventos
-        this.container.addEventListener('click', (e) => {
-            if (e.target.closest('.grid-resizer')) return;   // ignorar clics en el resizer
-            const th = e.target.closest('th');
-            if (th && th.dataset.column) {
-                this.sortBy(th.dataset.column);
-            }
-        });
+        this._bindEvents();
+        if (this.mode === 'infinite') this._enableInfiniteScroll();
     }
 
-    addControls() {
-        if (!this.controlsContainer) return;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'grid-search';
-        input.placeholder = 'Buscar...';
-        let timeout;
-        input.addEventListener('input', e => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => {
-                this.searchTerm = e.target.value;
-                this.resetAndFetch();
-            }, 300);
-        });
-        this.controlsContainer.innerHTML = '';
-        this.controlsContainer.appendChild(input);
+    _bindEvents() {
+        if (this.searchInput) {
+            let timeout;
+            this.searchInput.addEventListener('input', e => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    this.searchTerm = e.target.value;
+                    this.resetAndFetch();
+                }, 300);
+            });
+        }
+
+        if (this.headContainer) {
+            this.headContainer.addEventListener('click', e => {
+                if (e.target.closest('.grid-resizer')) return;
+                const header = e.target.closest('th[data-column]');
+                if (header) {
+                    this.sortBy(header.dataset.column);
+                }
+            });
+        }
     }
 
     buildParams() {
@@ -77,149 +62,89 @@ class APIDataGrid extends GridBuilder {
     async fetchData() {
         if (this.isLoading) return;
         this.isLoading = true;
-        this.showLoading();
-        this.hideError();
+        this._showLoading();
+        this._hideError();
 
-        // ── Evitar solicitar una página más allá del total conocido ──
         if (this.lastResponse?.last_page && this.currentPage > this.lastResponse.last_page) {
             this.currentPage = this.lastResponse.last_page;
         }
 
         try {
+            const fetchStart = performance.now();
             const url = `${this.apiUrl.split('?')[0]}?${this.buildParams().toString()}`;
             const r = await fetch(url);
-            if (!r.ok) {
-                let errMessage = `HTTP ${r.status}`;
-                try {
-                    const errData = await r.json();
-                    if (errData.error) errMessage = errData.error;
-                } catch(e) {}
-                throw new Error(errMessage);
-            }
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const d = await r.json();
-            this.lastResponse = d;   // guardar respuesta completa
+            const fetchEnd = performance.now();
+
+            this.lastResponse = d;
 
             if (d.error) throw new Error(d.error);
+
             const rows = d.data || [];
-            let meta = null;
+            const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
 
-            // 1. Intentar metadata del servidor
-            if (d.columns && d.titles) {
-                meta = { columns: d.columns, titles: d.titles };
-            }
-            // 2. Fallback desde los datos
-            else if (rows.length > 0) {
-                if (Array.isArray(rows[0])) {
-                    const cols = rows[0].map((_, i) => `col_${i}`);
-                    meta = {
-                        columns: cols,
-                        titles: cols.map(c => c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
-                    };
-                } else if (typeof rows[0] === 'object') {
-                    const keys = Object.keys(rows[0]);
-                    meta = {
-                        columns: keys,
-                        titles: keys.map(k => k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
-                    };
-                }
-            }
-
-            const total = d.total ?? rows.length;
-            const colCount = meta ? meta.columns.length : (rows[0]?.length || 0);
-            const duration = d.stats?.duration
-                ? (Number(d.stats.duration) / 1000).toFixed(4) + 's'
-                : (d.time ? Number(d.time).toFixed(4) + 's' : 'N/A');
-
-            this.footerContainer.innerHTML = `📄 Total: ${total.toLocaleString()} registros | ` +
-                `${colCount} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ⏱️ ${duration}`;
-
-            if (rows.length > 0) {
-                if (this.currentPage === 1) {
-                    this.renderHeaders(meta);
-                    this.renderBody(rows, meta);
-                } else {
-                    this.appendRows(rows);
-                }
-                // hasMore se determina por la página actual vs el total de páginas
-                this.hasMore = this.currentPage < (d.last_page || 1);
-                if (!this.hasMore && this.scrollCleanup) {
-                    this.scrollCleanup();
-                    this.scrollCleanup = null;
-                }
+            if (this.currentPage === 1) {
+                this.render(rows, meta);
             } else {
-                this.hasMore = false;
-                if (this.currentPage === 1) {
-                    this.bodyContainer.innerHTML = `<div class="grid-empty-state">…</div>`;
-                }
-                if (this.scrollCleanup) {
-                    this.scrollCleanup();
-                    this.scrollCleanup = null;
-                }
+                this._appendRows(rows);
             }
 
-            // 🔁 Restaurar flechas de ordenación según el estado actual
-            this.updateSortIndicator();
+            this.hasMore = this.currentPage < (d.last_page || 1);
 
-        } catch(e) {
+            // ─── Footer con tiempos ─────────────────────────────
+            const totalMs = fetchEnd - fetchStart;
+            const backendMs = d.stats?.duration || 0;
+            const networkMs = Math.max(0, totalMs - backendMs);
+            const sqlTime = backendMs ? (backendMs / 1000).toFixed(7) + 's' : 'N/A';
+            const netTime = networkMs ? (networkMs/1000).toFixed(7) +'s' : 'N/A';
+
+            if (this.footerContainer) {
+                const total = d.total ?? rows.length;
+                const colCount = d.columns?.length || this.columns.length;
+                this.footerContainer.textContent =
+                    `📄 Total: ${total.toLocaleString()} registros | ` +
+                    `${colCount} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ` +
+                    `⏱️ SQL ${sqlTime} | 🌐 Red ${netTime}`;
+            }
+
+        } catch (e) {
             console.error(e);
-            this.showError(e.message);
+            this._showError(e.message);
         } finally {
             this.isLoading = false;
-            this.hideLoading();
+            this._hideLoading();
         }
     }
 
-    /**
-     * Dibuja las cabeceras con indicador de orden activo.
-     */
-    renderHeaders(metadata) {
-        if (!metadata || !metadata.columns || !metadata.titles) return;
-        let columns = metadata.columns;
-        let titles = metadata.titles;
-        const filtered = [];
-        columns.forEach((col, idx) => {
-            if (col !== '*' && col !== '_total' && !col.startsWith('COUNT(')) {
-                filtered.push({ col, title: titles[idx] });
-            }
-        });
-        this.columns = filtered.map(f => f.col);
-        const html = filtered.map(({col, title}) => {
-            let sortAttr = '';
-            if (this.sortField === col && this.sortOrder) {
-                sortAttr = ` data-sort="${this.sortOrder}"`;
-            }
-            return `<th data-column="${this.escapeHtml(col)}"${sortAttr}>${this.escapeHtml(title)}<div class="grid-resizer"></div></th>`;
-        }).join('');
-        this.headerTemplate.innerHTML = html;
-    }
-
-    renderBody(rows, metadata) {
-        const isNum = Array.isArray(rows[0]);
-        if (!isNum && (!this.columns || this.columns.length === 0)) {
-            this.columns = Object.keys(rows[0]);
-        }
-        const html = rows.map(row => {
-            const cells = isNum ? row : this.columns.map(k => row[k]);
-            return `<tr>${cells.map(v => `<td>${v ?? ''}</td>`).join('')}</tr>`;
-        }).join('');
-        this.bodyContainer.innerHTML = html;
-    }
-
-    appendRows(rows) {
+    _appendRows(rows) {
         if (!rows?.length) return;
-        const isNum = Array.isArray(rows[0]);
-        if (!isNum && (!this.columns || this.columns.length === 0) && rows[0]) {
-            this.columns = Object.keys(rows[0]);
-        }
-        const html = rows.map(row => {
-            const cells = isNum ? row : this.columns.map(k => row[k]);
-            return `<tr>${cells.map(v => `<td>${v ?? ''}</td>`).join('')}</tr>`;
-        }).join('');
-        this.bodyContainer.insertAdjacentHTML('beforeend', html);
+        const rowHtml = this.rowTemplate.outerHTML;
+        rows.forEach(row => {
+            const clone = this._createElement(rowHtml);
+            clone.style.display = '';
+            let html = clone.outerHTML;
+
+            row.forEach((val, idx) => {
+                html = html.replace(new RegExp(`\\$\\{${idx}\\}`, 'g'), val ?? '');
+            });
+            this.columns.forEach((colName, idx) => {
+                if (colName) html = html.replace(new RegExp(`\\$\\{${colName}\\}`, 'g'), row[idx] ?? '');
+            });
+            if (html.includes('${value}')) {
+                let dataCells = '';
+                row.forEach(val => { dataCells += `<td class="grid-item">${val ?? ''}</td>`; });
+                html = html.replace(/<td[^>]*>\s*\$\{value\}\s*<\/td>/, dataCells);
+            }
+
+            const finalEl = this._createElement(html);
+            finalEl.style.display = '';
+            this.bodyContainer.appendChild(finalEl);
+        });
     }
 
-    enableInfiniteScroll() {
-        const sc = this.container.querySelector('.grid-scroll-wrapper');
+    _enableInfiniteScroll() {
+        const sc = this.bodyContainer;
         if (!sc) return;
         const onScroll = () => {
             if (!this.hasMore || this.isLoading) return;
@@ -229,65 +154,48 @@ class APIDataGrid extends GridBuilder {
             }
         };
         sc.addEventListener('scroll', onScroll);
-        this.scrollCleanup = () => sc.removeEventListener('scroll', onScroll);
+        this._scrollCleanup = () => sc.removeEventListener('scroll', onScroll);
     }
 
     resetAndFetch() {
         this.currentPage = 1;
         this.hasMore = true;
-        this.bodyContainer.innerHTML = '';
+        this.clear();
         this.fetchData();
     }
 
-    /**
-     * Ordenamiento cíclico: null → asc → desc → null
-     */
     sortBy(field) {
         if (this.sortField !== field) {
             this.sortField = field;
             this.sortOrder = 'asc';
         } else {
-            if (this.sortOrder === 'asc') {
-                this.sortOrder = 'desc';
-            } else if (this.sortOrder === 'desc') {
+            if (this.sortOrder === 'asc') this.sortOrder = 'desc';
+            else if (this.sortOrder === 'desc') {
                 this.sortOrder = null;
                 this.sortField = null;
-            } else {
-                this.sortOrder = 'asc';
-            }
+            } else this.sortOrder = 'asc';
         }
+        this.updateSortIndicator();
         this.resetAndFetch();
     }
 
-    /**
-     * Sincroniza visualmente las flechas de ordenación desde una fuente externa.
-     */
     setSort(field, order) {
         this.sortField = field;
         this.sortOrder = order;
         this.updateSortIndicator();
     }
 
-    setFilter(f) {
-        this.filter = f;
-        this.resetAndFetch();
-    }
+    setFilter(f) { this.filter = f; this.resetAndFetch(); }
 
-    showLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'block'; }
-    hideLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'none'; }
-    showError(m) {
+    _showLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'block'; }
+    _hideLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'none'; }
+    _showError(m) {
         if (this.errorContainer) {
             this.errorContainer.textContent = 'Error: ' + m;
             this.errorContainer.style.display = 'block';
         }
     }
-    hideError() { if (this.errorContainer) this.errorContainer.style.display = 'none'; }
-    load() { this.fetchData(); }
+    _hideError() { if (this.errorContainer) this.errorContainer.style.display = 'none'; }
 
-    escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
+    load() { this.fetchData(); }
 }

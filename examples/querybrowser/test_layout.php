@@ -84,7 +84,7 @@
         body.is-resizing * { pointer-events: none !important; user-select: none !important; }
 
         /* --- EDITOR --- */
-        .editor-area { flex: 1; display: flex; flex-direction: column; padding: 10px; background: #f8fafc; }
+        .editor-area { flex: 1; display: flex; flex-direction: column; padding: 10px; background: #f8fafc; min-width: 0; }
         .sql-textarea { 
             flex: 1; border: 1px solid var(--border-color); border-radius: 4px;
             padding: 15px; font-family: 'Consolas', monospace; outline: none; resize: none;
@@ -296,7 +296,15 @@
 						if (activeTab && activeTab.component instanceof QueryBuilder) {
 							activeTab.component.setSelectedColumns(selected);
 						}
-					}
+					},
+				onClose: () => {
+					document.getElementById('right-sidebar').style.display = 'none';
+					document.getElementById('resizer-v-right').style.display = 'none';
+				},
+				onOpen: () => {
+					document.getElementById('right-sidebar').style.display = '';
+					document.getElementById('resizer-v-right').style.display = '';
+				}
 			});
 
             // Interceptar la carga de tablas para guardar el schemaData global

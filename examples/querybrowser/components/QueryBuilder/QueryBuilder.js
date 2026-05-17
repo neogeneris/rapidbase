@@ -2,6 +2,7 @@
  * QueryBuilder.js – Sincronizado con SchemaExplorer y Grid (API v1)
  * IDs únicos por pestaña para evitar conflictos.
  * Soporta CodeMirror como editor avanzado opcional con autocompletado.
+ * El grid usa plantilla HTML (<table>) con ${header}, ${value} y botones de acción.
  */
 class QueryBuilder {
     constructor(connectionId, tableName, options = {}) {
@@ -19,8 +20,8 @@ class QueryBuilder {
         this.instanceId = `qb_${connectionId}_${tableName}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
         // Editor avanzado (CodeMirror)
-        this.useAdvancedEditor = true;   // activado por defecto
-        this.cmEditor = null;            // instancia de CodeMirror
+        this.useAdvancedEditor = true;
+        this.cmEditor = null;
 
         this.state = {
             columns: null,
@@ -79,8 +80,22 @@ class QueryBuilder {
                         <div class="grid-error" style="display:none;"></div>
                         <div class="grid-scroll-wrapper">
                             <table class="grid-table">
-                                <thead class="grid-head"></thead>
-                                <tbody class="grid-body"></tbody>
+                                <thead class="grid-head">
+                                    <tr>
+                                        <th class="grid-header grid-action-header" style="display:none;">Acciones</th>
+                                        <th class="grid-header" style="display:none;">\${header}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="grid-body">
+                                    <tr class="grid-row" style="display:none;">
+                                        <td class="grid-action-cell">
+                                            <button class="qb-action-btn qb-view-btn" data-id="\${0}" title="Ver detalle">👁️</button>
+                                            <button class="qb-action-btn qb-edit-btn" data-id="\${0}" title="Editar">✏️</button>
+                                            <button class="qb-action-btn qb-delete-btn" data-id="\${0}" title="Borrar">🗑️</button>
+                                        </td>
+                                        <td class="grid-item">\${value}</td>
+                                    </tr>
+                                </tbody>
                             </table>
                         </div>
                         <div class="grid-footer"></div>
@@ -95,7 +110,6 @@ class QueryBuilder {
         this._updateUI();
         this._loadRelations();
 
-        // Activar CodeMirror si el switch está marcado por defecto
         if (this.useAdvancedEditor) {
             this._toggleEditor();
         }
@@ -152,7 +166,7 @@ class QueryBuilder {
         modeChk.onchange = () => {
             this.mode = modeChk.checked ? 'edit' : 'navigate';
             this._updateUI();
-            this._toggleEditor();   // actualizar readOnly
+            this._toggleEditor();
         };
 
         const debugChk = this.parentElement.querySelector(`#${id}-debug-chk`);
@@ -246,6 +260,28 @@ class QueryBuilder {
                 }, 300);
             });
         }
+
+        // ─── Clic en botones de acción del grid ───
+        this.grid.container.addEventListener('click', (e) => {
+            const btn = e.target.closest('.qb-action-btn');
+            if (!btn) return;
+
+            const rowId = btn.dataset.id;
+            const table = this.tables[0];
+
+            if (btn.classList.contains('qb-view-btn')) {
+                alert(`Ver detalle de ${table}.id = ${rowId}`);
+                // TODO: abrir modal de detalle
+            } else if (btn.classList.contains('qb-edit-btn')) {
+                alert(`Editar ${table}.id = ${rowId}`);
+                // TODO: abrir formulario de edición
+            } else if (btn.classList.contains('qb-delete-btn')) {
+                if (confirm(`¿Eliminar registro ${table}.id = ${rowId}?`)) {
+                    // TODO: ejecutar DELETE vía API
+                    alert(`Registro ${table}.id = ${rowId} eliminado (simulado)`);
+                }
+            }
+        });
     }
 
     _updateUI() {
@@ -264,63 +300,65 @@ class QueryBuilder {
         }
     }
 
-	_toggleEditor() {
-		const id = this.instanceId;
-		const textarea = this.parentElement.querySelector(`#${id}-sql`);
-		if (!textarea) return;
+    _toggleEditor() {
+        const id = this.instanceId;
+        const textarea = this.parentElement.querySelector(`#${id}-sql`);
+        if (!textarea) return;
 
-		if (typeof CodeMirror === 'undefined' || typeof CodeMirror.hint === 'undefined') {
-			// CodeMirror o los add‑ons no disponibles → usar solo textarea
-			textarea.style.display = '';
-			textarea.readOnly = (this.mode !== 'edit');
-			return;
-		}
+        if (typeof CodeMirror === 'undefined') {
+            textarea.style.display = '';
+            textarea.readOnly = (this.mode !== 'edit');
+            return;
+        }
 
-		const isEdit = this.mode === 'edit';
-		const hintConfig = {
-			tables: this._getAutocompleteTables(),
-			completeSingle: false
-		};
+        const isEdit = this.mode === 'edit';
+        const hintConfig = {
+            tables: this._getAutocompleteTables(),
+            completeSingle: false
+        };
 
-		if (this.useAdvancedEditor) {
-			if (!this.cmEditor) {
-				this.cmEditor = CodeMirror.fromTextArea(textarea, {
-					mode: 'text/x-sql',
-					theme: 'default',
-					lineNumbers: true,
-					readOnly: !isEdit,
-					viewportMargin: Infinity,
-					extraKeys: {
-						"Ctrl-Space": "autocomplete",          // manual
-						".": function(cm) {                     // automático tras un punto
-							cm.replaceSelection(".");
-							CodeMirror.showHint(cm, CodeMirror.hint.sql);
-						}
-					},
-					hintOptions: hintConfig
-				});
-				this.cmEditor.setValue(textarea.value);
-				setTimeout(() => {
-					this.cmEditor?.refresh();
-					const wrapper = this.cmEditor?.getWrapperElement();
-					if (wrapper) wrapper.style.minHeight = '80px';
-				}, 20);
-			} else {
-				this.cmEditor.getWrapperElement().style.display = '';
-				this.cmEditor.setOption('readOnly', !isEdit);
-				this.cmEditor.setOption('hintOptions', hintConfig);
-				this.cmEditor.refresh();
-			}
-			textarea.style.display = 'none';
-		} else {
-			if (this.cmEditor) {
-				this.cmEditor.getWrapperElement().style.display = 'none';
-				textarea.value = this.cmEditor.getValue();
-			}
-			textarea.style.display = '';
-			textarea.readOnly = !isEdit;
-		}
-	}
+        if (this.useAdvancedEditor) {
+            if (!this.cmEditor) {
+                this.cmEditor = CodeMirror.fromTextArea(textarea, {
+                    mode: 'text/x-sql',
+                    theme: 'default',
+                    lineNumbers: true,
+                    readOnly: !isEdit,
+                    viewportMargin: Infinity,
+                    extraKeys: {
+                        "Ctrl-Space": function(cm) {
+                            CodeMirror.showHint(cm, CodeMirror.hint.sql);
+                        },
+                        ".": function(cm) {
+                            cm.replaceSelection(".");
+                            CodeMirror.showHint(cm, CodeMirror.hint.sql);
+                        }
+                    },
+                    hintOptions: hintConfig
+                });
+                this.cmEditor.setValue(textarea.value);
+                setTimeout(() => {
+                    this.cmEditor?.refresh();
+                    const wrapper = this.cmEditor?.getWrapperElement();
+                    if (wrapper) wrapper.style.minHeight = '80px';
+                }, 20);
+            } else {
+                this.cmEditor.getWrapperElement().style.display = '';
+                this.cmEditor.setOption('readOnly', !isEdit);
+                this.cmEditor.setOption('hintOptions', hintConfig);
+                this.cmEditor.refresh();
+            }
+            textarea.style.display = 'none';
+        } else {
+            if (this.cmEditor) {
+                this.cmEditor.getWrapperElement().style.display = 'none';
+                textarea.value = this.cmEditor.getValue();
+            }
+            textarea.style.display = '';
+            textarea.readOnly = !isEdit;
+        }
+    }
+
     _getAutocompleteTables() {
         const schema = window.app?.activeSchemaData;
         if (!schema) return {};
@@ -399,7 +437,6 @@ class QueryBuilder {
                     window.app.schemaExplorer.update(result.description, this.tables);
                     window.app.schemaExplorer.setSelection(this.state.columns, this.state.sort);
                 }
-                // Actualizar tablas para autocompletado
                 if (this.cmEditor) {
                     this.cmEditor.setOption('hintOptions', {
                         tables: this._getAutocompleteTables()

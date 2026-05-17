@@ -11,7 +11,7 @@ use PDO;
 class X
 {
     private string $connectionId;
-    private mixed $table = null;
+    private string|array|CompiledQuery|null $table = null;  // ← MODIFICADO: soporta CompiledQuery
     private array $filter = [];
     private bool $useCache = false;
     private int $cacheTtl = 3600;
@@ -28,11 +28,26 @@ class X
         return new self($connectionId);
     }
 
-    public function from(string|array $table, array $filter = []): self
+    /**
+     * Define la tabla o subconsulta para la operación.
+     * 
+     * @param string|array|CompiledQuery $table Nombre de tabla, array con JOIN, o CompiledQuery
+     * @param array $filter Condiciones WHERE iniciales
+     */
+    public function from(string|array|CompiledQuery $table, array $filter = []): self  // ← MODIFICADO
     {
         $this->table = $table;
         $this->filter = $filter;
         return $this;
+    }
+
+    /**
+     * Alias semántico para INSERT operations.
+     * Funciona igual que from() pero para operaciones de inserción.
+     */
+    public function into(string|array|CompiledQuery $table, array $filter = []): self  // ← NUEVO
+    {
+        return $this->from($table, $filter);
     }
 
     public function cached(int $ttl = 3600): self
@@ -80,6 +95,15 @@ class X
             [0, 1], PDO::FETCH_ASSOC
         );
         return $result['data'][0] ?? null;
+    }
+
+    /**
+     * Verifica si existe al menos un registro que cumpla las condiciones.
+     */
+    public function exists(): bool  // ← NUEVO
+    {
+        $this->useConnection();
+        return Gateway::exists($this->resolveTable(), $this->filter);
     }
 
     public function count(): int
@@ -145,6 +169,26 @@ class X
         return new XResponse(
             data: [], sql: $status['sql'] ?? '', durationMs: $status['duration'] ?? 0,
             success: $affected > 0, affected: (int) $affected, lastId: $affected
+        );
+    }
+
+    /**
+     * Insertar o actualizar según conflicto de columnas.
+     * 
+     * @param array $data Datos a insertar/actualizar
+     * @param array $conflictColumns Columnas que definen conflicto (ej: ['email'])
+     */
+    public function upsert(array $data, array $conflictColumns = []): XResponse  // ← NUEVO
+    {
+        $this->useConnection();
+        $result = Gateway::upsert($this->resolveTable(), $data, $conflictColumns);
+        return new XResponse(
+            data: [], 
+            sql: $result['sql'] ?? '', 
+            durationMs: $result['duration'] ?? 0,
+            success: $result['success'], 
+            affected: $result['count'] ?? 0, 
+            lastId: $result['lastId'] ?? null
         );
     }
 
@@ -223,7 +267,8 @@ class X
     {
         if ($this->totalStrategy === 'auto') {
             $driver = Conn::getDriver($this->connectionId);
-            return ($driver === 'mysql') ? 'window' : 'separate';
+            // MySQL: window functions son lentas, preferir separate
+            return ($driver === 'mysql') ? 'separate' : 'window';
         }
         return $this->totalStrategy;
     }
@@ -292,37 +337,37 @@ class X
             $compiled = $query->select($selectFields, $pagination, (array)$sort, null, [], true);
             $result = $compiled->run(PDO::FETCH_NUM);
             $rows = $result['rows'] ?? [];
-			$projectionMap = $compiled->getProjectionMap();
+            $projectionMap = $compiled->getProjectionMap();
 
-			if (!empty($rows)) {
-				// Hay filas → extraer _total de la ventana COUNT(*) OVER()
-				if (isset($projectionMap['_total'])) {
-					$totalIndex = $projectionMap['_total'];
-					$total = (int) $rows[0][$totalIndex];
-					foreach ($rows as &$row) {
-						unset($row[$totalIndex]);
-						$row = array_values($row);
-					}
-					unset($row);
-					unset($projectionMap['_total']);
-				} else {
-					$total = count($rows);
-				}
+            if (!empty($rows)) {
+                // Hay filas → extraer _total de la ventana COUNT(*) OVER()
+                if (isset($projectionMap['_total'])) {
+                    $totalIndex = $projectionMap['_total'];
+                    $total = (int) $rows[0][$totalIndex];
+                    foreach ($rows as &$row) {
+                        unset($row[$totalIndex]);
+                        $row = array_values($row);
+                    }
+                    unset($row);
+                    unset($projectionMap['_total']);
+                } else {
+                    $total = count($rows);
+                }
 
-				// Cachear el total para futuras páginas (evita consultar COUNT(*) OVER() de nuevo)
-				CountCache::remember(
-					$this->resolveTable(),
-					$this->filter,
-					fn() => $total
-				);
-			} else {
-				// Página vacía → recuperar total de caché o calcularlo una sola vez
-				$total = CountCache::remember(
-					$this->resolveTable(),
-					$this->filter,
-					fn() => $this->count()
-				);
-			}
+                // Cachear el total para futuras páginas (evita consultar COUNT(*) OVER() de nuevo)
+                CountCache::remember(
+                    $this->resolveTable(),
+                    $this->filter,
+                    fn() => $total
+                );
+            } else {
+                // Página vacía → recuperar total de caché o calcularlo una sola vez
+                $total = CountCache::remember(
+                    $this->resolveTable(),
+                    $this->filter,
+                    fn() => $this->count()
+                );
+            }
 
             // Reordenar proyección si expandimos *
             if ($selectFields !== '*' && is_array($selectFields)) {
@@ -424,67 +469,55 @@ class X
         if ($this->table === null) {
             throw new \RuntimeException("No table selected. Call ->from() before using grid(), select(), etc.");
         }
+        
+        // Si es CompiledQuery, no podemos dar un nombre de tabla simple
+        if ($this->table instanceof CompiledQuery) {
+            throw new \RuntimeException("Cannot use subquery (CompiledQuery) for operations that require a table name (INSERT, UPDATE, DELETE, COUNT with TTL, etc.).");
+        }
+        
         if (is_string($this->table)) {
             return $this->table;
         }
         return is_string($this->table[0] ?? '') ? $this->table[0] : '';
     }
 
-	/**
-	 * Realiza un ping a la conexión activa.
-	 * Solo funciona si la conexión ya fue añadida a Conn (activada).
-	 *
-	 * @param int $retries No usado, se mantiene por compatibilidad
-	 * @param int $delayMs No usado
-	 * @return array [success, latency, error]
-	 */
-
-	public function ping(int $retries = 1, int $delayMs = 100): array
-	{
-		try {
-			$pdo = Conn::get($this->connectionId);
-			$start = microtime(true);
-			$pdo->query('SELECT 1');
-			$latency = round((microtime(true) - $start) * 1000, 2);
-			return [
-				'success' => true,
-				'latency' => $latency,
-				'error'   => null,
-			];
-		} catch (\Throwable $e) {
-			return [
-				'success' => false,
-				'latency' => null,
-				'error'   => $e->getMessage(),
-			];
-		}
-	}
-
+    /**
+     * Realiza un ping a la conexión activa.
+     *
+     * @param int $retries No usado, se mantiene por compatibilidad
+     * @param int $delayMs No usado
+     * @return array [success, latency, error]
+     */
+    public function ping(int $retries = 1, int $delayMs = 100): array
+    {
+        try {
+            $pdo = Conn::get($this->connectionId);
+            $start = microtime(true);
+            $pdo->query('SELECT 1');
+            $latency = round((microtime(true) - $start) * 1000, 2);
+            return [
+                'success' => true,
+                'latency' => $latency,
+                'error'   => null,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'latency' => null,
+                'error'   => $e->getMessage(),
+            ];
+        }
+    }
 
     /**
      * Returns a clean schema description with tables, views, and relations.
      *
-     * If no table was set via from(), all tables in the SchemaMap are included.
-     *
-     * @return array  Example:
-     *                [
-     *                  'tables' => [
-     *                      ['name' => 'users', 'columns' => ['id' => 'int', 'name' => 'varchar'], 'primaryKeys' => ['id']],
-     *                      ...
-     *                  ],
-     *                  'views' => [],
-     *                  'relations' => [
-     *                      ['sourceTable' => 'users', 'sourceColumn' => 'role_id',
-     *                       'targetTable' => 'roles', 'targetColumn' => 'id', 'type' => 'belongsTo'],
-     *                      ...
-     *                  ]
-     *                ]
+     * @return array
      */
     public function description(): array
     {
         $this->useConnection();
 
-        // Determine which tables to describe
         $tables = $this->table;
         if (empty($tables)) {
             $tables = array_keys(SchemaMap::getMap()['tables'] ?? []);
@@ -508,7 +541,6 @@ class X
                 continue;
             }
 
-            // Columns and primary keys
             $columns = [];
             $pks     = [];
             foreach ($tableInfo as $colName => $def) {
@@ -523,8 +555,7 @@ class X
                 'primaryKeys' => $pks,
             ];
 
-            // Relations (outgoing and incoming) are merged into a flat list
-            // Outgoing
+            // Outgoing relations
             foreach ($map['relationships']['from'][$tableName] ?? [] as $target => $rel) {
                 $relations[] = [
                     'sourceTable'  => $tableName,
@@ -534,7 +565,7 @@ class X
                     'type'         => $rel['type'] ?? 'belongsTo',
                 ];
             }
-            // Incoming
+            // Incoming relations
             foreach ($map['relationships']['to'][$tableName] ?? [] as $source => $rel) {
                 $relations[] = [
                     'sourceTable'  => $source,
@@ -552,5 +583,4 @@ class X
             'relations' => $relations,
         ];
     }
-
 }

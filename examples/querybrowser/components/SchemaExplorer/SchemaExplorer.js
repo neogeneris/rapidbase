@@ -42,11 +42,13 @@ class SchemaExplorer {
     open() {
         this.isOpen = true;
         this.container.classList.remove('closed');
+        if (typeof this.options.onOpen === 'function') this.options.onOpen();
     }
 
     close() {
         this.isOpen = false;
         this.container.classList.add('closed');
+        if (typeof this.options.onClose === 'function') this.options.onClose();
     }
 
     toggle() {

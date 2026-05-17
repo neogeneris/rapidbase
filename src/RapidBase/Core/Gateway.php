@@ -33,7 +33,6 @@ class Gateway
         $returnedLimit = 0;
         if ($page !== 0 && $page !== null) {
             if (is_array($page)) {
-                // Array es [offset, limit] directamente
                 $offset = max(0, (int)$page[0]);
                 $limit = max(1, (int)($page[1] ?? 10));
                 $pagination = [$offset, $limit];
@@ -50,7 +49,13 @@ class Gateway
 
         $withTotal = false;
 
-        $query = Q::from($table, $where ?? []);
+        // Construir query - soporte para CompiledQuery como tabla virtual
+        if ($table instanceof CompiledQuery) {
+            $query = Q::from($table, $where ?? []);
+        } else {
+            $query = Q::from($table, $where ?? []);
+        }
+        
         $compiled = $query->select($fields, $pagination, $sort, $groupBy, $having, $withTotal);
 
         $start = microtime(true);
@@ -99,7 +104,9 @@ class Gateway
     ): array {
         $tableName = self::tableNameFromMixed($table);
 
-        $queryData = [$fields, $where, $groupBy, $having, $sort, $page, $fetchMode, $class];
+        // Construir key de caché incluyendo el tipo de $table
+        $tableForCache = $table instanceof CompiledQuery ? $table->getSql() : $table;
+        $queryData = [$fields, $tableForCache, $where, $groupBy, $having, $sort, $page, $fetchMode, $class];
         $jsonEncoded = json_encode($queryData);
         $queryHash = CacheService::hash($jsonEncoded);
         $cacheKey  = "db_select_{$tableName}_{$queryHash}";
@@ -127,6 +134,11 @@ class Gateway
     {
         $table = $args[0] ?? 'unknown';
         $tableName = self::tableNameFromMixed($table);
+
+        // No se permite CompiledQuery en operaciones de escritura
+        if ($table instanceof CompiledQuery) {
+            throw new \RuntimeException("Cannot use subquery (CompiledQuery) for INSERT, UPDATE, DELETE operations.");
+        }
 
         $query = Q::from($table);
         switch ($type) {
@@ -160,7 +172,7 @@ class Gateway
 
             if ($result['success']) {
                 self::clearCacheForTable($tableName);
-				CountCache::invalidate($tableName); 
+                CountCache::invalidate($tableName); 
             }
 
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $result, $type, $tableName, $duration);
@@ -177,6 +189,11 @@ class Gateway
     {
         $start = microtime(true);
         $tableName = self::tableNameFromMixed($table);
+        
+        if ($table instanceof CompiledQuery) {
+            throw new \RuntimeException("Cannot use subquery (CompiledQuery) for UPSERT operation.");
+        }
+        
         $compiled = Q::into($table)->upsert($data, $conflictColumns);
 
         try {
@@ -223,7 +240,14 @@ class Gateway
     {
         $start = microtime(true);
         $tableName = self::tableNameFromMixed($table);
-        $compiled = Q::from($table, $where)->exists();
+        
+        if ($table instanceof CompiledQuery) {
+            $query = Q::from($table, $where);
+        } else {
+            $query = Q::from($table, $where);
+        }
+        
+        $compiled = $query->exists();
 
         try {
             $res = $compiled->run();
@@ -272,7 +296,14 @@ class Gateway
     {
         $start = microtime(true);
         $tableName = self::tableNameFromMixed($table);
-        $compiled = Q::from($table, $where)->count();
+        
+        if ($table instanceof CompiledQuery) {
+            $query = Q::from($table, $where);
+        } else {
+            $query = Q::from($table, $where);
+        }
+        
+        $compiled = $query->count();
 
         try {
             $res = $compiled->run();
@@ -333,9 +364,14 @@ class Gateway
 
     private static function tableNameFromMixed(mixed $table): string
     {
+        if ($table instanceof CompiledQuery) {
+            return 'subquery_' . md5($table->getSql());
+        }
+        
         if (is_string($table)) {
             return $table;
         }
+        
         $names = [];
         array_walk_recursive($table, function ($value) use (&$names) {
             if (is_string($value)) {
@@ -344,65 +380,59 @@ class Gateway
         });
         return implode('_', $names);
     }
-	
-	/**
-	 * Realiza una sonda técnica (ping) con reintentos.
-	 * * @param string $driver Motor de BD.
-	 * @param array $config Configuración para conectar.
-	 * @param int $retries Número de intentos adicionales en caso de fallo.
-	 * @param int $delayMs Milisegundos de espera entre reintentos.
-	 * @return array [success, latency, error, attempts]
-	 */
-// En src/RapidBase/Core/Gateway.php
+    
+    /**
+     * Realiza una sonda técnica (ping) con reintentos.
+     * @param string $driver Motor de BD.
+     * @param array $config Configuración para conectar.
+     * @param int $retries Número de intentos adicionales en caso de fallo.
+     * @param int $delayMs Milisegundos de espera entre reintentos.
+     * @return array [success, latency, error, attempts]
+     */
+    public static function ping(string $driver, array $config, int $retries = 1, int $delayMs = 100): array
+    {
+        $sql = match (strtolower($driver)) {
+            'oracle', 'oci' => 'SELECT 1 FROM DUAL',
+            'firebird'      => 'SELECT 1 FROM RDB$DATABASE',
+            default         => 'SELECT 1',
+        };
 
-public static function ping(string $driver, array $config, int $retries = 1, int $delayMs = 100): array
-{
-    $sql = match (strtolower($driver)) {
-        'oracle', 'oci' => 'SELECT 1 FROM DUAL',
-        'firebird'      => 'SELECT 1 FROM RDB$DATABASE',
-        default         => 'SELECT 1',
-    };
+        $attempts = 0;
+        $maxAttempts = $retries + 1;
+        $start = microtime(true);
 
-    $attempts = 0;
-    $maxAttempts = $retries + 1;
-    $start = microtime(true);
+        while ($attempts < $maxAttempts) {
+            $attempts++;
+            try {
+                $dsn  = $config['dsn'] ?? '';
+                $user = $config['user'] ?? '';
+                $pass = $config['pass'] ?? '';
+                
+                $testConn = new \PDO($dsn, $user, $pass, [
+                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                    \PDO::ATTR_TIMEOUT => 2
+                ]);
+                
+                $testConn->query($sql);
 
-    while ($attempts < $maxAttempts) {
-        $attempts++;
-        try {
-            // Intentamos una conexion tecnica aislada
-            $dsn  = $config['dsn'] ?? '';
-            $user = $config['user'] ?? '';
-            $pass = $config['pass'] ?? '';
-            
-            // Creamos el objeto PDO aqui mismo para la prueba
-            $testConn = new \PDO($dsn, $user, $pass, [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_TIMEOUT => 2 // Timeout corto
-            ]);
-            
-            $testConn->query($sql);
-
-            $duration = (microtime(true) - $start) * 1000;
-            return [
-                'success'  => true,
-                'latency'  => round($duration, 2),
-                'attempts' => $attempts
-            ];
-        } catch (\Exception $e) {
-            if ($attempts < $maxAttempts) {
-                usleep($delayMs * 1000);
-            } else {
+                $duration = (microtime(true) - $start) * 1000;
                 return [
-                    'success'  => false,
-                    'latency'  => 0,
-                    'error'    => $e->getMessage(),
+                    'success'  => true,
+                    'latency'  => round($duration, 2),
                     'attempts' => $attempts
                 ];
+            } catch (\Exception $e) {
+                if ($attempts < $maxAttempts) {
+                    usleep($delayMs * 1000);
+                } else {
+                    return [
+                        'success'  => false,
+                        'latency'  => 0,
+                        'error'    => $e->getMessage(),
+                        'attempts' => $attempts
+                    ];
+                }
             }
         }
     }
-}
-
-
 }
