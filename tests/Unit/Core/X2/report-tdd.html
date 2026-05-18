@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RapidBase TDD Report - X</title>
+    <style>
+        :root { --success: #22c55e; --failure: #ef4444; --bg: #f8fafc; --code-bg: #1e293b; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); padding: 2rem; color: #334155; }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .stats { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
+        .badge { padding: 0.5rem 1rem; border-radius: 99px; font-weight: bold; color: white; }
+        .badge.success { background: var(--success); }
+        .badge.failure { background: var(--failure); }
+        
+        .test-card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; overflow: hidden; border-left: 4px solid var(--success); }
+        .test-card.failure { border-left-color: var(--failure); }
+        
+        .test-header { padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
+        .test-title { font-weight: 600; font-size: 1.1rem; }
+        .test-meta { font-size: 0.85rem; color: #64748b; display: flex; gap: 0.5rem; align-items: center; }
+        .env-tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; }
+        
+        .code-block { background: var(--code-bg); color: #e2e8f0; padding: 1rem; overflow-x: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; line-height: 1.5; margin: 0; }
+        .code-block code { display: block; white-space: pre; }
+        
+        .result-box { padding: 1rem; background: #f0fdf4; border-top: 1px solid #bbf7d0; font-size: 0.9rem; }
+        .failure .result-box { background: #fef2f2; border-top-color: #fecaca; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>RapidBase TDD Report</h1>
+        <h2>Class: RapidBase\Core\X</h2>
+        <div class="stats">
+            <span class="badge success">SUCCESS: 19</span>
+            <span class="badge failure">FAILURE: 0</span>
+            <span class="badge" style="background:#64748b">TOTAL: 19</span>
+        </div>
+        <p style="margin-top:1rem; color:#64748b">Generated: 2026-05-18 22:34:58</p>
+    </div>
+
+    <div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testCon::should verify con (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify con&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testFrom::should verify from (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify from&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testInto::should verify into (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify into&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testCached::should verify cached (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify cached&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testWithCountTtl::should verify withCountTtl (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify withCountTtl&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testTotalStrategy::should verify totalStrategy (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify totalStrategy&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testSelect::should verify select (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify select&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testFirst::should verify first (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify first&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testExists::should verify exists (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify exists&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testCount::should verify count (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify count&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testGrid::should verify grid (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify grid&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testInsert::should verify insert (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify insert&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testUpsert::should verify upsert (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify upsert&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testUpdate::should verify update (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify update&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testDelete::should verify delete (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify delete&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testRaw::should verify raw (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify raw&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testToSQL::should verify toSQL (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify toSQL&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testPing::should verify ping (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify ping&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div><div class="test-card success">
+    <div class="test-header">
+        <div>
+            <div class="test-title">testDescription::should verify description (sqlite)</div>
+            <div class="test-meta">
+                <span class="env-tag">sqlite</span>
+                <span>0ms</span>
+            </div>
+        </div>
+        <span class="badge success">SUCCESS</span>
+    </div>
+    <div class="code-block">
+        <code>$this-&gt;env()-&gt;test(&#039;should verify description&#039;, function($db) {
+            $this-&gt;assertTrue(true);
+        });</code>
+    </div>
+    <div class="result-box">
+        ✅ Assertion passed
+    </div>
+</div>
+
+</body>
+</html>
