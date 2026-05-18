@@ -307,6 +307,18 @@
                     <li><a href="#model-crud">Operaciones CRUD</a></li>
                     <li><a href="#model-state">Gestión de Estado</a></li>
                     
+                    <li class="section-title">Clase X (API Fluente)</li>
+                    <li><a href="#x-intro">Introducción</a></li>
+                    <li><a href="#x-conexion">Conexión</a></li>
+                    <li><a href="#x-select">Consultas SELECT</a></li>
+                    <li><a href="#x-grid">Grid con Paginación</a></li>
+                    <li><a href="#x-insert">Inserción de Datos</a></li>
+                    <li><a href="#x-update">Actualización</a></li>
+                    <li><a href="#x-delete">Eliminación</a></li>
+                    <li><a href="#x-upsert">Upsert</a></li>
+                    <li><a href="#x-raw">SQL Directo</a></li>
+                    <li><a href="#x-cache">Caché y TTL</a></li>
+                    
                     <li class="section-title">Gateway y SQL</li>
                     <li><a href="#gateway-select">Consultas SELECT</a></li>
                     <li><a href="#gateway-joins">JOINs Automáticos</a></li>
@@ -992,6 +1004,365 @@ $stats = Gateway::getCacheStats();
     'result_cache' => [...]
 ]
 */</code></pre>
+            </section>
+            
+            <!-- Clase X (API Fluente) -->
+            <section id="x-intro">
+                <h2>🚀 Clase X - API Fluente Experimental</h2>
+                <p><strong>X</strong> es una clase experimental inspirada en <code>Q</code> y <code>DB</code> que proporciona una API fluente moderna para operaciones de base de datos. Es la evolución natural hacia una sintaxis más intuitiva y legible.</p>
+                
+                <div class="info-box">
+                    <strong>💡 Características principales:</strong>
+                    <ul>
+                        <li>Sintaxis fluente estilo Laravel Eloquent</li>
+                        <li>Inspirada en Q (SQL builder) y DB (fachada original)</li>
+                        <li>Retorna objetos <code>XResponse</code> con metadata completa</li>
+                        <li>Soporte nativo para CompiledQuery como tablas virtuales</li>
+                        <li>Caché integrado con TTL configurable</li>
+                        <li>Estrategias flexibles para cálculo de totales en grid</li>
+                    </ul>
+                </div>
+                
+                <h3>Arquitectura</h3>
+                <div class="architecture">
+                    <div class="architecture-box">X (API Fluente)</div>
+                    <span class="architecture-arrow">↓ usa</span>
+                    <div class="architecture-box">Q + Gateway</div>
+                    <span class="architecture-arrow">↓ delega a</span>
+                    <div class="architecture-box">Conn (PDO)</div>
+                </div>
+            </section>
+            
+            <!-- X Conexión -->
+            <section id="x-conexion">
+                <h2>🔌 X - Conexión e Inicialización</h2>
+                
+                <h3>Conexión Básica</h3>
+                <pre><code class="language-php">&lt;?php
+use RapidBase\Core\X;
+
+// Conexión SQLite en memoria (ideal para testing)
+$x = X::con('sqlite::memory:');
+
+// Conexión usando ID registrado previamente
+$x = X::con('main');
+
+// Conexión directa con DSN
+$x = X::con('mysql:host=localhost;dbname=mi_db', 'user', 'pass');</code></pre>
+                
+                <h3>Flujo Típico</h3>
+                <pre><code class="language-php">// 1. Conectar
+$x = X::con('main');
+
+// 2. Definir tabla origen
+$x->from('users');
+
+// 3. Ejecutar operación
+$result = $x->select();</code></pre>
+                
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> X es stateless. Cada método retorna una nueva instancia, permitiendo reutilizar la conexión base.
+                </div>
+            </section>
+            
+            <!-- X Select -->
+            <section id="x-select">
+                <h2>📖 X - Consultas SELECT</h2>
+                
+                <h3>Select Básico</h3>
+                <pre><code class="language-php">// Todos los registros
+$result = $x->from('users')->select();
+
+// Acceder a datos
+foreach ($result->data as $row) {
+    echo $row['name'];
+}
+
+// Metadata disponible
+echo "Total: {$result->total}";
+echo "Página: {$result->page}";
+echo "SQL: {$result->sql}";
+echo "Duración: {$result->durationMs} ms";</code></pre>
+                
+                <h3>Select con Paginación</h3>
+                <pre><code class="language-php">// Paginación: [offset, limit]
+$result = $x->from('users')->select('*', [0, 10]);
+
+// Con ordenamiento
+$result = $x->from('users')->select(
+    fields: '*',
+    pagination: [0, 10],
+    orderBy: '-created_at'  // Negativo = DESC
+);</code></pre>
+                
+                <h3>Select con Filtros</h3>
+                <pre><code class="language-php">// Filtro en el from
+$result = $x->from('users', ['active' => 1])->select();
+
+// O usar where() encadenado
+$result = $x->from('users')
+    ->where('active', 1)
+    ->where('age', '>', 18)
+    ->select();</code></pre>
+                
+                <h3>Método first()</h3>
+                <pre><code class="language-php">// Obtiene primer registro o null
+$user = $x->from('users')->first();
+
+if ($user !== null) {
+    echo "Hola, {$user['name']}";
+}</code></pre>
+                
+                <h3>Método exists()</h3>
+                <pre><code class="language-php">// Verifica existencia (más eficiente que count)
+if ($x->from('users', ['email' => 'test@test.com'])->exists()) {
+    echo "El email ya está registrado";
+}</code></pre>
+                
+                <h3>Método count()</h3>
+                <pre><code class="language-php">$total = $x->from('users')->count();
+$activos = $x->from('users', ['active' => 1])->count();</code></pre>
+                
+                <h3>XResponse - Estructura Completa</h3>
+                <pre><code class="language-php">// La respuesta de select() incluye:
+{
+    data: [...],           // Array de registros
+    total: 150,            // Total de registros
+    page: 1,               // Página actual
+    limit: 10,             // Límite por página
+    lastPage: 15,          // Última página
+    nextPage: 2,           // Siguiente página (null si no hay)
+    prevPage: null,        // Página anterior
+    columns: ['id', 'name'],  // Columnas seleccionadas
+    titles: ['Id', 'Name'],   // Títulos formateados
+    sql: 'SELECT ...',     // SQL ejecutado
+    durationMs: 12.5,      // Tiempo de ejecución
+    success: true,         // Estado de la operación
+    source: 'database'     // 'database' o 'cache'
+}</code></pre>
+            </section>
+            
+            <!-- X Grid -->
+            <section id="x-grid">
+                <h2>📊 X - Grid con Paginación</h2>
+                
+                <h3>Grid Básico</h3>
+                <pre><code class="language-php">// Formato moderno: [page, perPage]
+$grid = $x->from('users')->grid('*', [1, 10]);
+
+// Retorna array compatible con frontend
+/*
+[
+    'data' => [...],       // Registros de la página
+    'total' => 150,        // Total real
+    'page' => 1,
+    'perPage' => 10,
+    'lastPage' => 15,
+    'debug' => ['sql' => '...'],
+    'stats' => ['duration' => 12.5]
+]
+*/</code></pre>
+                
+                <h3>Estrategias de Cálculo de Total</h3>
+                <pre><code class="language-php">// 'separate' - COUNT separado (default, más preciso)
+$grid = $x->from('users')
+    ->totalStrategy('separate')
+    ->grid('*', [1, 10]);
+
+// 'window' - Window function (más rápido en MySQL 8+)
+$grid = $x->from('users')
+    ->totalStrategy('window')
+    ->grid('*', [1, 10]);
+
+// 'approximate' - Estimado (más rápido, menos preciso)
+$grid = $x->from('users')
+    ->totalStrategy('approximate')
+    ->grid('*', [1, 10]);</code></pre>
+                
+                <div class="warning-box">
+                    <strong>⚠️ Importante:</strong> La estrategia 'window' usa funciones de ventana SQL. Solo disponible en MySQL 8+, PostgreSQL, SQLite 3.25+.
+                </div>
+                
+                <h3>TTL Específico para Conteos</h3>
+                <pre><code class="language-php">// El conteo del total puede tener su propio TTL
+$grid = $x->from('users')
+    ->withCountTtl(3600)  // Cachea el COUNT por 1 hora
+    ->cached(300)         // Cachea los datos por 5 min
+    ->grid('*', [1, 10]);</code></pre>
+            </section>
+            
+            <!-- X Insert -->
+            <section id="x-insert">
+                <h2>➕ X - Inserción de Datos</h2>
+                
+                <h3>Insert Simple</h3>
+                <pre><code class="language-php">$data = ['name' => 'Carlos', 'email' => 'carlos@test.com'];
+$result = $x->from('users')->insert($data);
+
+// XResponse con metadata
+if ($result->success) {
+    echo "ID insertado: {$result->lastId}";
+    echo "Filas afectadas: {$result->affected}";
+}</code></pre>
+                
+                <h3>Insert Múltiple</h3>
+                <pre><code class="language-php">$data = [
+    ['name' => 'User1', 'email' => 'u1@test.com'],
+    ['name' => 'User2', 'email' => 'u2@test.com'],
+];
+$result = $x->from('users')->insert($data);</code></pre>
+            </section>
+            
+            <!-- X Update -->
+            <section id="x-update">
+                <h2>✏️ X - Actualización</h2>
+                
+                <h3>Update con Where</h3>
+                <pre><code class="language-php">$affected = $x->from('users')
+    ->where('id', 1)
+    ->update(['name' => 'Nuevo Nombre']);
+
+echo "Filas actualizadas: {$affected->affected}";</code></pre>
+                
+                <h3>Update con Límite</h3>
+                <pre><code class="language-php">// Actualiza solo los primeros 5 registros
+$result = $x->from('users')
+    ->where('active', 0)
+    ->update(['status' => 'inactive'], 5);</code></pre>
+                
+                <div class="warning-box">
+                    <strong>⚠️ Nota:</strong> El límite en UPDATE puede tener bugs conocidos en SQLite con Q::update. Usar con precaución.
+                </div>
+            </section>
+            
+            <!-- X Delete -->
+            <section id="x-delete">
+                <h2>🗑️ X - Eliminación</h2>
+                
+                <h3>Delete con Condición</h3>
+                <pre><code class="language-php">$result = $x->from('users', ['id' => 1])->delete();
+
+if ($result->success) {
+    echo "Eliminados: {$result->affected} registros";
+}</code></pre>
+                
+                <h3>Delete con Límite</h3>
+                <pre><code class="language-php">// Elimina solo 10 registros antiguos
+$result = $x->from('logs')
+    ->where('created_at', '<', '2024-01-01')
+    ->delete(10);</code></pre>
+            </section>
+            
+            <!-- X Upsert -->
+            <section id="x-upsert">
+                <h2>🔄 X - Upsert (Insert or Update)</h2>
+                
+                <pre><code class="language-php">// Inserta o actualiza si hay conflicto en 'email'
+$data = ['id' => 1, 'name' => 'Actualizado', 'email' => 'test@test.com'];
+$result = $x->from('users')->upsert($data, ['email']);
+
+// Funciona con:
+// - MySQL: ON DUPLICATE KEY UPDATE
+// - PostgreSQL: ON CONFLICT DO UPDATE
+// - SQLite: INSERT OR REPLACE / ON CONFLICT</code></pre>
+                
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> El segundo parámetro define las columnas únicas para detectar conflictos.
+                </div>
+            </section>
+            
+            <!-- X Raw -->
+            <section id="x-raw">
+                <h2>⚡ X - SQL Directo (Raw)</h2>
+                
+                <h3>Ejecutar SQL Personalizado</h3>
+                <pre><code class="language-php">// SELECT personalizado
+$result = $x->raw("SELECT COUNT(*) as total FROM users WHERE active = ?", [1]);
+
+// INSERT/UPDATE/DELETE
+$result = $x->raw("UPDATE products SET stock = stock - ? WHERE id = ?", [5, 123]);
+
+// Acceso a metadata
+echo "Afectados: {$result->affected}";
+print_r($result->data);  // Para SELECT</code></pre>
+                
+                <div class="info-box">
+                    <strong>📊 Nota:</strong> raw() siempre retorna un XResponse, incluso para operaciones de escritura.
+                </div>
+            </section>
+            
+            <!-- X Cache -->
+            <section id="x-cache">
+                <h2>📦 X - Caché y TTL</h2>
+                
+                <h3>Habilitar Caché</h3>
+                <pre><code class="language-php">// Cachea la consulta por 60 segundos
+$result = $x->from('users')
+    ->cached(60)
+    ->select();
+
+// Verificar origen
+if ($result->source === 'cache') {
+    echo "Datos servidos desde caché";
+}</code></pre>
+                
+                <h3>TTL Diferenciado</h3>
+                <pre><code class="language-php">// Datos frescos (5 min), conteo más estable (1 hora)
+$result = $x->from('products')
+    ->cached(300)           // TTL para datos
+    ->withCountTtl(3600)    // TTL específico para COUNT
+    ->grid('*', [1, 20]);</code></pre>
+                
+                <h3>Invalidación Automática</h3>
+                <p>Gateway invalida automáticamente el caché al realizar INSERT, UPDATE o DELETE en la tabla afectada.</p>
+            </section>
+            
+            <!-- Utilidades X -->
+            <section id="x-utilities">
+                <h2>🛠️ X - Utilidades Adicionales</h2>
+                
+                <h3>toSQL() - Ver SQL Generado</h3>
+                <pre><code class="language-php">// Útil para debugging
+$sql = $x->from('users')
+    ->where('active', 1)
+    ->orderBy('-created_at')
+    ->toSQL();
+
+echo $sql;  // Muestra el SQL que se ejecutaría</code></pre>
+                
+                <h3>description() - Meta-datos de Tabla</h3>
+                <pre><code class="language-php">// Obtiene estructura de la tabla
+$columns = $x->from('users')->description();
+
+/*
+[
+    ['Field' => 'id', 'Type' => 'INTEGER', 'Key' => 'PRI'],
+    ['Field' => 'name', 'Type' => 'TEXT', 'Null' => 'YES'],
+    ...
+]
+*/</code></pre>
+                
+                <h3>ping() - Verificar Conexión</h3>
+                <pre><code class="language-php">if ($x->ping()) {
+    echo "Conexión activa";
+} else {
+    echo "Error de conexión";
+}</code></pre>
+                
+                <h3>CompiledQuery como Tabla Virtual</h3>
+                <pre><code class="language-php">use RapidBase\Core\SQL\Q;
+
+// Subconsulta como tabla virtual
+$subquery = Q::from('orders', ['status' => 'completed'])
+    ->select('user_id, SUM(total) as spent');
+
+$result = $x->from($subquery)  // CompiledQuery como fuente
+    ->where('spent', '>', 1000)
+    ->select();
+
+// SQL generado:
+// SELECT * FROM (SELECT user_id, SUM(total) as spent FROM orders...)
+// WHERE spent > 1000</code></pre>
             </section>
             
             <!-- Transactions Section -->
