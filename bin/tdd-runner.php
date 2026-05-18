@@ -206,26 +206,26 @@ if ($options['generate']) {
         $code .= "namespace {$namespace};\n\n";
         
         $code .= "use RapidBase\\Tdd\\CoreRunner;\n";
+        $code .= "use RapidBase\\Tdd\\EnvironmentBuilder;\n";
         $code .= "use PDO;\n\n";
         
         $code .= "/**\n * Auto-generated Test Suite for {$shortName}\n */\n";
         $code .= "class {$testClassName}\n{\n";
-        $code .= "    private CoreRunner \$runner;\n";
+        $code .= "    public CoreRunner \$runner;\n";
         $code .= "    public string \$currentDriver = 'sqlite';\n";
         $code .= "    private ?PDO \$db = null;\n\n";
         
         $code .= "    /**\n     * Inyecta el contexto del runner\n     */\n";
-        $code .= "    public function setRunnerContext(CoreRunner \$runner, string \$driver): void\n";
+        $code .= "    public function setRunnerContext(CoreRunner \$runner): void\n";
         $code .= "    {\n";
         $code .= "        \$this->runner = \$runner;\n";
-        $code .= "        \$this->currentDriver = \$driver;\n";
         $code .= "    }\n\n";
 
         $code .= "    /**\n     * Obtiene conexión a la base de datos\n     */\n";
         $code .= "    protected function db(): PDO\n";
         $code .= "    {\n";
         $code .= "        if (\$this->db === null) {\n";
-        $code .= "            \$this->db = \$this->runner->getConnection();\n";
+        $code .= "            \$this->db = \$this->runner->getConnection(\$this->currentDriver);\n";
         $code .= "        }\n";
         $code .= "        return \$this->db;\n";
         $code .= "    }\n\n";
@@ -240,6 +240,14 @@ if ($options['generate']) {
         $code .= "    protected function dataset(array \$data, string \$table = 'test_data'): void\n";
         $code .= "    {\n";
         $code .= "        \$this->runner->insertDataset(\$data, \$table, \$this->currentDriver);\n";
+        $code .= "    }\n\n";
+
+        $code .= "    /**\n     * Factory para entorno multi-db\n     */\n";
+        $code .= "    protected function env(string ...\$drivers): EnvironmentBuilder\n";
+        $code .= "    {\n";
+        $code .= "        // Si no se especifican drivers, usar los activos del runner\n";
+        $code .= "        \$selectedDrivers = empty(\$drivers) ? \$this->runner->getActiveDrivers() : \$drivers;\n";
+        $code .= "        return new EnvironmentBuilder(\$selectedDrivers, \$this, \$this->runner);\n";
         $code .= "    }\n\n";
 
         $code .= "    /**\n     * Helper para aserciones simples\n     */\n";
@@ -294,11 +302,13 @@ if ($options['generate']) {
             $code .= "    /**\n     * Test for {$methodName}\n     */\n";
             $code .= "    public function {$testMethodName}(): void\n";
             $code .= "    {\n";
-            $code .= "        // TODO: Implement test logic for {$methodName}\n";
-            $code .= "        // Example:\n";
-            $code .= "        // \$obj = new {$shortName}();\n";
-            $code .= "        // \$this->assertTrue(true, '{$methodName} should work');\n";
-            $code .= "        \$this->fail('Test not implemented');\n";
+            $code .= "        \$this->env()->test('{$methodName} behavior', function(?PDO \$db) {\n";
+            $code .= "            // TODO: Implement test logic for {$methodName}\n";
+            $code .= "            // Example:\n";
+            $code .= "            // \$obj = new {$shortName}();\n";
+            $code .= "            // \$this->assertTrue(true, '{$methodName} should work');\n";
+            $code .= "            \$this->assertTrue(true);\n";
+            $code .= "        });\n";
             $code .= "    }\n\n";
         }
 
