@@ -2,21 +2,40 @@
 # Database files
 *.sqlite
 
-# Dependencies
-vendor/
-
-# Logs and temp files
-*.log
-*.tmp
-
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
-# Editors
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE files
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Dependencies
+node_modules/
+vendor/
+composer.lock
+
+# Cache
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.so
 
 # OS generated files
 .DS_Store
