@@ -203,106 +203,27 @@ if ($options['generate']) {
         $namespace = substr($className, 0, strrpos($className, '\\'));
         
         $code = "<?php\n\n";
+        $code .= "declare(strict_types=1);\n\n";
         $code .= "namespace {$namespace};\n\n";
         
-        $code .= "use RapidBase\\Tdd\\CoreRunner;\n";
-        $code .= "use RapidBase\\Tdd\\EnvironmentBuilder;\n";
-        $code .= "use PDO;\n\n";
+        $code .= "use RapidBase\\Tdd\\TestCase;\n\n";
         
         $code .= "/**\n * Auto-generated Test Suite for {$shortName}\n */\n";
-        $code .= "class {$testClassName}\n{\n";
-        $code .= "    public CoreRunner \$runner;\n";
-        $code .= "    public string \$currentDriver = 'sqlite';\n";
-        $code .= "    private ?PDO \$db = null;\n\n";
-        
-        $code .= "    /**\n     * Inyecta el contexto del runner\n     */\n";
-        $code .= "    public function setRunnerContext(CoreRunner \$runner): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner = \$runner;\n";
-        $code .= "    }\n\n";
-
-        $code .= "    /**\n     * Obtiene conexión a la base de datos\n     */\n";
-        $code .= "    protected function db(): PDO\n";
-        $code .= "    {\n";
-        $code .= "        if (\$this->db === null) {\n";
-        $code .= "            \$this->db = \$this->runner->getConnection(\$this->currentDriver);\n";
-        $code .= "        }\n";
-        $code .= "        return \$this->db;\n";
-        $code .= "    }\n\n";
-        
-        $code .= "    /**\n     * Carga un fixture SQL\n     */\n";
-        $code .= "    protected function loadFixture(string \$file): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->loadFixture(\$file, \$this->currentDriver);\n";
-        $code .= "    }\n\n";
-
-        $code .= "    /**\n     * Inserta un dataset en una tabla\n     */\n";
-        $code .= "    protected function dataset(array \$data, string \$table = 'test_data'): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->insertDataset(\$data, \$table, \$this->currentDriver);\n";
-        $code .= "    }\n\n";
-
-        $code .= "    /**\n     * Factory para entorno multi-db\n     */\n";
-        $code .= "    protected function env(string ...\$drivers): EnvironmentBuilder\n";
-        $code .= "    {\n";
-        $code .= "        // Si no se especifican drivers, usar los activos del runner\n";
-        $code .= "        \$selectedDrivers = empty(\$drivers) ? \$this->runner->getActiveDrivers() : \$drivers;\n";
-        $code .= "        return new EnvironmentBuilder(\$selectedDrivers, \$this, \$this->runner);\n";
-        $code .= "    }\n\n";
-
-        $code .= "    /**\n     * Helper para aserciones simples\n     */\n";
-        $code .= "    protected function assertTrue(bool \$condition, string \$msg = ''): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->incrementAssertionCount();\n";
-        $code .= "        if (!\$condition) throw new \\Exception(\$msg ?: 'Expected true');\n";
-        $code .= "    }\n";
-        $code .= "    protected function assertFalse(bool \$condition, string \$msg = ''): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->incrementAssertionCount();\n";
-        $code .= "        if (\$condition) throw new \\Exception(\$msg ?: 'Expected false');\n";
-        $code .= "    }\n";
-        $code .= "    protected function assertEquals(mixed \$expected, mixed \$actual, string \$msg = ''): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->incrementAssertionCount();\n";
-        $code .= "        if (\$expected !== \$actual) throw new \\Exception(\$msg ?: \"Expected \" . var_export(\$expected, true) . \" but got \" . var_export(\$actual, true));\n";
-        $code .= "    }\n";
-        $code .= "    protected function assertCount(int \$count, array|int|string \$data, string \$msg = ''): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->incrementAssertionCount();\n";
-        $code .= "        \$actual = is_array(\$data) ? count(\$data) : 0;\n";
-        $code .= "        if (\$actual !== \$count) throw new \\Exception(\$msg ?: \"Expected count \$count but got \$actual\");\n";
-        $code .= "    }\n";
-        $code .= "    protected function assertNull(mixed \$value, string \$msg = ''): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->incrementAssertionCount();\n";
-        $code .= "        if (\$value !== null) throw new \\Exception(\$msg ?: 'Expected null');\n";
-        $code .= "    }\n";
-        $code .= "    protected function assertNotNull(mixed \$value, string \$msg = ''): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->incrementAssertionCount();\n";
-        $code .= "        if (\$value === null) throw new \\Exception(\$msg ?: 'Expected not null');\n";
-        $code .= "    }\n";
-        $code .= "    protected function fail(string \$msg = 'Test failed'): void\n";
-        $code .= "    {\n";
-        $code .= "        \$this->runner->incrementAssertionCount();\n";
-        $code .= "        throw new \\Exception(\$msg);\n";
-        $code .= "    }\n\n";
+        $code .= "class {$testClassName} extends TestCase\n{\n";
 
         foreach ($methods as $method) {
-            if ($method->isConstructor()) {
-                $methodName = '__construct';
-            } else {
-                $methodName = $method->getName();
+            if ($method->isConstructor() || str_starts_with($method->getName(), '__')) {
+                continue;
             }
-            // Sanitizar nombre para método de test
+            
+            $methodName = $method->getName();
             $testMethodName = 'test' . ucfirst($methodName);
-            // Evitar caracteres inválidos si el método original tiene raros (poco probable en PHP)
             $testMethodName = preg_replace('/[^a-zA-Z0-9_]/', '_', $testMethodName);
 
             $code .= "    /**\n     * Test for {$methodName}\n     */\n";
             $code .= "    public function {$testMethodName}(): void\n";
             $code .= "    {\n";
-            $code .= "        \$this->env()->test('{$methodName} behavior', function(?PDO \$db) {\n";
+            $code .= "        \$this->env()->test('should verify {$methodName} behavior', function(\$db) {\n";
             $code .= "            // TODO: Implement test logic for {$methodName}\n";
             $code .= "            // Example:\n";
             $code .= "            // \$obj = new {$shortName}();\n";
