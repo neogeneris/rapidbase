@@ -1,5 +1,5 @@
 ```
-# Test database files
+# Database files
 *.sqlite
 
 # Dependencies
