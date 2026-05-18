@@ -7,259 +7,273 @@ declare(strict_types=1);
  * RapidBase TDD Runner
  * 
  * Uso:
- *  php bin/tdd-runner.php <Clase|Archivo> --tests <Directorio> [Opciones]
+ *  php bin/tdd-runner.php <Clase|Archivo> [Opciones]
  * 
  * Ejemplos:
- *  php bin/tdd-runner.php RapidBase\\Core\\X --tests tests/Unit/Core/X2
- *  php bin/tdd-runner.php X.php --tests tests/Unit/Core/X2 --generate
- *  php bin/tdd-runner.php RapidBase\\Core\\X --tests tests/Unit/Core/X2 --first
- *  php bin/tdd-runner.php RapidBase\\Core\\X --tests tests/Unit/Core/X2 --html
- *  php bin/tdd-runner.php RapidBase\\Core\\X --tests tests/Unit/Core/X2 --drivers sqlite,mysql
+ *  php bin/tdd-runner.php RapidBase\Core\X --tests tests/Unit/Core/X2 --generate
+ *  php bin/tdd-runner.php X.php --generate
+ *  php bin/tdd-runner.php RapidBase\Core\X --first
+ *  php bin/tdd-runner.php RapidBase\Core\X --html
+ *  php bin/tdd-runner.php src/RapidBase/Core/X.php
  */
 
-// Determinar ruta base del proyecto (asumiendo que este script está en bin/)
 $baseDir = dirname(__DIR__);
 if (!file_exists($baseDir . '/src/RapidBase/Tdd/CoreRunner.php')) {
-    // Ajuste si se ejecuta desde otra ubicación relativa
     $baseDir = getcwd();
 }
 
-// Autoloader simple para el framework TDD si no existe uno global
 if (file_exists($baseDir . '/vendor/autoload.php')) {
     require_once $baseDir . '/vendor/autoload.php';
 } else {
-    // Fallback manual para clases críticas del framework si no hay vendor
     spl_autoload_register(function ($class) use ($baseDir) {
         $prefix = 'RapidBase\\';
         $baseDir = rtrim($baseDir, '/') . '/src/';
-        
         $len = strlen($prefix);
-        if (strncmp($prefix, $class, $len) !== 0) {
-            return;
-        }
-        
+        if (strncmp($prefix, $class, $len) !== 0) return;
         $relativeClass = substr($class, $len);
         $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
-        
-        if (file_exists($file)) {
-            require $file;
-        }
+        if (file_exists($file)) require $file;
     });
 }
 
 use RapidBase\Tdd\CoreRunner;
+use PDO;
 
-// --- Parseo de argumentos ---
+$dbFile = $baseDir . '/rapidbase_core_tdd.sqlite';
+
+function initDb(string $dbFile): PDO
+{
+    $db = new PDO('sqlite:' . $dbFile);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db->exec("CREATE TABLE IF NOT EXISTS class_test_mapping (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_name TEXT UNIQUE NOT NULL,
+        test_dir TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    $db->exec("CREATE TABLE IF NOT EXISTS test_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT, class TEXT, method TEXT, status TEXT,
+        error TEXT, duration REAL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    return $db;
+}
+
+function findTestDir(PDO $db, string $className): ?string
+{
+    $stmt = $db->prepare('SELECT test_dir FROM class_test_mapping WHERE class_name = ?');
+    $stmt->execute([$className]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $result ? $result['test_dir'] : null;
+}
+
+function registerTestDir(PDO $db, string $className, string $testDir): void
+{
+    $stmt = $db->prepare("INSERT INTO class_test_mapping (class_name, test_dir, updated_at) 
+        VALUES (:class, :dir, DATETIME('now'))
+        ON CONFLICT(class_name) DO UPDATE SET test_dir = :dir, updated_at = DATETIME('now')");
+    $stmt->execute([':class' => $className, ':dir' => $testDir]);
+}
+
 $args = $argv;
-array_shift($args); // Eliminar nombre del script
+array_shift($args);
 
 $target = null;
 $testsDir = null;
-$options = [
-    'generate' => false,
-    'first' => false,
-    'verbose' => false,
-    'html' => false,
-    'help' => false,
-    'drivers' => ['sqlite'], // Default
-    'config' => [] // Configuración específica de drivers
-];
+$options = ['generate' => false, 'first' => false, 'verbose' => false, 'html' => false, 'help' => false, 'drivers' => ['sqlite']];
 
 $i = 0;
 while ($i < count($args)) {
     $arg = $args[$i];
-    
     if ($arg === '--tests' && isset($args[$i + 1])) {
         $testsDir = $args[$i + 1];
         $i += 2;
         continue;
     }
-    
-    if ($arg === '--config' && isset($args[$i + 1])) {
-        // Ejemplo: --config mysql:host=localhost;dbname=test;user=root;pass=secret
-        parse_str(str_replace([';', '='], ['&', '=>'], $args[$i + 1]), $parsedConfig);
-        $options['config'] = array_merge($options['config'], $parsedConfig);
-        $i += 2;
-        continue;
-    }
-    
     if (str_starts_with($arg, '--')) {
         $key = substr($arg, 2);
-        if (isset($options[$key])) {
-            $options[$key] = true;
-        }
+        if (isset($options[$key])) $options[$key] = true;
         if ($key === 'drivers' && isset($args[$i + 1])) {
-            // Ejemplo: --drivers sqlite,mysql
             $options['drivers'] = explode(',', $args[$i + 1]);
             $i++;
         }
         $i++;
         continue;
     }
-    
-    if ($target === null) {
-        $target = $arg;
-    }
+    if ($target === null) $target = $arg;
     $i++;
 }
 
-// Help
 if ($options['help'] || $target === null) {
     echo "RapidBase TDD Runner\n\n";
-    echo "Usage:\n";
-    echo "  php bin/tdd-runner.php <Class|File> --tests <Dir> [Options]\n\n";
+    echo "Usage:\n  php bin/tdd-runner.php <Class|File> [Options]\n\n";
     echo "Options:\n";
-    echo "  --tests <dir>       Directorio donde están/generar las pruebas (Obligatorio)\n";
-    echo "  --generate          Generar esqueleto de pruebas si no existen\n";
-    echo "  --first             Detener en la primera falla (TDD Mode)\n";
-    echo "  --verbose           Mostrar detalle de cada prueba\n";
-    echo "  --html              Generar reporte HTML al finalizar\n";
-    echo "  --drivers <d1,d2>   Drivers a usar (ej: sqlite,mysql,pgsql)\n";
-    echo "  --config <str>      Configuración adicional (ej: mysql:host=localhost;dbname=test)\n";
-    echo "  --help              Mostrar esta ayuda\n";
-    echo "\nExamples:\n";
-    echo "  php bin/tdd-runner.php RapidBase\\\\Core\\\\X --tests tests/Unit/Core/X\n";
-    echo "  php bin/tdd-runner.php X --tests tests/Unit/Core/X --drivers sqlite,mysql --html\n";
-    echo "  php bin/tdd-runner.php X --tests tests/Unit/Core/X --first --verbose\n";
+    echo "  --tests <dir>     Directorio de pruebas (opcional si ya registrado)\n";
+    echo "  --generate        Generar esqueleto de pruebas\n";
+    echo "  --first           Detener en primera falla\n";
+    echo "  --verbose         Mostrar detalle\n";
+    echo "  --html            Generar reporte HTML\n";
+    echo "  --drivers <d1,d2> Drivers (ej: sqlite,mysql)\n";
+    echo "  --help            Esta ayuda\n\n";
+    echo "Examples:\n";
+    echo "  php bin/tdd-runner.php X.php --generate\n";
+    echo "  php bin/tdd-runner.php RapidBase\\Core\\X --drivers sqlite,mysql --html\n";
+    echo "  php bin/tdd-runner.php src/RapidBase/Core/X.php\n";
     exit(0);
 }
 
-if ($testsDir === null) {
-    echo "ERROR: Missing required option --tests <directory>\n";
-    echo "Use --help for usage.\n";
+try {
+    $db = initDb($dbFile);
+} catch (Throwable $e) {
+    echo "ERROR: Database init failed: " . $e->getMessage() . "\n";
     exit(1);
 }
 
-// --- Resolución del Target (Clase o Archivo) ---
 $className = null;
 $fileLocation = null;
 
-// 1. Si es un archivo existente
+echo "Resolving target: $target\n";
+
 if (file_exists($target)) {
     $fileLocation = realpath($target);
-    // Intentar extraer el nombre de la clase principal del archivo
+    echo "  → File found: $fileLocation\n";
     $content = file_get_contents($fileLocation);
     if (preg_match('/namespace\s+([^;]+);/', $content, $nsMatches)) {
         $namespace = trim($nsMatches[1]);
         if (preg_match('/class\s+(\w+)/', $content, $classMatches)) {
             $className = $namespace . '\\' . $classMatches[1];
+            echo "  → Class detected: $className\n";
         }
     }
     if (!$className) {
-        // Fallback: asumir nombre de archivo como clase
         $className = pathinfo($target, PATHINFO_FILENAME);
+        echo "  → Fallback: $className\n";
     }
 } else {
-    // 2. Asumir que es un FQCN (Fully Qualified Class Name)
     $className = $target;
-    // Intentar verificar si existe vía autoloader o búsqueda básica
-    if (!class_exists($className, false) && !interface_exists($className, false)) {
-        // Podríamos intentar buscar recursivamente si fallara, pero por ahora asumimos que el autoloader lo resolverá al instanciar
-        // O lanzar warning si no se encuentra inmediatamente
-        // Para diagnóstico temprano:
-        $possiblePath = str_replace('\\', '/', $className) . '.php';
-        $found = false;
-        // Búsqueda simple en src/
-        if (file_exists($baseDir . '/src/' . $possiblePath)) {
-            $fileLocation = $baseDir . '/src/' . $possiblePath;
-            $found = true;
+    if (!str_contains($className, '\\')) {
+        $paths = [
+            $baseDir . '/src/RapidBase/Core/' . $className . '.php',
+            $baseDir . '/src/' . $className . '.php',
+            getcwd() . '/' . $className . '.php',
+        ];
+        foreach ($paths as $path) {
+            if (file_exists($path)) {
+                $fileLocation = realpath($path);
+                echo "  → Found by name: $fileLocation\n";
+                $content = file_get_contents($fileLocation);
+                if (preg_match('/namespace\s+([^;]+);/', $content, $nsMatches)) {
+                    $className = trim($nsMatches[1]) . '\\' . $className;
+                    echo "  → Resolved: $className\n";
+                }
+                break;
+            }
         }
-        
-        if (!$found) {
-             echo "WARNING: Class '$className' not immediately loaded. Will attempt to load during test generation/execution.\n";
+    }
+    if (!class_exists($className, false)) {
+        $path = str_replace('\\', '/', $className) . '.php';
+        if (file_exists($baseDir . '/src/' . $path)) {
+            $fileLocation = $baseDir . '/src/' . $path;
+            echo "  → Found via autoloader: $fileLocation\n";
         }
     }
 }
 
-echo "Target: $className\n";
+if (!$className) {
+    echo "ERROR: Cannot resolve class from '$target'\n";
+    exit(1);
+}
+
+if ($testsDir === null) {
+    $registeredDir = findTestDir($db, $className);
+    if ($registeredDir) {
+        $testsDir = $registeredDir;
+        echo "  → Tests dir from DB: $testsDir\n";
+    }
+}
+
+if ($testsDir === null && !$options['generate']) {
+    echo "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    echo "  ℹ️  NO TESTS FOUND FOR: $className\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+    echo "  Class located successfully, but no test suite is associated.\n\n";
+    echo "  Generate tests with:\n";
+    echo "    php bin/tdd-runner.php $target --generate\n\n";
+    echo "  Or specify directory:\n";
+    echo "    php bin/tdd-runner.php $target --tests tests/Unit/Core/" . basename(str_replace('\\', '/', $className)) . " --generate\n\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    exit(0);
+}
+
+if ($testsDir === null && $options['generate']) {
+    $shortName = basename(str_replace('\\', '/', $className));
+    $testsDir = $baseDir . '/tests/Unit/Core/' . $shortName;
+    echo "  → Default test dir: $testsDir\n";
+}
+
+echo "\nTarget: $className\n";
 if ($fileLocation) echo "Location: $fileLocation\n";
 echo "Tests Dir: $testsDir\n";
 echo "Drivers: " . implode(', ', $options['drivers']) . "\n\n";
 
-// --- Modo Generación ---
 if ($options['generate']) {
-    if (!$className) {
-        echo "ERROR: Cannot generate tests without a resolved class name.\n";
-        exit(1);
-    }
-    
     try {
         $reflection = new ReflectionClass($className);
         $testClassName = $reflection->getShortName() . 'Test';
         $testFilePath = $testsDir . '/' . $testClassName . '.php';
         
         if (file_exists($testFilePath)) {
-            echo "WARNING: Test file already exists: $testFilePath\n";
-            echo "Skipping generation. Use --first to run existing tests.\n";
+            echo "WARNING: Test file exists: $testFilePath\n";
             exit(0);
         }
 
         echo "Generating skeleton for $className in $testFilePath...\n";
-
-        // Obtener métodos públicos
         $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
-        
         $shortName = $reflection->getShortName();
         $namespace = substr($className, 0, strrpos($className, '\\'));
         
-        $code = "<?php\n\n";
-        $code .= "declare(strict_types=1);\n\n";
-        $code .= "namespace {$namespace};\n\n";
-        
-        $code .= "use RapidBase\\Tdd\\TestCase;\n\n";
-        
+        $code = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespace};\n\nuse RapidBase\\Tdd\\TestCase;\n\n";
         $code .= "/**\n * Auto-generated Test Suite for {$shortName}\n */\n";
         $code .= "class {$testClassName} extends TestCase\n{\n";
 
         foreach ($methods as $method) {
-            if ($method->isConstructor() || str_starts_with($method->getName(), '__')) {
-                continue;
-            }
-            
+            if ($method->isConstructor() || str_starts_with($method->getName(), '__')) continue;
             $methodName = $method->getName();
-            $testMethodName = 'test' . ucfirst($methodName);
-            $testMethodName = preg_replace('/[^a-zA-Z0-9_]/', '_', $testMethodName);
-
-            $code .= "    /**\n     * Test for {$methodName}\n     */\n";
+            $testMethodName = 'test' . ucfirst(preg_replace('/[^a-zA-Z0-9_]/', '_', $methodName));
             $code .= "    public function {$testMethodName}(): void\n";
             $code .= "    {\n";
-            $code .= "        \$this->env()->test('should verify {$methodName} behavior', function(\$db) {\n";
-            $code .= "            // TODO: Implement test logic for {$methodName}\n";
-            $code .= "            // Example:\n";
-            $code .= "            // \$obj = new {$shortName}();\n";
-            $code .= "            // \$this->assertTrue(true, '{$methodName} should work');\n";
+            $code .= "        \$this->env()->test('should verify {$methodName}', function(\$db) {\n";
             $code .= "            \$this->assertTrue(true);\n";
             $code .= "        });\n";
             $code .= "    }\n\n";
         }
-
         $code .= "}\n";
 
-        if (!is_dir($testsDir)) {
-            mkdir($testsDir, 0755, true);
-        }
-        
+        if (!is_dir($testsDir)) mkdir($testsDir, 0755, true);
         file_put_contents($testFilePath, $code);
+        
+        // Registrar en BD
+        registerTestDir($db, $className, $testsDir);
+        
         echo "SUCCESS: Skeleton generated at $testFilePath\n";
-        echo "Run 'php bin/tdd-runner.php $className --tests $testsDir --first' to start TDD.\n";
+        echo "Registered in database. Next time just run:\n";
+        echo "  php bin/tdd-runner.php $className\n";
     } catch (Throwable $e) {
-        echo "ERROR: Could not generate test skeleton: " . $e->getMessage() . "\n";
+        echo "ERROR: " . $e->getMessage() . "\n";
         exit(1);
     }
     exit(0);
 }
 
-// --- Modo Ejecución ---
-// Intentar cargar el archivo de test si existe
+// Ejecución
 $shortName = basename(str_replace('\\', '/', $className));
 $testFile = $testsDir . '/' . $shortName . 'Test.php';
-if (file_exists($testFile)) {
-    require_once $testFile;
-}
+if (file_exists($testFile)) require_once $testFile;
 
 if (!class_exists($className . 'Test')) {
     echo "ERROR: Test class '{$className}Test' not found.\n";
-    echo "Try generating it first: php bin/tdd-runner.php $className --tests $testsDir --generate\n";
+    echo "Generate it: php bin/tdd-runner.php $className --generate\n";
     exit(1);
 }
 
@@ -268,16 +282,10 @@ try {
     $runner->setDrivers($options['drivers']);
     $runner->stopOnFirst($options['first']);
     $runner->verbose($options['verbose']);
-
-    if ($options['html']) {
-        $runner->generateHtmlReport();
-    }
-
+    if ($options['html']) $runner->generateHtmlReport();
     $success = $runner->run();
-
     exit($success ? 0 : 1);
 } catch (Throwable $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
-    echo "File: " . $e->getFile() . " (Line " . $e->getLine() . ")\n";
     exit(1);
 }

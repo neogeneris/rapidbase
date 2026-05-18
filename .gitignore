@@ -1,4 +1,16 @@
 ```
-# Test reports
-tests/Unit/Core/X2/report-tdd.html
+# Database files
+*.sqlite
+
+# Test artifacts
+tests/Unit/Core/X/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+.env.*
 ```
