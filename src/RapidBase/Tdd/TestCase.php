@@ -101,4 +101,61 @@ abstract class TestCase
     {
         throw new AssertionError($message);
     }
+
+    protected function assertInstanceOf(string $class, mixed $object, string $message = ''): void 
+    {
+        if (!is_object($object) || !($object instanceof $class)) {
+            $actualType = is_object($object) ? get_class($object) : gettype($object);
+            throw new AssertionError($message ?: "Expected instance of {$class} but got {$actualType}");
+        }
+    }
+
+    protected function assertIsArray(mixed $value, string $message = ''): void 
+    {
+        if (!is_array($value)) {
+            throw new AssertionError($message ?: 'Expected value to be an array');
+        }
+    }
+
+    protected function assertStringContainsString(string $needle, string $haystack, string $message = ''): void 
+    {
+        if (strpos($haystack, $needle) === false) {
+            throw new AssertionError($message ?: "Expected '{$haystack}' to contain '{$needle}'");
+        }
+    }
+
+    protected function assertGreaterThan(int|float $expected, int|float $actual, string $message = ''): void 
+    {
+        if ($actual <= $expected) {
+            throw new AssertionError($message ?: "Expected {$actual} to be greater than {$expected}");
+        }
+    }
+
+    protected function assertGreaterThanOrEqual(int|float $expected, int|float $actual, string $message = ''): void 
+    {
+        if ($actual < $expected) {
+            throw new AssertionError($message ?: "Expected {$actual} to be greater than or equal to {$expected}");
+        }
+    }
+
+    protected function assertLessThan(int|float $expected, int|float $actual, string $message = ''): void 
+    {
+        if ($actual >= $expected) {
+            throw new AssertionError($message ?: "Expected {$actual} to be less than {$expected}");
+        }
+    }
+
+    protected function assertEmpty(mixed $value, string $message = ''): void 
+    {
+        if (!empty($value)) {
+            throw new AssertionError($message ?: 'Expected value to be empty');
+        }
+    }
+
+    protected function assertNotEmpty(mixed $value, string $message = ''): void 
+    {
+        if (empty($value)) {
+            throw new AssertionError($message ?: 'Expected value to not be empty');
+        }
+    }
 }

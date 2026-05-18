@@ -393,6 +393,8 @@ class CoreRunner
                 ? $this->extractCallbackCode($res['callback'])
                 : '// No code snippet available';
             
+            $message = $res['message'] ? '❌ ' . $this->escapeHtml($res['message']) : '✅ Assertion passed';
+            
             $cards .= <<<HTML
             <div class="test-card {$statusClass}">
                 <div class="test-header">
@@ -409,7 +411,7 @@ class CoreRunner
                     <code>{$this->escapeHtml($codeSnippet)}</code>
                 </div>
                 <div class="result-box">
-                    {$res['message'] ? '❌ ' . $this->escapeHtml($res['message']) : '✅ Assertion passed'}
+                    {$message}
                 </div>
             </div>
             HTML;
