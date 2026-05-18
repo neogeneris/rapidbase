@@ -142,7 +142,8 @@ class TddRunner {
             
             $diagnosis['expected_namespace'] = $expectedNamespace;
             
-            // Cargar dependencies primero si es Core
+            // Cargar bundle primero si es Core (esto puede cargar la clase)
+            $bundleLoaded = false;
             if (str_contains($classPath, '/Core/')) {
                 $bundlePaths = [
                     $this->basePath . '/bin/RapidBase.php',
@@ -151,19 +152,29 @@ class TddRunner {
                 foreach ($bundlePaths as $bundlePath) {
                     if (file_exists($bundlePath)) {
                         require_once $bundlePath;
+                        $bundleLoaded = true;
                         break;
                     }
                 }
             }
             
-            // Solo cargar si la clase no existe ya
-            if (!class_exists($fqnClass, false)) {
+            // NO cargar el archivo de la clase si el bundle ya la cargó
+            // El bundle define clases inline que no pueden ser recargadas
+            if (!$bundleLoaded) {
                 require_once $classPath;
             }
             
-            if (class_exists($fqnClass)) {
+            // Intentar obtener la clase cargada (puede estar en bundle con FQN correcto)
+            $loadedClass = null;
+            if (class_exists($fqnClass, false)) {
+                $loadedClass = $fqnClass;
                 $diagnosis['loadable'] = true;
-                $reflection = new ReflectionClass($fqnClass);
+            } else {
+                $diagnosis['suggestions'][] = "No se pudo cargar la clase. El bundle puede haberla registrado con otro nombre.";
+            }
+            
+            if ($loadedClass) {
+                $reflection = new ReflectionClass($loadedClass);
                 $diagnosis['actual_namespace'] = $reflection->getNamespaceName();
                 
                 // Verificar correspondencia namespace/path
@@ -176,7 +187,7 @@ class TddRunner {
                 // 4. Obtener métodos públicos
                 $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
                 foreach ($methods as $method) {
-                    if ($method->class === $fqnClass && !str_starts_with($method->name, '__')) {
+                    if ($method->class === $loadedClass && !str_starts_with($method->name, '__')) {
                         $diagnosis['methods'][] = $method->getName();
                     }
                 }
@@ -190,8 +201,6 @@ class TddRunner {
                         $diagnosis['interfaces'][] = $interface;
                     }
                 }
-            } else {
-                $diagnosis['suggestions'][] = "No se pudo cargar la clase. Verificar namespace y nombre de archivo.";
             }
         }
 
