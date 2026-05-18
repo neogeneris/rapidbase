@@ -158,4 +158,44 @@ abstract class TestCase
             throw new AssertionError($message ?: 'Expected value to not be empty');
         }
     }
+
+    protected function assertSame(mixed $expected, mixed $actual, string $message = ''): void 
+    {
+        if ($expected !== $actual) {
+            throw new AssertionError($message ?: 'Expected values to be the same');
+        }
+    }
+
+    protected function assertNotSame(mixed $expected, mixed $actual, string $message = ''): void 
+    {
+        if ($expected === $actual) {
+            throw new AssertionError($message ?: 'Expected values to not be the same');
+        }
+    }
+
+    protected function assertContains(mixed $needle, array|string $haystack, string $message = ''): void 
+    {
+        if (is_array($haystack)) {
+            if (!in_array($needle, $haystack, true)) {
+                throw new AssertionError($message ?: 'Expected array to contain the value');
+            }
+        } else {
+            if (strpos((string) $haystack, (string) $needle) === false) {
+                throw new AssertionError($message ?: 'Expected string to contain the substring');
+            }
+        }
+    }
+
+    protected function assertNotContains(mixed $needle, array|string $haystack, string $message = ''): void 
+    {
+        if (is_array($haystack)) {
+            if (in_array($needle, $haystack, true)) {
+                throw new AssertionError($message ?: 'Expected array to not contain the value');
+            }
+        } else {
+            if (strpos((string) $haystack, (string) $needle) !== false) {
+                throw new AssertionError($message ?: 'Expected string to not contain the substring');
+            }
+        }
+    }
 }
