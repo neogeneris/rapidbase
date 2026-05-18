@@ -24,6 +24,7 @@ class TDDRunner
     private ?string $testsDir = null;
     private bool $generate = false;
     private bool $verbose = false;
+    private bool $first = false;
     private ?string $className = null;
     private ?string $filePath = null;
     private string $dbPath;
@@ -48,6 +49,9 @@ class TDDRunner
                     $this->testsDir = array_shift($argv);
                     break;
                 case '--generate':
+                case '--first':
+                    $this->first = true;
+                    break;
                     $this->generate = true;
                     break;
                 case '-v':
@@ -484,7 +488,8 @@ class TDDRunner
             $code .= "    public function test" . ucfirst($method) . "(): void\n";
             $code .= "    {\n";
             $code .= "        // TODO: Implementar prueba para {$method}\n";
-            $code .= "        \$this->assertTrue(true);\n";
+            $code .= "        \$this->assertFalse(true, 'TODO: Implementar prueba para ' . $method . '');
+";
             $code .= "    }\n\n";
         }
         
@@ -536,17 +541,32 @@ class TDDRunner
                 
                 try {
                     $testInstance->$methodName();
-                    echo "[PASS] {$testClass}::{$methodName}\n";
+                    echo "[SUCCESS] {$testClass}::{$methodName}\n";
                     $success++;
-                    $this->logTestResult($testClass, $methodName, 'PASS', '');
+                    $this->logTestResult($testClass, $methodName, 'SUCCESS', '');
                 } catch (Throwable $e) {
-                    echo "[FAIL] {$testClass}::{$methodName}\n";
-                    if ($this->verbose) {
-                        echo "       Error: " . $e->getMessage() . "\n";
-                        echo "       En: " . $e->getFile() . ":" . $e->getLine() . "\n";
+                    echo "[FAILURE] {$testClass}::{$methodName}\n";
+                    
+                    // Mostrar detalle del error
+                    echo "       Error: " . $e->getMessage() . "\n";
+                    echo "       En: " . $e->getFile() . ":" . $e->getLine() . "\n";
+                    
+                    // Si --first, mostrar código del método y detener
+                    if ($this->first) {
+                        echo "\n" . self::hr(70, '=') . "\n";
+                        echo "PRIMER FALLO - Deteniendo ejecución\n";
+                        echo self::hr(70, '_') . "\n";
+                        
+                        // Intentar mostrar el código del método donde falló
+                        $this->showMethodCode($e->getFile(), $e->getLine());
+                        
+                        echo "\nSugerencia: Repara el código y vuelve a ejecutar\n";
+                        echo self::hr(70, '=') . "\n";
+                        exit(1);
                     }
+                    
                     $failed++;
-                    $this->logTestResult($testClass, $methodName, 'FAIL', $e->getMessage());
+                    $this->logTestResult($testClass, $methodName, 'FAILURE', $e->getMessage());
                 }
             }
         }
@@ -573,6 +593,116 @@ class TDDRunner
         $stmt->execute();
         
         $db->close();
+    }
+    
+    private function showMethodCode(string $file, int $line): void
+    {
+        if (!file_exists($file)) {
+            echo "       No se pudo leer el archivo: $file\n";
+            return;
+        }
+        
+        $lines = file($file);
+        $totalLines = count($lines);
+        
+        // Encontrar el inicio del método (buscar hacia atrás)
+        $startLine = max(0, $line - 1);
+        $braceCount = 0;
+        $foundFunction = false;
+        
+        for ($i = $startLine; $i >= 0; $i--) {
+            $lineContent = $lines[$i];
+            if (preg_match('/function\s+\w+/', $lineContent)) {
+                $foundFunction = true;
+                $startLine = $i;
+                break;
+            }
+        }
+        
+        // Si no encontramos función, usar contexto alrededor de la línea
+        if (!$foundFunction) {
+            $startLine = max(0, $line - 5);
+        }
+        
+        // Mostrar contexto (líneas alrededor del error)
+        $contextStart = max(0, $startLine - 2);
+        $contextEnd = min($totalLines, $line + 3);
+        
+        echo "\nCódigo donde ocurrió el error:\n";
+        echo self::hr(70, '_') . "\n";
+        
+        for ($i = $contextStart; $i < $contextEnd; $i++) {
+            $marker = ($i == $line - 1) ? ' >>> ' : '     ';
+            $lineNum = str_pad((string)($i + 1), 4, ' ', STR_PAD_LEFT);
+            echo "{$marker}{$lineNum}| " . rtrim($lines[$i]);
+            if ($i == $line - 1) {
+                echo "  <-- ERROR";
+            }
+            echo "\n";
+        }
+        
+        echo self::hr(70, '_') . "\n";
+        
+        // Si es un archivo de la clase original (X.php), mostrar el método completo
+        if (str_contains($file, '/Core/X.php') || str_contains($file, '\\Core\\X.php')) {
+            echo "\nMétodo en X.php:\n";
+            echo self::hr(70, '_') . "\n";
+            $this->showFullMethod($file, $line);
+        }
+    }
+    
+    private function showFullMethod(string $file, int $errorLine): void
+    {
+        if (!file_exists($file)) {
+            return;
+        }
+        
+        $lines = file($file);
+        $totalLines = count($lines);
+        
+        // Buscar el inicio del método (hacia atrás desde el error)
+        $methodStart = -1;
+        $methodEnd = -1;
+        
+        for ($i = $errorLine - 1; $i >= 0; $i--) {
+            if (preg_match('/^(public|private|protected)\s+function\s+(\w+)/', $lines[$i], $matches)) {
+                $methodStart = $i;
+                break;
+            }
+        }
+        
+        if ($methodStart === -1) {
+            return;
+        }
+        
+        // Buscar el final del método (contando llaves)
+        $braceCount = 0;
+        $inMethod = false;
+        
+        for ($i = $methodStart; $i < $totalLines; $i++) {
+            $lineContent = $lines[$i];
+            $braceCount += substr_count($lineContent, '{');
+            $braceCount -= substr_count($lineContent, '}');
+            
+            if ($braceCount > 0) {
+                $inMethod = true;
+            }
+            
+            if ($inMethod && $braceCount === 0) {
+                $methodEnd = $i;
+                break;
+            }
+        }
+        
+        if ($methodEnd === -1) {
+            $methodEnd = min($totalLines, $methodStart + 30);
+        }
+        
+        // Mostrar el método completo
+        for ($i = $methodStart; $i <= $methodEnd; $i++) {
+            $lineNum = str_pad((string)($i + 1), 4, ' ', STR_PAD_LEFT);
+            echo "     {$lineNum}| " . rtrim($lines[$i]) . "\n";
+        }
     }
 }
 
