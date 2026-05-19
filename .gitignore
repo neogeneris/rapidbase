@@ -1,250 +1,45 @@
 ```
-# Dependencies
-vendor/
+# Cache and temporary data files
+*.dat
 
-# Compiled and build artifacts
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
-dist/
-build/
-target/
+# PHP specific
+*.php~
+*.php.bak
+*.swp
 
-# Python specific
+# General temp files
+*.tmp
+*.temp
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment and cache
+.env
+.env.local
+.env.*
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.py.class
-.Python
-env/
-venv/
-.venv/
-.env
-.env.local
-.env.
-.envrc
 
-# Node.js specific
+# Build and distribution
+build/
+dist/
+target/
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Java specific
-*.class
-*.jar
-*.war
-*.ear
-*.nar
-*.hprof
-hs_err_pid*
-replay_pid*
-
-# C/C++ specific
-*.a
-*.la
-*.lo
-*.dylib
-*.so
-*.so.*
-*.dll
-*.exe
-*.out
-*.o
-*.obj
-*.ilk
-*.pdb
-*.lib
-*.sln
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-
-# Ruby specific
-*.gem
-*.rbc
-extconf.rb
-Gemfile.lock
-pkg/
-*.so
-*.bundle
-lib/bundler/man/
-
-# Go specific
-*.o
-*.a
-*.so
-*.exe
-*.test
-*.prof
-vendor/
-
-# PHP specific
-*.phar
-vendor/
-
-# Logs and temp files
-*.log
-*.tmp
-*.temp
-*.swp
-*.swo
-*~
-.DS_Store
-Thumbs.db
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*.sublime-project
-*.sublime-workspace
-nbproject/
-*.nib
-*.xcodeproj/
-xcuserdata/
-*.xcworkspace/
-*.moved-aside
-DerivedData/
-
-# Testing
+# Coverage and testing
+.coverage
 coverage/
 htmlcov/
-.coverage
-*.cover
-.hypothesis/
-.pytest_cache/
-.tox/
-.nox/
-.coverage.*
+.phpunit.result.cache
 
-# OS generated
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-*:2e*
-*.DS_Store
-.DS_Store
-ehthumbs.db
-Icon?
-Thumbs.db
-
-# Backup files
-*~
-*.bak
-*.swp
-*.swo
-*.tmp
-*.temp
-
-# Environment specific
-.env
-.env.local
-.env.*
-!.env.example
-!.env.sample
-!.env.template
-!.env.default
-
-# Build outputs
-dist/
-build/
-public/dist/
-output/
-.out/
-bin/
-obj/
-tmp/
-temp/
-coverage/
-.nyc_output/
-istanbul/
-.lcov.info
-
-# Package managers
-node_modules/
-bower_components/
-jspm_packages/
-web_modules/
-*.lock
-package-lock.json
-yarn.lock
-npm-shrinkwrap.json
-pnpm-lock.yaml
-bun.lock
-composer.lock
-Gemfile.lock
-Pipfile.lock
-poetry.lock
-Cargo.lock
-requirements.txt
-
-# IDE and editor specific
-.vscode/
-.idea/
-.vs/
-*.swp
-*.swo
-*~
-*.tmp
-*.temp
+# OS generated files
 .DS_Store
 Thumbs.db
-
-# System files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-*:2e*
-*.DS_Store
-.DS_Store
-ehthumbs.db
-Icon?
-Thumbs.db
-
-# Archives and compressed
-*.zip
-*.tar
-*.tar.gz
-*.tgz
-*.rar
-*.7z
-*.gz
-*.bz2
-*.xz
-*.Z
-*.lz
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.zst
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# Images (do not ignore)
-# *.png
-# *.jpg
-# *.jpeg
-# *.bmp
-# *.gif
-# *.webm
 ```

@@ -8,40 +8,27 @@ namespace RapidBase\Core;
 if (php_sapi_name() === 'cli' && isset($argv) && realpath($argv[0]) === __FILE__) {
     $baseDir = dirname(__DIR__, 3); // Subir desde tests/Unit/Conn hasta workspace
     
-    echo "Loading framework from: {$baseDir}/src/\n";
+    echo "Loading RapidBase Autoloader from: {$baseDir}/src/\n";
     
-    // Cargar manualmente las clases requeridas en orden
-    $files = [
-        $baseDir . '/src/RapidBase/Tdd/TestCase.php',
-        $baseDir . '/src/RapidBase/Tdd/CoreRunner.php',
-        $baseDir . '/src/RapidBase/Tdd/EnvironmentBuilder.php',
-        $baseDir . '/src/RapidBase/Core/Conn.php',
-    ];
-    
-    foreach ($files as $file) {
-        if (file_exists($file)) {
-            echo "  Loading: " . basename($file) . "\n";
-            require_once $file;
-        } else {
-            echo "  WARNING: File not found: {$file}\n";
-        }
+    // Cargar el Autoloader del framework
+    $autoloaderFile = $baseDir . '/src/RapidBase/Autoloader/Autoloader.php';
+    if (file_exists($autoloaderFile)) {
+        require_once $autoloaderFile;
+        
+        // Inicializar y registrar el autoloader
+        $autoloader = \RapidBase\Autoloader\Autoloader::getInstance($baseDir . '/src')
+            ->enableDebug(false)
+            ->enableCache(true)
+            ->register();
+        
+        echo "  Autoloader registered successfully\n";
+        
+        // Precargar clases frecuentes para mejor rendimiento
+        $autoloader->preloadFrequentClasses();
+    } else {
+        echo "  ERROR: Autoloader not found at {$autoloaderFile}\n";
+        exit(1);
     }
-    
-    // Registrar autoloader como fallback
-    spl_autoload_register(function ($class) use ($baseDir) {
-        $prefixes = ['RapidBase\\'];
-        foreach ($prefixes as $prefix) {
-            if (strpos($class, $prefix) === 0) {
-                $relativeClass = substr($class, strlen($prefix));
-                $file = $baseDir . '/src/' . str_replace('\\', '/', $relativeClass) . '.php';
-                if (file_exists($file)) {
-                    require_once $file;
-                    return true;
-                }
-            }
-        }
-        return false;
-    });
 }
 
 use RapidBase\Tdd\TestCase;
