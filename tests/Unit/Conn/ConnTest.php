@@ -4,6 +4,46 @@ declare(strict_types=1);
 
 namespace RapidBase\Core;
 
+// Auto-execution block: Cargar dependencias si se ejecuta directamente
+if (php_sapi_name() === 'cli' && isset($argv) && realpath($argv[0]) === __FILE__) {
+    $baseDir = dirname(__DIR__, 3); // Subir desde tests/Unit/Conn hasta workspace
+    
+    echo "Loading framework from: {$baseDir}/src/\n";
+    
+    // Cargar manualmente las clases requeridas en orden
+    $files = [
+        $baseDir . '/src/RapidBase/Tdd/TestCase.php',
+        $baseDir . '/src/RapidBase/Tdd/CoreRunner.php',
+        $baseDir . '/src/RapidBase/Tdd/EnvironmentBuilder.php',
+        $baseDir . '/src/RapidBase/Core/Conn.php',
+    ];
+    
+    foreach ($files as $file) {
+        if (file_exists($file)) {
+            echo "  Loading: " . basename($file) . "\n";
+            require_once $file;
+        } else {
+            echo "  WARNING: File not found: {$file}\n";
+        }
+    }
+    
+    // Registrar autoloader como fallback
+    spl_autoload_register(function ($class) use ($baseDir) {
+        $prefixes = ['RapidBase\\'];
+        foreach ($prefixes as $prefix) {
+            if (strpos($class, $prefix) === 0) {
+                $relativeClass = substr($class, strlen($prefix));
+                $file = $baseDir . '/src/' . str_replace('\\', '/', $relativeClass) . '.php';
+                if (file_exists($file)) {
+                    require_once $file;
+                    return true;
+                }
+            }
+        }
+        return false;
+    });
+}
+
 use RapidBase\Tdd\TestCase;
 use PDO;
 
@@ -244,4 +284,89 @@ class ConnTest extends TestCase
             $this->assertNotContains('test1', $tables2);
         });
     }
+}
+
+// Auto-execution block: permite ejecutar este archivo directamente con php ConnTest.php
+if (php_sapi_name() === 'cli' && isset($argv) && realpath($argv[0]) === __FILE__) {
+    echo "\n";
+    echo str_repeat('=', 70) . "\n";
+    echo "  Running " . basename(__FILE__) . " directly (Standalone Mode)\n";
+    echo str_repeat('=', 70) . "\n\n";
+    
+    // Autoload simple para dependencias mínimas
+    $baseDir = dirname(__DIR__, 3); // Subir desde tests/Unit/Conn hasta workspace
+    
+    // Registrar autoloader manual para clases del framework
+    spl_autoload_register(function ($class) use ($baseDir) {
+        $prefixes = ['RapidBase\\'];
+        foreach ($prefixes as $prefix) {
+            if (strpos($class, $prefix) === 0) {
+                $relativeClass = substr($class, strlen($prefix));
+                $file = $baseDir . '/src/' . str_replace('\\', '/', $relativeClass) . '.php';
+                if (file_exists($file)) {
+                    require $file;
+                    return true;
+                }
+            }
+        }
+        return false;
+    });
+    
+    // Verificar que las clases críticas estén disponibles
+    if (!class_exists('RapidBase\\Tdd\\TestCase')) {
+        echo "ERROR: Cannot load RapidBase\\Tdd\\TestCase\n";
+        echo "Checked path: {$baseDir}/src/RapidBase/Tdd/TestCase.php\n";
+        exit(1);
+    }
+    
+    // Ejecutar pruebas manualmente
+    $testClass = new ConnTest();
+    $methods = get_class_methods($testClass);
+    $testMethods = array_filter($methods, fn($m) => str_starts_with($m, 'test'));
+    
+    $total = count($testMethods);
+    $passed = 0;
+    $failed = 0;
+    
+    foreach ($testMethods as $methodName) {
+        try {
+            // Setup
+            if (method_exists($testClass, 'setUp')) {
+                $testClass->setUp();
+            }
+            
+            // Ejecutar test
+            $startTime = microtime(true);
+            $testClass->$methodName();
+            $duration = round((microtime(true) - $startTime) * 1000, 2);
+            
+            // Teardown
+            if (method_exists($testClass, 'tearDown')) {
+                $testClass->tearDown();
+            }
+            
+            echo "  [PASS] {$methodName} ({$duration}ms)\n";
+            $passed++;
+            
+        } catch (\Throwable $e) {
+            // Teardown incluso en error
+            if (method_exists($testClass, 'tearDown')) {
+                try {
+                    $testClass->tearDown();
+                } catch (\Throwable $te) {}
+            }
+            
+            echo "\n  [FAIL] {$methodName}\n";
+            echo "    Error: {$e->getMessage()}\n";
+            echo "    File: {$e->getFile()} (Line {$e->getLine()})\n\n";
+            $failed++;
+        }
+    }
+    
+    echo "\n";
+    echo str_repeat('-', 70) . "\n";
+    echo "  Results: {$total} total, {$passed} passed, {$failed} failed\n";
+    echo str_repeat('=', 70) . "\n";
+    
+    exit($failed > 0 ? 1 : 0);
 }
