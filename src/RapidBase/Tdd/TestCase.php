@@ -198,4 +198,123 @@ abstract class TestCase
             }
         }
     }
+
+    /**
+     * Auto-ejecución cuando se instancia directamente desde CLI
+     */
+    public static function runAllTests(): void
+    {
+        // Solo ejecutar si se está corriendo directamente desde CLI
+        if (php_sapi_name() !== 'cli') {
+            return;
+        }
+
+        $calledClass = static::class;
+        $reflection = new \ReflectionClass($calledClass);
+        
+        // Verificar si este archivo es el que se está ejecutando directamente
+        $scriptFile = realpath($_SERVER['SCRIPT_FILENAME'] ?? '');
+        $classFile = realpath($reflection->getFileName());
+        
+        // Si SCRIPT_FILENAME no coincide, verificar si estamos en ejecución directa
+        if ($scriptFile !== $classFile) {
+            // Verificación alternativa: el script actual es el mismo que el archivo de la clase
+            $currentScript = realpath($GLOBALS['_SERVER']['SCRIPT_FILENAME'] ?? $_SERVER['SCRIPT_FILENAME'] ?? '');
+            if ($currentScript !== $classFile) {
+                return; // No es ejecución directa
+            }
+        }
+
+        echo "\n";
+        echo str_repeat('=', 70) . "\n";
+        echo "  Running {$calledClass} directly (Standalone Mode)\n";
+        echo str_repeat('=', 70) . "\n\n";
+
+        // Intentar cargar Autoloader si existe
+        $basePath = dirname($classFile);
+        while ($basePath !== '/' && $basePath !== '.') {
+            $autoloaderPath = $basePath . '/src/RapidBase/Autoloader/Autoloader.php';
+            if (file_exists($autoloaderPath)) {
+                require_once $autoloaderPath;
+                \RapidBase\Autoloader\Autoloader::getInstance($basePath . '/src')
+                    ->enableDebug(false)
+                    ->enableCache(true)
+                    ->register();
+                break;
+            }
+            $basePath = dirname($basePath);
+        }
+
+        // Ejecutar pruebas manualmente
+        $testInstance = new $calledClass();
+        $methods = $reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
+        $testMethods = array_filter($methods, fn($m) => str_starts_with($m->getName(), 'test'));
+
+        $total = count($testMethods);
+        $passed = 0;
+        $failed = 0;
+
+        foreach ($testMethods as $method) {
+            $methodName = $method->getName();
+            try {
+                // Setup
+                if (method_exists($testInstance, 'setUp')) {
+                    $testInstance->setUp();
+                }
+
+                // Ejecutar test
+                $startTime = microtime(true);
+                $method->invoke($testInstance);
+                $duration = round((microtime(true) - $startTime) * 1000, 2);
+
+                // Teardown
+                if (method_exists($testInstance, 'tearDown')) {
+                    $testInstance->tearDown();
+                }
+
+                echo "  [PASS] {$methodName} ({$duration}ms)\n";
+                $passed++;
+
+            } catch (\Throwable $e) {
+                // Teardown incluso en error
+                if (method_exists($testInstance, 'tearDown')) {
+                    try {
+                        $testInstance->tearDown();
+                    } catch (\Throwable $te) {}
+                }
+
+                echo "\n  [FAIL] {$methodName}\n";
+                echo "    Error: {$e->getMessage()}\n";
+                echo "    File: {$e->getFile()} (Line {$e->getLine()})\n\n";
+                $failed++;
+            }
+        }
+
+        echo "\n";
+        echo str_repeat('-', 70) . "\n";
+        echo "  Results: {$total} total, {$passed} passed, {$failed} failed\n";
+        echo str_repeat('=', 70) . "\n";
+
+        exit($failed > 0 ? 1 : 0);
+    }
+}
+
+// Auto-invocación para cualquier clase que herede de TestCase
+if (php_sapi_name() === 'cli') {
+    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+    $lastFrame = end($backtrace);
+    if (isset($lastFrame['file']) && isset($lastFrame['line'])) {
+        $currentFile = realpath($lastFrame['file']);
+        $thisFile = realpath(__FILE__);
+        
+        // Si el último archivo ejecutado es una subclase de TestCase y no es este archivo
+        if ($currentFile && $thisFile && $currentFile !== $thisFile) {
+            $className = __NAMESPACE__ . '\\' . basename($currentFile, '.php');
+            if (class_exists($className) && is_subclass_of($className, __NAMESPACE__ . '\\TestCase')) {
+                if (method_exists($className, 'runAllTests')) {
+                    $className::runAllTests();
+                }
+            }
+        }
+    }
 }

@@ -1,45 +1,71 @@
-```
-# Cache and temporary data files
-*.dat
+```php
+# Compiled and build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.pyc
+__pycache__/
 
-# PHP specific
-*.php~
-*.php.bak
+# Dependencies
+vendor/
+node_modules/
+venv/
+.venv/
+.env
+.env.local
+.env.*
+
+# Logs and temp files
+*.log
+*.tmp
 *.swp
 
-# General temp files
-*.tmp
-*.temp
-*.log
-
-# IDE and editor files
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Environment and cache
-.env
-.env.local
-.env.*
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
 
-# Build and distribution
+# Build directories
 build/
 dist/
 target/
-node_modules/
+*.out
 
-# Coverage and testing
-.coverage
-coverage/
-htmlcov/
-.phpunit.result.cache
+# Compression files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 
-# OS generated files
-.DS_Store
-Thumbs.db
+# Cache directories
+.mypy_cache/
+.pytest_cache/
+.gradle/
 ```
