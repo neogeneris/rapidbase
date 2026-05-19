@@ -37,7 +37,7 @@ if (file_exists($baseDir . '/vendor/autoload.php')) {
 }
 
 use RapidBase\Tdd\CoreRunner;
-use PDO;
+use RapidBase\Tdd\TestCase;
 
 $dbFile = $baseDir . '/rapidbase_core_tdd.sqlite';
 
