@@ -190,9 +190,22 @@ class CoreRunner
         }
     }
 
-    private function hr(int $size = 70, string $char = '_'): void
+    private function hr(int $size = 70, string $char = '-'): void
     {
         echo str_repeat($char, $size) . "\n";
+    }
+
+    private function printBox(string $message, string $type = 'info'): void
+    {
+        $width = 70;
+        $padding = 2;
+        $borderChar = ($type === 'error') ? '!' : '*';
+        
+        echo "\n";
+        echo str_repeat($borderChar, $width) . "\n";
+        echo str_repeat(' ', $padding) . $message . "\n";
+        echo str_repeat($borderChar, $width) . "\n";
+        echo "\n";
     }
 
     /**
