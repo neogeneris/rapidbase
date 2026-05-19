@@ -472,6 +472,10 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
 
+.grid-body tr{
+	weight: 20px  !important;
+}
+
 /* Filas cebradas (Pares): Tinte claro sutil para no perder la guía de lectura */
 .grid-body tr:nth-child(even) td {
     background: rgba(255, 255, 255, 0.12) !important;
@@ -1404,4 +1408,161 @@ body .cd-body::-webkit-scrollbar-thumb {
     color: #f87171 !important;
     border-color: rgba(239, 68, 110, 0.2) !important;
     background: rgba(220, 38, 38, 0.1) !important;
+}
+
+
+
+/* Base para el botón de acción en el Grid */
+.grid-btn-action {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* La máscara que lee el archivo SVG como silueta */
+.grid-btn-action .icon {
+    width: 26px;
+    height: 26px;
+    background-color: rgba(255, 255, 255, 0.7); /* Blanco esmerilado por defecto */
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    transition: background-color 0.2s ease;
+}
+
+/* --- Variantes de Iconos apuntando a assets/icons/ --- */
+.grid-btn-action .icon-add     { mask-image: url('assets/icons/edit-add.svg'); -webkit-mask-image: url('assets/icons/edit-add.svg'); }
+.grid-btn-action .icon-edit    { mask-image: url('assets/icons/document-edit-symbolic.svg'); -webkit-mask-image: url('assets/icons/document-edit-symbolic.svg'); }
+.grid-btn-action .icon-delete  { mask-image: url('assets/icons/edit-delete.svg'); -webkit-mask-image: url('assets/icons/edit-delete.svg'); }
+.grid-btn-action .icon-save    { mask-image: url('assets/icons/document-save.svg'); -webkit-mask-image: url('assets/icons/document-save.svg'); }
+.grid-btn-action .icon-refresh { mask-image: url('assets/icons/view-refresh.svg'); -webkit-mask-image: url('assets/icons/view-refresh.svg'); }
+
+/* --- Efectos Hover Reactivos (Look & Feel Moderno) --- */
+.grid-btn-action:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Colores temáticos al pasar el mouse por encima */
+.grid-btn-action:hover .icon-add     { background-color: #4ade80; } /* Verde sutil */
+.grid-btn-action:hover .icon-edit    { background-color: #fde047; } /* Amarillo */
+.grid-btn-action:hover .icon-delete  { background-color: #f87171; } /* Rojo peligro */
+.grid-btn-action:hover .icon-save    { background-color: var(--accent-color); } /* Tu azul de énfasis */
+.grid-btn-action:hover .icon-refresh { background-color: #38bdf8; } /* Celeste neón */
+
+/* ==========================================================================
+   BOTONES DE ACCIÓN FLUIDOS EN FILAS DEL GRID (QUERYBUILDER)
+   ========================================================================== */
+
+/* Asegurar que la celda de acciones permita ver los elementos y no los oculte */
+.grid-action-cell {
+    display: table-cell !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 4px 4px !important;
+    width: 100px !important; /* Forzar un ancho mínimo para la columna */
+}
+
+/* Forzar tamaño y comportamiento vidrioso en el botón */
+.qb-action-btn {
+    width: 25px !important;
+    height: 25px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 3px !important;
+    padding: 0 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    position: relative !important;
+    overflow: hidden !important;
+    color: transparent !important; /* Oculta cualquier texto residual sin romper el nodo */
+    font-size: 0 !important;
+}
+
+/* El contenedor del SVG (Máscara) */
+.qb-action-btn .icon {
+    width: 26px !important;
+    height: 26px !important;
+    display: inline-block !important;
+    background-color: rgba(255, 255, 255, 0.65) !important; /* Color del icono esmerilado */
+    -webkit-mask-size: contain !important;
+    mask-size: contain !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-position: center !important;
+    mask-position: center !important;
+}
+
+/* --- Enlace correcto a tus SVG de GNOME --- */
+.qb-view-btn .icon {
+    mask-image: url('../icons/view-list-details.svg') !important;
+    -webkit-mask-image: url('../icons/view-list-details.svg') !important;
+}
+
+.qb-edit-btn .icon {
+    mask-image: url('../icons/document-edit-symbolic.svg') !important;
+    -webkit-mask-image: url('../icons/document-edit-symbolic.svg') !important;
+}
+
+.qb-delete-btn .icon {
+    mask-image: url('../icons/edit-delete.svg') !important;
+    -webkit-mask-image: url('../icons/edit-delete.svg') !important;
+}
+
+/* Forzar que el icono cambie de color cuando se pasa el mouse por encima del BOTÓN */
+.qb-view-btn:hover .icon { 
+    background-color: #38bdf8 !important; 
+}
+.qb-edit-btn:hover .icon { 
+    background-color: #fbbf24 !important; 
+}
+.qb-delete-btn:hover .icon { 
+    background-color: #f87171 !important; 
+}
+
+/* --- Hovers para el fondo de los botones (Opcional, para dar feedback) --- */
+.qb-view-btn:hover { 
+    background: rgba(56, 189, 248, 0.2) !important; 
+    border-color: rgba(56, 189, 248, 0.4) !important; 
+}
+.qb-edit-btn:hover { 
+    background: rgba(251, 191, 36, 0.15) !important; 
+    border-color: rgba(251, 191, 36, 0.4) !important; 
+}
+.qb-delete-btn:hover { 
+    background: rgba(248, 113, 113, 0.2) !important; 
+    border-color: rgba(248, 113, 113, 0.4) !important; 
+}
+
+/* ==========================================================================
+   OPTIMIZACIÓN DE SEGURIDAD PARA CONTENEDOR DE ICONO
+   ========================================================================== */
+.qb-action-btn .icon {
+    width: 20px !important;
+    height: 20px !important;
+    display: inline-block !important;
+    /* Cambiamos el fondo a blanco sutil; si la máscara carga, este será el color del SVG calado */
+    background-color: rgba(255, 255, 255, 0.75) !important; 
+    
+    -webkit-mask-size: contain !important;
+    mask-size: contain !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-position: center !important;
+    mask-position: center !important;
 }

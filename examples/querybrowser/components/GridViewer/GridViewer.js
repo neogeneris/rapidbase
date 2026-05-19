@@ -4,28 +4,39 @@ class GridViewer {
         this.grid = null;
     }
 
-    init(parentElement) {
-        const id = `grid-${this.qb.connectionId}-${this.qb.tables.join('_')}`;
-        parentElement.innerHTML = `
-            <div class="grid-container" id="${id}">
-                <div class="grid-controls">
-                    <div class="grid-search-wrapper">
-                        <input type="text" class="grid-search" placeholder="Buscar..." value="${this.qb.state.search}" name="grid-search" >
-                        <span class="kbd-hint">/</span>
-                    </div>
+ init(parentElement) {
+    const id = `grid-${this.qb.connectionId}-${this.qb.tables.join('_')}`;
+    parentElement.innerHTML = `
+        <div class="grid-container" id="${id}">
+            <div class="grid-controls">
+                <div class="grid-search-wrapper">
+                    <input type="text" class="grid-search" placeholder="Buscar..." value="${this.qb.state.search}" name="grid-search" >
+                    <span class="kbd-hint">/</span>
                 </div>
-                <div class="grid-scroll-wrapper">
-                    <table class="grid-table">
-                        <thead class="grid-head"></thead>
-                        <tbody class="grid-body"></tbody>
-                    </table>
+                
+                <div class="grid-actions">
+                    <button class="grid-btn-action btn-refresh" title="Refrescar">
+                        <span class="icon icon-refresh"></span>
+                    </button>
+                    <button class="grid-btn-action btn-add" title="Añadir Registro">
+                        <span class="icon icon-add"></span>
+                    </button>
+                    <button class="grid-btn-action btn-save" title="Guardar Cambios">
+                        <span class="icon icon-save"></span>
+                    </button>
                 </div>
-                <div class="grid-footer"></div>
-                <div class="grid-loading" style="display:none;">Cargando...</div>
-                <div class="grid-error" style="display:none;"></div>
             </div>
-        `;
-
+            <div class="grid-scroll-wrapper">
+                <table class="grid-table">
+                    <thead class="grid-head"></thead>
+                    <tbody class="grid-body"></tbody>
+                </table>
+            </div>
+            <div class="grid-footer"></div>
+            <div class="grid-loading" style="display:none;">Cargando...</div>
+            <div class="grid-error" style="display:none;"></div>
+        </div>
+    `;
         const apiUrl = `api/v1/index.php?ep=Grid&action=data`;
         this.grid = new APIDataGrid(`#${id}`, apiUrl, { mode: 'infinite', pageSize: 50 });
 

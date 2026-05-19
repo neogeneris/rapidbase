@@ -87,16 +87,16 @@ class QueryBuilder {
                                     </tr>
                                 </thead>
                                 <tbody class="grid-body">
-                                    <tr class="grid-row" style="display:none;">
-                                        <td class="grid-action-cell">
-                                            <button class="qb-action-btn qb-view-btn" data-id="\${0}" title="Ver detalle">👁️</button>
-                                            <button class="qb-action-btn qb-edit-btn" data-id="\${0}" title="Editar">✏️</button>
-                                            <button class="qb-action-btn qb-delete-btn" data-id="\${0}" title="Borrar">🗑️</button>
-                                        </td>
-                                        <td class="grid-item">\${value}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+									<tr class="grid-row" style="display:none;">
+										<td class="qb-actions-cell">
+											<button class="qb-action-btn qb-view-btn" data-id="\${0}" title="Ver detalle"><span class="icon"></span></button>
+											<button class="qb-action-btn qb-edit-btn" data-id="\${0}" title="Editar"><span class="icon"></span></button>
+											<button class="qb-action-btn qb-delete-btn" data-id="\${0}" title="Borrar"><span class="icon"></span></button>
+										</td>
+										<td class="grid-item">\${value}</td>
+									</tr>
+								</tbody>
+															</table>
                         </div>
                         <div class="grid-footer"></div>
                     </div>
