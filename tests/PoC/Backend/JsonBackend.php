@@ -410,22 +410,21 @@ class JsonBackend extends Backend
             }
         }
 
-        // Iterar sobre la tabla local y unir
+        // Iterar sobre la tabla local y unir usando el índice (O(m))
         foreach ($localData as $localRow) {
             $localKeyVal = $localRow[$localField] ?? null;
             $matches = $foreignIndex[$localKeyVal] ?? [];
 
             if (!empty($matches)) {
                 foreach ($matches as $foreignRow) {
-                    // Combinar arrays. En caso de colisión de nombres, la tabla externa tiene prioridad
-                    $combined = array_merge($localRow, $foreignRow);
-                    $results[] = $combined;
+                    // El operador + es más rápido que array_merge.
+                    // $foreignRow + $localRow da prioridad a los campos de la tabla foránea en caso de colisión de nombres.
+                    $results[] = $foreignRow + $localRow;
                 }
             } elseif ($type === 'LEFT') {
-                // LEFT JOIN: mantener registro local aunque no haya match
+                // Para LEFT JOIN, si no hay match, agregamos la fila local
                 $results[] = $localRow; 
             }
-            // INNER JOIN sin match: simplemente no se añade nada
         }
 
         $this->queryResult = $results;
@@ -458,7 +457,8 @@ class JsonBackend extends Backend
     }
 
     /**
-     * Ejecuta una consulta con JOINs usando SQLite en memoria
+     * Ejecuta una consulta con JOINs.
+     * Usa estrategia inteligente: PHP nativo para datasets pequeños, SQLite con índices para grandes volúmenes.
      * 
      * @return array Resultados del JOIN
      */
@@ -470,44 +470,75 @@ class JsonBackend extends Backend
                 return $this->select($this->joinFields, $this->joinWhere);
             }
 
+            $this->load();
+            $totalRecords = count($this->cache ?? []);
+
+            // Inteligencia de Selección de Sustrato (Estrategia Camaleón):
+            // Si los registros son muy pocos (< 500) y solo hay 1 JOIN, el Hash Join en PHP nativo gana por no tener I/O.
+            // Si superamos ese umbral o hay múltiples JOINs, SQLite con índices en disco es superior.
+            if ($totalRecords < 500 && count($this->joinConfig) === 1) {
+                $join = $this->joinConfig[0];
+                // Ejecutar JOIN nativo en PHP y devolver directamente el resultado
+                return $this->joinNative(
+                    $join['table'], 
+                    $join['local_field'], 
+                    $join['foreign_field'], 
+                    $join['type']
+                )->queryResult;
+            }
+
+            // Para todo lo demás (Datasets grandes o múltiples JOINs encadenados), SQLite con índices manda
             return $this->executeJoinWithSQLite();
         });
     }
 
     /**
-     * Ejecuta JOINs usando SQLite en memoria
+     * Ejecuta JOINs usando SQLite en memoria o archivo temporal según el volumen de datos.
+     * Optimizado con PRAGMAs para velocidad extrema y creación automática de índices.
      * 
      * @return array Resultados de la consulta
      */
     private function executeJoinWithSQLite(): array
     {
-        // Crear base de datos SQLite en memoria
-        $sqlite = new \SQLite3(':memory:');
+        // Usar un archivo temporal en disco (/tmp) en vez de :memory: para evitar límites de RAM
+        $tempFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'rapidbase_' . uniqid() . '.db';
+        $sqlite = new \SQLite3($tempFile);
+        
+        // Optimizar SQLite para velocidad extrema (Modo WAL y Síncrono en OFF)
+        $sqlite->exec("PRAGMA journal_mode = WAL;");
+        $sqlite->exec("PRAGMA synchronous = OFF;");
         
         try {
-            // Crear tablas temporales e insertar datos
+            // Crear tabla principal
             $this->createTempTable($sqlite, $this->entity, $this->cache ?? []);
             
-            // Crear tablas para cada JOIN
+            // Crear tablas secundarias y sus ÍNDICES automáticamente
             foreach ($this->joinConfig as $join) {
                 $joinBackend = new static($this->baseDir);
                 $joinBackend->entity = $join['table'];
                 $joinBackend->clearCache();
                 $joinData = $joinBackend->select('*');
+                
                 $this->createTempTable($sqlite, $join['table'], $joinData);
+                
+                // MAGIA NEGRA: Crear índice automático en la llave foránea de inmediato
+                $indexName = "idx_" . $join['table'] . "_" . $join['foreign_field'];
+                $sqlite->exec("CREATE INDEX IF NOT EXISTS \"$indexName\" ON \"{$join['table']}\" (\"{$join['foreign_field']}\")");
             }
 
-            // Construir la consulta SQL
+            // Crear índice en la tabla local también para la condición del JOIN
+            foreach ($this->joinConfig as $join) {
+                $localIndexName = "idx_" . $this->entity . "_" . $join['local_field'];
+                $sqlite->exec("CREATE INDEX IF NOT EXISTS \"$localIndexName\" ON \"{$this->entity}\" (\"{$join['local_field']}\")");
+            }
+
             $sql = $this->buildJoinSQL();
-            
-            // Ejecutar consulta
             $result = $sqlite->query($sql);
             
             if (!$result) {
                 throw new \Exception("Error en consulta JOIN: " . $sqlite->lastErrorMsg());
             }
 
-            // Obtener resultados
             $rows = [];
             while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
                 $rows[] = $row;
@@ -517,7 +548,12 @@ class JsonBackend extends Backend
 
         } finally {
             $sqlite->close();
-            // Resetear configuración de JOIN
+            // Limpieza obligatoria del archivo del sustrato
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
+            
+            // Resetear estados
             $this->joinConfig = [];
             $this->joinWhere = null;
             $this->joinFields = ['*'];
@@ -570,27 +606,31 @@ class JsonBackend extends Backend
         $createSQL = "CREATE TEMPORARY TABLE \"$tableName\" (" . implode(', ', $finalColumnDefs) . ")";
         $sqlite->exec($createSQL);
 
-        // Insertar datos
-        $sqlite->exec("BEGIN TRANSACTION");
-        foreach ($data as $row) {
-            $cols = array_keys($row);
-            $values = array_values($row);
-            
-            $placeholders = implode(', ', array_fill(0, count($values), '?'));
+        // Insertar datos optimizado: Preparar la sentencia UNA SOLA VEZ fuera del bucle
+        if (!empty($data)) {
+            $firstRow = reset($data);
+            $cols = array_keys($firstRow);
+            $placeholders = implode(', ', array_fill(0, count($cols), '?'));
             $quotedCols = implode(', ', array_map(fn($c) => "\"$c\"", $cols));
             
             $stmt = $sqlite->prepare("INSERT INTO \"$tableName\" ($quotedCols) VALUES ($placeholders)");
             
             if ($stmt) {
-                foreach ($values as $i => $value) {
-                    $bindValue = $value === null ? null : (is_numeric($value) && !is_float($value) ? (int)$value : (string)$value);
-                    $stmt->bindValue($i + 1, $bindValue);
+                $sqlite->exec("BEGIN TRANSACTION");
+                foreach ($data as $row) {
+                    foreach ($cols as $i => $col) {
+                        $value = $row[$col] ?? null;
+                        // Intentar preservar tipos numéricos para que los índices sean eficientes
+                        $bindValue = $value === null ? null : (is_int($value) ? (int)$value : (string)$value);
+                        $stmt->bindValue($i + 1, $bindValue);
+                    }
+                    $stmt->execute();
+                    $stmt->reset(); // Resetea el statement para la siguiente fila sin destruirlo
                 }
-                $stmt->execute();
+                $sqlite->exec("COMMIT");
                 $stmt->close();
             }
         }
-        $sqlite->exec("COMMIT");
     }
 
     /**
