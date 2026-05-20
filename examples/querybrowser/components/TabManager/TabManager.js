@@ -6,11 +6,12 @@
  *   app.tabs = new TabManager('tabs-header-id', 'tabs-content-id');
  */
 class TabManager {
-    constructor(headerId, contentId) {
+    constructor(headerId, contentId, options = {}) {
         this.header = document.getElementById(headerId);
         this.content = document.getElementById(contentId);
         this.tabs = new Map(); // id => { title, component, element, btn }
         this.activeTabId = null;
+        this.options = options;
     }
 
     addTab(id, title, component, options = {}) {
@@ -72,6 +73,10 @@ class TabManager {
         if (tab.component && typeof tab.component.onActivate === 'function') {
             tab.component.onActivate();
         }
+
+        if (typeof this.options.onTabActivate === 'function') {
+            this.options.onTabActivate(id, tab);
+        }
     }
 
     closeTab(id) {
@@ -82,10 +87,15 @@ class TabManager {
         tab.pane.remove();
         this.tabs.delete(id);
 
+        let nextTab = null;
         if (this.activeTabId === id) {
-            const nextTab = this.tabs.keys().next().value;
+            nextTab = this.tabs.keys().next().value;
             if (nextTab) this.activateTab(nextTab);
             else this.activeTabId = null;
+        }
+
+        if (typeof this.options.onTabClose === 'function') {
+            this.options.onTabClose(id, nextTab ? this.tabs.get(nextTab) : null);
         }
     }
 }

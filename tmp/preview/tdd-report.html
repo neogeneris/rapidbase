@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>RapidBase TDD Report - X</title>
+    <style>
+        :root { --success: #22c55e; --failure: #ef4444; --bg: #f8fafc; --code-bg: #1e293b; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); padding: 2rem; color: #334155; }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .stats { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
+        .badge { padding: 0.5rem 1rem; border-radius: 99px; font-weight: bold; color: white; }
+        .badge.success { background: var(--success); }
+        .badge.failure { background: var(--failure); }
+        
+        .test-card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; overflow: hidden; border-left: 4px solid var(--success); }
+        .test-card.failure { border-left-color: var(--failure); }
+        
+        .test-header { padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
+        .test-title { font-weight: 600; font-size: 1.1rem; }
+        .test-meta { font-size: 0.85rem; color: #64748b; display: flex; gap: 0.5rem; }
+        .env-tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; }
+        
+        .code-block { background: var(--code-bg); color: #e2e8f0; padding: 1rem; overflow-x: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; line-height: 1.5; }
+        .code-block code { display: block; white-space: pre; }
+        
+        .result-box { padding: 1rem; background: #f0fdf4; border-top: 1px solid #bbf7d0; }
+        .failure .result-box { background: #fef2f2; border-top-color: #fecaca; color: #991b1b; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🚀 RapidBase TDD Report</h1>
+        <h2>Clase: RapidBase\Core\X</h2>
+        <div class="stats">
+            <span class="badge success">SUCCESS: 38</span>
+            <span class="badge failure">FAILURE: 0</span>
+            <span class="badge" style="background:#64748b">TOTAL: 38</span>
+        </div>
+        <p style="margin-top:1rem; color:#64748b">Generado el: 2024-05-17 19:30:00</p>
+    </div>
+
+    <!-- TARJETA DE EJEMPLO: testSelectBasic (SQLite) -->
+    <div class="test-card">
+        <div class="test-header">
+            <div>
+                <div class="test-title">testSelectBasic</div>
+                <div class="test-meta">
+                    <span class="env-tag">SQLite</span>
+                    <span>⏱️ 12ms</span>
+                </div>
+            </div>
+            <span class="badge success">SUCCESS</span>
+        </div>
+        <div class="code-block">
+            <code>$this->env('sqlite')->dataset([
+    ['id' => 1, 'name' => 'Alice', 'active' => 1],
+    ['id' => 2, 'name' => 'Bob', 'active' => 0]
+], 'users')->test('Select basic', function($db) {
+    $x = X::con('sqlite_test');
+    $result = $x->from('users')->select();
+    
+    $this->assertCount(2, $result->data);
+    $this->assertEquals('Alice', $result->data[0][1]);
+});</code>
+        </div>
+        <div class="result-box">
+            ✅ Assertion passed: Count is 2<br>
+            ✅ Assertion passed: First name is Alice
+        </div>
+    </div>
+
+    <!-- TARJETA DE EJEMPLO: testInsert (MySQL) -->
+    <div class="test-card">
+        <div class="test-header">
+            <div>
+                <div class="test-title">testInsert</div>
+                <div class="test-meta">
+                    <span class="env-tag">MySQL</span>
+                    <span>⏱️ 45ms</span>
+                </div>
+            </div>
+            <span class="badge success">SUCCESS</span>
+        </div>
+        <div class="code-block">
+            <code>$this->env('mysql')->test('Insert record', function($db) {
+    $x = X::con('mysql_test');
+    $response = $x->into('users')->insert(['name' => 'Charlie', 'active' => 1]);
+    
+    $this->assertTrue($response->success);
+    $this->assertGreaterThan(0, $response->lastId);
+});</code>
+        </div>
+        <div class="result-box">
+            ✅ Assertion passed: Success is true<br>
+            ✅ Assertion passed: Last ID > 0 (Got 5)
+        </div>
+    </div>
+
+    <!-- TARJETA DE EJEMPLO: testRawSelect (Ambos) -->
+    <div class="test-card">
+        <div class="test-header">
+            <div>
+                <div class="test-title">testRawSelect</div>
+                <div class="test-meta">
+                    <span class="env-tag">SQLite</span>
+                    <span class="env-tag">MySQL</span>
+                    <span>⏱️ 8ms</span>
+                </div>
+            </div>
+            <span class="badge success">SUCCESS</span>
+        </div>
+        <div class="code-block">
+            <code>$this->env('sqlite', 'mysql')->test('Raw SQL execution', function($db) {
+    $x = X::con($this->currentDriver);
+    $result = $x->raw("SELECT * FROM users WHERE active = 1");
+    
+    $this->assertTrue($result->success);
+    $this->assertIsArray($result->data);
+});</code>
+        </div>
+        <div class="result-box">
+            ✅ Executed in 2 environments successfully
+        </div>
+    </div>
+
+</body>
+</html>

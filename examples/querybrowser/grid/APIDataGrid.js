@@ -144,8 +144,25 @@ class APIDataGrid extends GridBuilder {
     }
 
     _enableInfiniteScroll() {
-        const sc = this.bodyContainer;
-        if (!sc) return;
+        // Find the nearest scrollable ancestor of the grid container.
+        // The scroll never happens on tbody; it happens on the parent pane
+        // (.qb-grid-pane, .se-results-pane, or .grid-scroll-wrapper).
+        let sc = null;
+        let el = this.container;
+        while (el && el !== document.documentElement) {
+            const style = window.getComputedStyle(el);
+            if (style.overflowY === 'auto' || style.overflowY === 'scroll' ||
+                style.overflow === 'auto' || style.overflow === 'scroll') {
+                sc = el;
+                break;
+            }
+            el = el.parentElement;
+        }
+        if (!sc) {
+            sc = this.container.querySelector('.grid-scroll-wrapper');
+        }
+        if (!sc) sc = this.container;
+
         const onScroll = () => {
             if (!this.hasMore || this.isLoading) return;
             if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 500) {

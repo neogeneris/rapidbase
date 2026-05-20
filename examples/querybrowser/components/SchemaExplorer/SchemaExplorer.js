@@ -28,7 +28,7 @@ class SchemaExplorer {
         `;
         const target = this.options.containerId ? document.getElementById(this.options.containerId) : document.body;
         if (this.options.containerId) {
-            this.container.classList.remove('closed');
+            this.container.classList.add('closed');
             this.container.style.position = 'relative';
             this.container.style.width = '100%';
             this.container.style.height = '100%';
@@ -36,7 +36,11 @@ class SchemaExplorer {
             this.container.style.boxShadow = 'none';
         }
         target.appendChild(this.container);
-        if (this.options.containerId) this.open();
+        if (this.options.containerId && this.options.autoOpen !== false) {
+            this.open();
+        } else {
+            this.close();
+        }
     }
 
     open() {
