@@ -1,34 +1,29 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-*.out
-
 # Dependencies
 vendor/
 
 # Logs and temp files
 *.log
 *.tmp
-*.swp
 
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
 # Editors
 .vscode/
 .idea/
 
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# PHP specific
+*.php~
+*.php.bak
+*.swp
+
+# Test related
+.phpunit.result.cache
 ```
