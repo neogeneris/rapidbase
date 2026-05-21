@@ -46,8 +46,8 @@
         .app-overlay {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(4px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -61,8 +61,8 @@
         .app-overlay-content {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            border-radius: 20px;
+            border: 0px solid rgba(255, 255, 255, 0.25);
+            border-radius: 60% 40% 60% 40% / 40% 60% 40% 60%;
             padding: 48px 64px;
             text-align: center;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -84,7 +84,7 @@
             display: block;
             margin-top: 12px;
             font-size: 14px;
-            color: #475569;
+            color: black;
         }
         .app-overlay-error p {
             font-size: 14px;
@@ -158,7 +158,9 @@
     <!-- Splash Screen -->
     <div id="app-overlay" class="app-overlay">
         <div class="app-overlay-content">
-            <div class="app-overlay-icon">🔌</div>
+            <div class="app-overlay-icon">
+				<img src="assets/logo/qb.svg" width="40%"/>
+			</div>
             <h2 class="app-overlay-title">RapidBase</h2>
             <div class="app-overlay-status" id="app-overlay-status">
                 <div class="app-spinner"></div>
@@ -172,7 +174,7 @@
     </div>
 
     <div class="main-wrapper">
-        <aside id="left-sidebar">
+        <aside id="left-sidebar" >
             <div id="conn-manager-box"></div>
             <div class="resizer-h" id="resizer-h-left"></div>
             <div id="table-list-box"></div>
@@ -187,7 +189,7 @@
 
         <div class="resizer-v" id="resizer-v-right"></div>
 
-        <aside id="right-sidebar">
+        <aside id="right-sidebar"  style="display: none;">
             <div id="schema-explorer-box" style="flex: 1; display: flex; flex-direction: column; min-height: 0;"></div>
         </aside>
     </div>
@@ -431,7 +433,7 @@
 
                 if (apiInfo && apiInfo !== 'timeout') {
                     if (statusSpan) {
-                        statusSpan.innerHTML = `✅ API v${apiInfo.version} · ${apiInfo.name}<br>🔌 ${apiInfo.endpoints_count} endpoints disponibles`;
+                        statusSpan.innerHTML = `API v${apiInfo.version} · ${apiInfo.name}<br> ${apiInfo.endpoints_count} endpoints`;
                     }
                     setTimeout(() => {
                         hideOverlay();

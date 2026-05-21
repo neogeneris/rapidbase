@@ -344,3 +344,26 @@
 
 @keyframes cd-spin { to { transform: rotate(360deg); } }
 
+/* Normalizar el contenedor del icono */
+.cd-driver-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+/* Controlar que las imágenes SVG no se desborden ni se deformen */
+.cd-driver-svg {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15)); /* Le da volumen sobre el fondo glassificado */
+    transition: transform 0.2s ease;
+}
+
+/* Efecto feedback cuando la tarjeta está activa */
+.cd-driver-card.active .cd-driver-svg {
+    transform: scale(1.08);
+}

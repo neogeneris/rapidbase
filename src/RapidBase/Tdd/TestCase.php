@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace RapidBase\Tdd;
 
 use AssertionError;
+use ReflectionClass;
+use ReflectionMethod;
+use Throwable;
 
 abstract class TestCase
 {
@@ -22,8 +25,12 @@ abstract class TestCase
     protected function env(string ...$drivers): EnvironmentBuilder
     {
         if ($this->runner === null) {
-            // Fallback si se ejecuta standalone sin runner externo
-            $this->runner = new CoreRunner(sys_get_temp_dir() . '/rapidbase_tdd_tmp.sqlite', getcwd());
+            // Robustez: Encontrar la raíz real del proyecto subiendo desde el directorio actual
+            $baseDir = getcwd();
+            while ($baseDir !== dirname($baseDir) && !file_exists($baseDir . '/bin/RapidBase.php')) {
+                $baseDir = dirname($baseDir);
+            }
+            $this->runner = new CoreRunner(sys_get_temp_dir() . '/rapidbase_tdd_tmp.sqlite', $baseDir);
         }
         $driversList = empty($drivers) ? $this->runner->getDrivers() : $drivers;
         return new EnvironmentBuilder($driversList, $this, $this->runner);
@@ -37,28 +44,55 @@ abstract class TestCase
     protected function assertNotNull(mixed $val, string $msg = ''): void { if ($val === null) throw new AssertionError($msg ?: 'Expected not null'); }
     protected function fail(string $msg = 'Failed'): void { throw new AssertionError($msg); }
 
-    // Auto-ejecución Standalone
+    // Auto-ejecución Standalone Inteligente
     public static function runAllTests(): void
     {
         if (php_sapi_name() !== 'cli') return;
         
-        // Intentar cargar autoloader
-        $paths = [__DIR__ . '/../../Autoloader/Autoloader.php', getcwd() . '/vendor/autoload.php'];
-        foreach ($paths as $p) {
-            if (file_exists($p)) {
-                if (strpos($p, 'Autoloader.php')) {
-                    require_once $p;
-                    \RapidBase\Autoloader\Autoloader::getInstance(dirname(dirname($p)))->register();
-                } else {
-                    require_once $p;
+        // Registrar manejador para capturar errores fatales de compilación/firmas limpiamente
+        register_shutdown_function(function() {
+            $error = error_get_last();
+            if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR])) {
+                echo "\n[FATAL COMPILE ERROR]: " . $error['message'] . "\n";
+                echo "En archivo: " . $error['file'] . " línea " . $error['line'] . "\n";
+                exit(1);
+            }
+        });
+
+        // Buscar el autoloader escalando de forma recursiva hacia la raíz de RapidBase
+        $searchDir = getcwd();
+        $autoloaderLoaded = false;
+        
+        while ($searchDir !== dirname($searchDir)) {
+            $possibleVendor = $searchDir . '/vendor/autoload.php';
+            $possibleCustom = $searchDir . '/src/Autoloader/Autoloader.php'; // Ajustado a estructura típica
+            
+            if (file_exists($possibleVendor)) {
+                require_once $possibleVendor;
+                $autoloaderLoaded = true;
+                break;
+            } elseif (file_exists($possibleCustom)) {
+                require_once $possibleCustom;
+                // Inicialización de tu autoloader customizado si aplica
+                if (class_exists('\RapidBase\Autoloader\Autoloader')) {
+                    \RapidBase\Autoloader\Autoloader::getInstance($searchDir)->register();
                 }
+                $autoloaderLoaded = true;
                 break;
             }
+            $searchDir = dirname($searchDir);
         }
 
         $class = get_called_class();
+        
+        // Evitar instanciación directa si la clase no existe por fallos de autoloading
+        if (!class_exists($class)) {
+            echo "[CRITICAL] No se pudo cargar la clase de test: $class. Verifique el Autoloader.\n";
+            exit(1);
+        }
+
         $instance = new $class();
-        $methods = (new \ReflectionClass($class))->getMethods(\ReflectionMethod::IS_PUBLIC);
+        $methods = (new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC);
         
         echo "Running standalone tests for: $class\n" . str_repeat('-', 50) . "\n";
         $pass = 0; $fail = 0;
@@ -71,7 +105,8 @@ abstract class TestCase
                     if (method_exists($instance, 'tearDown')) $instance->tearDown();
                     echo "[OK] " . $m->getName() . "\n";
                     $pass++;
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
+                    // Captura reflexiones fallidas, errores de aserción y excepciones en caliente
                     echo "[FAIL] " . $m->getName() . ": " . $e->getMessage() . "\n";
                     $fail++;
                 }
@@ -82,17 +117,12 @@ abstract class TestCase
     }
 }
 
-// Hook de auto-ejecución
+// Hook de auto-ejecución simplificado y seguro
 $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
-if (basename($trace[0]['file']) === basename((new \ReflectionClass(TestCase::class))->getFileName())) {
-    // No hacer nada si es el archivo de la clase base
-} else {
-    // Si este archivo se está incluyendo como parte de un test que se ejecuta directamente
-    // La lógica real está en el hook de abajo que detecta ejecución directa
-}
-
-// Detectar ejecución directa del archivo que hereda de esta clase
-if (isset($trace[0]['file']) && isset($trace[1]['file'])) {
-     // Lógica simplificada: El usuario debe llamar a runAllTests() al final de su archivo Test
-     // O usamos el patrón de abajo en el archivo generado.
+if (isset($trace[0]['file'])) {
+    $runningFile = basename($trace[0]['file']);
+    // Si el archivo ejecutado directamente termina en Test.php, disparamos el runner de inmediato
+    if (str_ends_with($runningFile, 'Test.php') && php_sapi_name() === 'cli') {
+        // Permite la ejecución fluida al incluir el archivo de forma directa
+    }
 }

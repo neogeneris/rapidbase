@@ -12,35 +12,40 @@ class ConnectionDialog {
         this._build();
     }
 
-    static get DRIVERS() {
+static get DRIVERS() {
         return [
             { 
                 id: 'mysql', 
                 label: 'MySQL', 
                 port: 3306, 
-                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v12M6 12h12"/></svg>` 
+                svg: `<img src="assets/icon/driver/mysql.svg" alt="MySQL" class="cd-driver-svg">` 
             },
             { 
                 id: 'mariadb', 
                 label: 'MariaDB', 
                 port: 3306, 
-                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 16v-4M12 8h.01"/></svg>` 
+                svg: `<img src="assets/icon/driver/mariadb.svg" alt="MariaDB" class="cd-driver-svg">` 
             },
             { 
                 id: 'sqlite', 
                 label: 'SQLite', 
                 port: null, 
-                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>` 
+                svg: `<img src="assets/icon/driver/sqlite.svg" alt="SQLite" class="cd-driver-svg">` 
             },
             { 
                 id: 'pgsql', 
                 label: 'PostgreSQL', 
                 port: 5432, 
-                svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 7.54 16.59A10 10 0 1 1 4.46 5.41 9.94 9.94 0 0 1 12 2z"/><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/></svg>` 
+                svg: `<img src="assets/icon/driver/postgresql.svg" alt="PostgreSQL" class="cd-driver-svg">` 
             },
+            { 
+                id: 'sqlsrv', 
+                label: 'SQL Server', 
+                port: 1433, 
+                svg: `<img src="assets/icon/driver/sqlserver.svg" alt="SQL Server" class="cd-driver-svg">` 
+            }
         ];
     }
-
     // ─── Build & Inject Semántico ────────────────────────────
     _build() {
         if (document.getElementById('cd-overlay')) {

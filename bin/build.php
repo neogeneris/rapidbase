@@ -5,7 +5,6 @@ $outputFile = __DIR__ . '/RapidBase.php';
 
 echo "Buscando archivos en $srcDir...\n";
 
-// Usamos RecursiveDirectoryIterator para encontrar todos los archivos PHP
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcDir));
 $phpFiles = [];
 
@@ -14,6 +13,13 @@ foreach ($iterator as $file) {
     if (basename($file) === 'schema_map.php') {
         continue;
     }
+
+    // Excluir toda la carpeta Tdd (funciona en Windows y Linux)
+    $fullPath = str_replace('\\', '/', $file->getPathname());
+    if (strpos($fullPath, '/Tdd/') !== false) {
+        continue;
+    }
+
     if ($file->isFile() && $file->getExtension() === 'php') {
         $phpFiles[] = $file->getPathname();
     }
@@ -21,7 +27,6 @@ foreach ($iterator as $file) {
 
 echo "Encontrados " . count($phpFiles) . " archivos.\n";
 
-// El contenido final comenzará con la etiqueta PHP y strict_types
 $finalContent = "<?php\n\n/**\n * RapidBase - Bundled single file\n * Generated on " . date('Y-m-d H:i:s') . "\n */\n\ndeclare(strict_types=1);\n\n";
 
 foreach ($phpFiles as $file) {
@@ -41,17 +46,11 @@ foreach ($phpFiles as $file) {
     $finalContent .= "// --- END: " . str_replace(__DIR__, '', $file) . " ---\n\n";
 }
 
-// Asegurarse de que no haya múltiples declaraciones de namespace sin llaves mezcladas de forma incorrecta,
-// aunque PHP soporta multiples `namespace X;` si están bien separados.
-
 file_put_contents($outputFile, $finalContent);
 
 echo "Archivo crudo generado. Minificando...\n";
 
-// Minificar usando el parser interno de PHP (seguro contra strings/regex erróneos)
 $minified = php_strip_whitespace($outputFile);
-
-// Volver a colocar la cabecera limpia
 $minified = preg_replace('/^\s*<\?php\s*/', '', $minified);
 $header = "<?php\n/**\n * RapidBase - Bundled & Minified\n * Generated on " . date('Y-m-d H:i:s') . "\n */\n";
 

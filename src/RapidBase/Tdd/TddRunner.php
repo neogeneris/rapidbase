@@ -471,3 +471,5 @@ class TddRunner {
         echo "\n";
     }
 }
+
+?>
