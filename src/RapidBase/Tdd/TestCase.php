@@ -60,6 +60,22 @@ abstract class TestCase
     protected function assertStringContainsString(string $needle, string $haystack, string $msg = ''): void { 
         if (strpos($haystack, $needle) === false) throw new AssertionError($msg ?: "Expected string to contain '$needle'"); 
     }
+    protected function assertContains(mixed $needle, array $haystack, string $msg = ''): void {
+        if (!in_array($needle, $haystack, true)) throw new AssertionError($msg ?: "Expected array to contain '$needle'");
+    }
+    protected function assertCount(int $expectedCount, array $array, string $msg = ''): void {
+        $actualCount = count($array);
+        if ($actualCount !== $expectedCount) throw new AssertionError($msg ?: "Expected count $expectedCount got $actualCount");
+    }
+    protected function assertEmpty(array $array, string $msg = ''): void {
+        if (!empty($array)) throw new AssertionError($msg ?: 'Expected array to be empty');
+    }
+    protected function assertNotEmpty(array $array, string $msg = ''): void {
+        if (empty($array)) throw new AssertionError($msg ?: 'Expected array to be not empty');
+    }
+    protected function assertStringNotStartsWith(string $prefix, string $string, string $msg = ''): void {
+        if (str_starts_with($string, $prefix)) throw new AssertionError($msg ?: "Expected string not to start with '$prefix'");
+    }
     protected function expectException(string $class): void {
         // Placeholder para compatibilidad - el framework TDD actual no soporta esto nativamente
         // Se puede implementar con un try-catch wrapper en el futuro

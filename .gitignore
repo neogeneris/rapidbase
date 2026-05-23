@@ -1,14 +1,8 @@
 ```
-# Cache and temporary files
-*.dat
-tmp_cache/
+# Database files
 *.sqlite
 
 # Test artifacts
-tests/Unit/Endpoints/tmp_cache/
-tests/Unit/Endpoints/tmp_test_connections.sqlite
-
-# PHP specific
-*.php~
-*.php.bak
+tests/_output/
+tests/_support/_generated/
 ```
