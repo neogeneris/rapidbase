@@ -11,13 +11,13 @@ use Throwable;
 
 abstract class TestCase
 {
-    public ?CoreRunner $runner = null;
+    public ?Runner $runner = null;
     public string $currentDriver = 'sqlite';
 
     public function setUp(): void {}
     public function tearDown(): void {}
 
-    public function setRunnerContext(CoreRunner $runner): void
+    public function setRunnerContext(Runner $runner): void
     {
         $this->runner = $runner;
     }
@@ -30,7 +30,7 @@ abstract class TestCase
             while ($baseDir !== dirname($baseDir) && !file_exists($baseDir . '/bin/RapidBase.php')) {
                 $baseDir = dirname($baseDir);
             }
-            $this->runner = new CoreRunner(sys_get_temp_dir() . '/rapidbase_tdd_tmp.sqlite', $baseDir);
+            $this->runner = new Runner(sys_get_temp_dir() . '/rapidbase_tdd_tmp.sqlite', $baseDir);
         }
         $driversList = empty($drivers) ? $this->runner->getDrivers() : $drivers;
         return new EnvironmentBuilder($driversList, $this, $this->runner);
