@@ -4,42 +4,6 @@ declare(strict_types=1);
 
 namespace RapidBase\Endpoints;
 
-// Auto-cargar dependencias si se ejecuta directamente
-if (php_sapi_name() === 'cli') {
-    $baseDir = dirname(__DIR__, 4);
-    if (!file_exists($baseDir . '/src/RapidBase/Autoloader/Autoloader.php')) {
-        $baseDir = dirname(__DIR__, 3); // Ajustar si estamos en tests/Unit/Endpoints
-    }
-    if (!file_exists($baseDir . '/src/RapidBase/Autoloader/Autoloader.php')) {
-        $baseDir = dirname(__DIR__, 2); // Ajustar si estamos en tests/Unit
-    }
-    
-    $autoloaderFile = $baseDir . '/src/RapidBase/Autoloader/Autoloader.php';
-    if (file_exists($autoloaderFile)) {
-        require_once $autoloaderFile;
-        \RapidBase\Autoloader\Autoloader::getInstance($baseDir . '/src')
-            ->enableDebug(false)
-            ->enableCache(true)
-            ->register();
-    } else {
-        // Fallback: autoloader manual mínimo
-        spl_autoload_register(function ($class) use ($baseDir) {
-            if (strpos($class, 'RapidBase\\') === 0) {
-                $file = $baseDir . '/src/' . str_replace('\\', '/', $class) . '.php';
-                if (file_exists($file)) {
-                    require_once $file;
-                }
-            }
-        });
-    }
-    
-    // Carga manual de clases del QueryBrowser (están fuera del bundle compilado)
-    require_once $baseDir . '/examples/querybrowser/api/v1/ApiContext.php';
-    require_once $baseDir . '/examples/querybrowser/api/v1/BaseEndpoint.php';
-    require_once $baseDir . '/examples/querybrowser/api/v1/Models/Connection.php';
-    require_once $baseDir . '/examples/querybrowser/api/v1/Endpoints/ConnectionManager.php';
-}
-
 use RapidBase\Tdd\TestCase;
 use RapidBase\Api\ApiContext;
 use RapidBase\Core\DB;

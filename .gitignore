@@ -1,86 +1,42 @@
+```
 # Database files
 *.sqlite
-*.db
-*.sqlite3
 
-# Environment specific
-.env
-.env.local
-.env.*
-
-# IDE/Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
+# Logs and temp files
+*.log
 *.tmp
 
-# Logs
-*.log
+# Environment
+.env
+.env.local
+*.env.*
 
-# Build artifacts
-build/
-dist/
-target/
+# Editors
+.vscode/
+.idea/
 
-# Dependencies
-node_modules/
-vendor/
-
-# Python specific (if applicable)
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
 venv/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
+.env
+.env.*
+.env.local
+
+# Coverage reports
+coverage/
+htmlcov/
 .coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
 
-# PHP specific (given the file extension)
-*.phar
-vendor/
-composer.lock
-composer.phar
-.box/
-.php_cs
-.php_cs.dist
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-desktop.ini
-
-# Backup files
-*~
-*.bak
-*.backup
-*.old
-*.orig
-*.rej
+# IDE
 *.swp
 *.swo
 
-# Testing
-tests/
-test/
-spec/
+# OS
+.DS_Store
+Thumbs.db
+```

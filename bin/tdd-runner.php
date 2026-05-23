@@ -292,11 +292,36 @@ if ($isTestFile) {
 } else {
     $testClassName = $className . 'Test';
     $knownDir = $runner->getTestDirectoryForClass($className);
-    if ($knownDir) $testsDir = $knownDir;
+    if ($knownDir && !$testsDir) $testsDir = $knownDir;
     
+    // Check if --tests points to a specific file (not a directory)
     if ($testsDir) {
-        $potentialFile = $testsDir . '/' . (new ReflectionClass($className))->getShortName() . 'Test.php';
-        if (file_exists($potentialFile)) require_once $potentialFile;
+        // Resolve relative paths to absolute
+        if (!str_starts_with($testsDir, '/')) {
+            $testsDir = getcwd() . '/' . $testsDir;
+        }
+        
+        if (file_exists($testsDir) && str_ends_with($testsDir, '.php')) {
+            // Direct test file specified
+            require_once $testsDir;
+            // Extract class name from the file if not already set
+            if (!class_exists($testClassName)) {
+                $content = file_get_contents($testsDir);
+                if (preg_match('/namespace\s+([^;]+);/', $content, $nsMatches)) {
+                    $namespace = trim($nsMatches[1]);
+                    if (preg_match('/class\s+(\w+)/', $content, $classMatches)) {
+                        $testClassName = $namespace . '\\' . $classMatches[1];
+                    }
+                }
+            }
+        } else {
+            // Tests directory specified, look for the test file there
+            $shortName = (new ReflectionClass($className))->getShortName();
+            $potentialFile = $testsDir . '/' . $shortName . 'Test.php';
+            if (file_exists($potentialFile)) {
+                require_once $potentialFile;
+            }
+        }
     }
     
     if (!class_exists($testClassName)) {
