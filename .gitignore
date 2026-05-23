@@ -1,8 +1,22 @@
 ```
-# Database files
-*.sqlite
+# Binary and compiled files
+*.o
+*.obj
+*.out
 
-# Test artifacts
-tests/_output/
-tests/_support/_generated/
+# Dependencies
+vendor/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Editors
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+*.env.*
 ```

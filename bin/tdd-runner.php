@@ -109,6 +109,80 @@ if (file_exists($target) && str_ends_with($target, 'Test.php')) {
     }
     if (!$className) $className = pathinfo($target, PATHINFO_FILENAME);
     echo "Mode: Direct Test File Execution\n";
+} elseif (is_dir($target)) {
+    // Es un directorio, buscar todos los archivos *Test.php recursivamente
+    echo "Mode: Directory Scan for Tests\n";
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($target)
+    );
+    $testFiles = [];
+    foreach ($iterator as $file) {
+        if ($file->isFile() && strpos($file->getFilename(), 'Test.php') !== false) {
+            $testFiles[] = $file->getPathname();
+        }
+    }
+    
+    if (empty($testFiles)) {
+        echo "No test files found in directory: $target\n";
+        exit(1);
+    }
+    
+    echo "Found " . count($testFiles) . " test file(s).\n\n";
+    
+    $totalTests = 0;
+    $totalPassed = 0;
+    $totalFailed = 0;
+    
+    foreach ($testFiles as $testFile) {
+        echo str_repeat("-", 60) . "\n";
+        // Ejecutar cada archivo individualmente re-invocando la lógica o procesando aquí
+        // Para simplificar, procesamos la clase directamente aquí
+        $content = file_get_contents($testFile);
+        $className = null;
+        if (preg_match('/namespace\s+([^;]+);/', $content, $nsMatches)) {
+            $namespace = trim($nsMatches[1]);
+            if (preg_match('/class\s+(\w+)/', $content, $classMatches)) {
+                $className = $namespace . '\\' . $classMatches[1];
+            }
+        }
+        if (!$className) continue;
+        
+        // Instanciar y correr tests (simplificado para el escaneo)
+        require_once $testFile;
+        if (class_exists($className)) {
+            $instance = new $className();
+            if (method_exists($instance, 'setRunner')) {
+               // Si usa runner externo
+            }
+            
+            // Ejecutar métodos test*
+            $methods = array_filter(get_class_methods($instance), function($m) {
+                return strpos($m, 'test') === 0;
+            });
+            
+            foreach ($methods as $method) {
+                $totalTests++;
+                try {
+                    if (method_exists($instance, 'setUp')) $instance->setUp();
+                    $instance->$method();
+                    echo "."; // Pass
+                    $totalPassed++;
+                    if (method_exists($instance, 'tearDown')) $instance->tearDown();
+                } catch (Throwable $e) {
+                    echo "F"; // Fail
+                    $totalFailed++;
+                    echo "\n  FAIL: $className::$method - " . $e->getMessage() . "\n";
+                    if (method_exists($instance, 'tearDown')) $instance->tearDown();
+                }
+            }
+            echo "\n";
+        }
+    }
+    
+    echo "\n" . str_repeat("=", 40) . "\n";
+    echo "Total: $totalTests | Passed: $totalPassed | Failed: $totalFailed\n";
+    exit($totalFailed > 0 ? 1 : 0);
+
 } else {
     if (file_exists($target)) {
         $fileLocation = realpath($target);
