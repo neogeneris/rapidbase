@@ -11,10 +11,10 @@ class EnvironmentBuilder
 {
     private array $drivers;
     private TestCase $testInstance;
-    private CoreRunner $runner;
+    private Runner $runner;
     private ?array $dataset = null;
 
-    public function __construct(array $drivers, TestCase $testInstance, CoreRunner $runner)
+    public function __construct(array $drivers, TestCase $testInstance, Runner $runner)
     {
         $this->drivers = $drivers;
         $this->testInstance = $testInstance;
