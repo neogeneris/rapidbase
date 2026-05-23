@@ -52,12 +52,15 @@ class TddRunner {
             $this->basePath = rtrim($basePath, '/\\');
         }
         
-        // Cargar RapidBase bundle
-        $bundlePath = $this->basePath . '/bin/RapidBase.php';
-        if (file_exists($bundlePath)) {
-            require_once $bundlePath;
-        } elseif (file_exists($this->basePath . '/lib/RapidBase.php')) {
-            require_once $this->basePath . '/lib/RapidBase.php';
+        // Cargar RapidBase bundle SOLO si no se ha cargado el Autoloader desde src
+        // Esto evita errores de redeclaración de clases
+        if (!class_exists('RapidBase\\Autoloader\\Autoloader', false)) {
+            $bundlePath = $this->basePath . '/bin/RapidBase.php';
+            if (file_exists($bundlePath)) {
+                require_once $bundlePath;
+            } elseif (file_exists($this->basePath . '/lib/RapidBase.php')) {
+                require_once $this->basePath . '/lib/RapidBase.php';
+            }
         }
         
         // Inicializar DB de historial

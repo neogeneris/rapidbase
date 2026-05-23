@@ -15,13 +15,14 @@ if (!file_exists($baseDir . '/src/RapidBase/Tdd/CoreRunner.php')) {
     $baseDir = getcwd();
 }
 
-// Load Autoloader
+// Load Autoloader ONLY from src (avoid bundled RapidBase.php to prevent redeclaration errors)
 if (file_exists($baseDir . '/vendor/autoload.php')) {
     require_once $baseDir . '/vendor/autoload.php';
 } elseif (file_exists($baseDir . '/src/RapidBase/Autoloader/Autoloader.php')) {
     require_once $baseDir . '/src/RapidBase/Autoloader/Autoloader.php';
     \RapidBase\Autoloader\Autoloader::getInstance($baseDir . '/src')
-        ->setEnvironment(\RapidBase\Autoloader\Autoloader::ENV_DEV)
+        ->enableDebug(false)
+        ->enableCache(true)
         ->register();
 } else {
     spl_autoload_register(function ($class) use ($baseDir) {
@@ -34,7 +35,7 @@ if (file_exists($baseDir . '/vendor/autoload.php')) {
     });
 }
 
-use RapidBase\Tdd\CoreRunner;
+use RapidBase\Tdd\Runner;
 
 // --- Argument Parsing ---
 $args = $argv;
@@ -217,7 +218,7 @@ echo "Drivers: " . implode(', ', $options['drivers']) . "\n\n";
 // --- Init Runner ---
 $dbPath = $baseDir . '/rapidbase_core_tdd.sqlite';
 try {
-    $runner = new CoreRunner($dbPath, $baseDir);
+    $runner = new Runner($dbPath, $baseDir);
     $runner->setDrivers($options['drivers']);
     $runner->stopOnFirst($options['first']);
     $runner->verbose($options['verbose']);
