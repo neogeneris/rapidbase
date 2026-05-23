@@ -76,14 +76,15 @@ class SQLEditor {
                 const result = await api.connectionManager.list();
                 this.connections = result.connections || [];
                 if (!this.connectionId && this.connections.length > 0) {
-                    this.connectionId = 'saved_' + this.connections[0].id;
+                    // Usar el nombre normalizado de la conexión en lugar de saved_ID
+                    this.connectionId = this._normalizeConnectionName(this.connections[0].name);
                 }
             } else {
                 const resp = await fetch('api.php?action=list_connections');
                 const data = await resp.json();
                 this.connections = (data.connections || []).map(c => ({ id: c[0], name: c[1], driver: c[2] }));
                 if (!this.connectionId && this.connections.length > 0) {
-                    this.connectionId = 'saved_' + this.connections[0].id;
+                    this.connectionId = this._normalizeConnectionName(this.connections[0].name);
                 }
             }
         } catch (e) {
@@ -245,6 +246,17 @@ class SQLEditor {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    /**
+     * Normalize connection name to match the server-side normalization.
+     * Converts to lowercase, replaces special characters with underscores.
+     */
+    _normalizeConnectionName(name) {
+        let normalized = name.trim().toLowerCase();
+        normalized = normalized.replace(/[^a-z0-9_\-]/g, '_');
+        normalized = normalized.replace(/_+/g, '_'); // Avoid multiple consecutive underscores
+        return 'conn_' + normalized;
     }
 
     onActivate() {}

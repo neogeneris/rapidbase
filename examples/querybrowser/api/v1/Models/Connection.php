@@ -120,4 +120,34 @@ class Connection extends Model
         unset($data['password']);
         return $data;
     }
+
+    /**
+     * Find a connection by its name.
+     * This allows using human-readable names instead of numeric IDs.
+     * 
+     * @param string $name The connection name
+     * @return static|null The connection object or null if not found
+     */
+    public static function findByName(string $name): ?static
+    {
+        try {
+            $row = X::con('internal')
+                ->from(static::$table, ['name' => $name])
+                ->first();
+            if ($row) {
+                $conn = new static();
+                $conn->fill($row);
+                return $conn;
+            }
+        } catch (\Throwable $e) {
+            // Fallback al método directo si falla
+            $data = DB::find(static::$table, ['name' => $name]);
+            if ($data) {
+                $conn = new static();
+                $conn->fill($data);
+                return $conn;
+            }
+        }
+        return null;
+    }
 }
