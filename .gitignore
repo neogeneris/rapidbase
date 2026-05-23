@@ -1,22 +1,56 @@
 ```
-# Binary and compiled files
-*.o
-*.obj
-*.out
-
-# Dependencies
-vendor/
+# Database files
+*.sqlite
 
 # Logs and temp files
 *.log
 *.tmp
 
-# Editors
-.vscode/
-.idea/
-
 # Environment
 .env
 .env.local
 *.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Dependencies
+vendor/
+node_modules/
+*.lock
+
+# Build artifacts
+dist/
+build/
+target/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.DS_Store
+Thumbs.db
 ```
