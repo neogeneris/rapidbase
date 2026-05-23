@@ -6,7 +6,7 @@ if (file_exists($autoloadPath)) {
     require_once $autoloadPath;
 } else {
     // Cargar RapidBase.php desde el directorio de ejemplos
-    require_once __DIR__ . '/../../../../examples/querybrowser/RapidBase.php';
+    require_once __DIR__ . '/../../../../examples/querybrowser/api/v1/lib/RapidBase.php';
 }
 
 // Inicializar la base de datos interna de conexiones (si se necesita)

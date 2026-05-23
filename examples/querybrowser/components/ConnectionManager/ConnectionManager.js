@@ -6,7 +6,7 @@ class ConnectionManager {
         this.pingedConnections = {};
         this.activeConnectionId = null;
 
-        // Cliente unificado — REQUERIDO
+        // Cliente unificado (nuevo router v1)
         this.apiClient = window.RapidBaseClient
             ? new RapidBaseClient('api/v1/index.php')
             : null;
@@ -51,7 +51,7 @@ class ConnectionManager {
         this.container.querySelectorAll('.conn-item').forEach(el => el.classList.remove('active'));
         element.classList.add('active');
 
-        // Si ya estaba online, solo recargamos esquema
+        // Si ya estaba online, solo recargamos esquema y activamos
         if (this.pingedConnections[id]?.success) {
             this.activeConnectionId = id;
             this.loadSchema(id);
@@ -95,6 +95,7 @@ class ConnectionManager {
 
                 this.activeConnectionId = id;
                 this.loadSchema(id);
+                // Activar la conexión y cargar el esquema en el resto de la app
                 if (window.app?.connectSaved) app.connectSaved(id);
             } else {
                 element.classList.add('is-offline');
@@ -117,7 +118,7 @@ class ConnectionManager {
             const result = await this._loadSchema(connectionId);
 
             if (result.success && window.app?.tableList) {
-                // Añadir nombre de la BD
+                // Añadir nombre de la BD si no viene en la respuesta
                 if (!result.database) {
                     const connInfo = this.allConnections.find(c => c.id === connectionId);
                     result.database = connInfo?.database || '';
@@ -128,11 +129,13 @@ class ConnectionManager {
             }
         } catch (e) {
             console.error('Error cargando esquema:', e);
-            if (window.app?.tableList) app.tableList.setError('Error de red al cargar el esquema');
+            if (window.app?.tableList) {
+                app.tableList.setError('Error de red al cargar el esquema');
+            }
         }
     }
 
-    // ── Render (sin cambios) ──
+    // ── Render (con iconos SVG modernos) ──
     render() {
         this.container.innerHTML = '';
         this.container.className = 'cm-wrapper';
@@ -156,7 +159,10 @@ class ConnectionManager {
             const id = conn.id;
             const name = conn.name || 'Unnamed';
             const driver = (conn.driver || '').toLowerCase();
-            const iconSvg = window.DBIcons ? (DBIcons[driver] || DBIcons.sqlite) : '🗄️';
+            // Usar los SVG modernos de DBIcons (archivos locales)
+            const iconSvg = window.DBIcons?.[driver] 
+                ? `<img src="assets/icon/driver/${driver}.svg" class="cm-driver-icon" alt="${driver}">` 
+                : '🗄️';
 
             const cached = this.pingedConnections[id];
             let statusClass = '';

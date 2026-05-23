@@ -457,3 +457,11 @@ body .status-dot {
 .cm-wrapper:hover .status-dot {
     border-color: #ffffff !important;
 }
+
+
+.cm-driver-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;   /* mantiene la proporción dentro del tamaño fijo */
+    flex-shrink: 0;
+}

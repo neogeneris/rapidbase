@@ -5,7 +5,7 @@
  * Uses SQLite in-memory database for fast, isolated testing.
  */
 
-require_once __DIR__ . '/../../../src/RapidBase/Core/Schema/MySQLDiscovery.php';
+require_once __DIR__ . '/../../../bin/RapidBase.php';
 
 // Simple SQLite adaptation for testing purposes
 class SQLiteDiscovery extends \RapidBase\Core\Schema\MySQLDiscovery

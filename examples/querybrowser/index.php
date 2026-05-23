@@ -215,10 +215,10 @@
     <script defer src="assets/js/codemirror/codemirror.js"></script>
     <script defer src="assets/js/codemirror/mode/sql.js"></script>
     <script defer src="assets/js/codemirror/show-hint.js"></script>
-    <script defer src="assets/js/codemirror/sql-hint.min.js"></script>
+    <script defer src="assets/js/codemirror/sql-hint.js"></script>
     <!-- CSS de CodeMirror (sin defer, no bloquea) -->
     <link rel="stylesheet" href="assets/css/codemirror/codemirror.css">
-    <link rel="stylesheet" href="assets/css/codemirror/show-hint.min.css">
+    <link rel="stylesheet" href="assets/css/codemirror/show-hint.css">
 
     <script>
         // --- UTILIDADES ---

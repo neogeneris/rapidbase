@@ -2,6 +2,7 @@
  * ConnectionDialog.js
  * Two‑step wizard for creating new database connections.
  * Refactored for deep esmerilated glassmorphism design.
+ * Now uses the new API v1 (ConnectionManager.test / create).
  */
 class ConnectionDialog {
     constructor() {
@@ -9,10 +10,11 @@ class ConnectionDialog {
         this.selectedDriver = 'mysql';
         this.selectedEnvironment = 'dev';
         this.overlay = null;
+        this.errorModal = null;
         this._build();
     }
 
-static get DRIVERS() {
+    static get DRIVERS() {
         return [
             { 
                 id: 'mysql', 
@@ -46,8 +48,12 @@ static get DRIVERS() {
             }
         ];
     }
+
     // ─── Build & Inject Semántico ────────────────────────────
     _build() {
+        // Modal de error (oculto por defecto)
+        this._buildErrorModal();
+
         if (document.getElementById('cd-overlay')) {
             this.overlay = document.getElementById('cd-overlay');
             return;
@@ -154,7 +160,13 @@ static get DRIVERS() {
                             <span class="cd-spinner"></span>
                             <span class="cd-btn-text">⚡ Probar conexión</span>
                         </button>
-                        <span class="cd-result" id="cd-result"></span>
+                        <!-- Indicador visual circular -->
+                        <div class="cd-status-indicator" id="cd-status-indicator" style="display:none;">
+                            <div class="cd-status-circle" id="cd-status-circle">
+                                <div class="cd-status-spinner"></div>
+                            </div>
+                            <span class="cd-status-text" id="cd-status-text"></span>
+                        </div>
                     </div>
                     <div class="cd-footer-buttons">
                         <button class="cd-btn cd-btn-ghost" id="cd-cancel-btn">Cancelar</button>
@@ -173,6 +185,65 @@ static get DRIVERS() {
         document.body.appendChild(ov);
         this.overlay = ov;
         this._events();
+    }
+
+    // ─── Modal de error ─────────────────────────────────────
+    _buildErrorModal() {
+        if (document.getElementById('cd-error-modal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'cd-error-modal';
+        modal.className = 'cd-error-modal';
+        modal.innerHTML = `
+            <div class="cd-error-modal-content">
+                <div class="cd-error-icon">✗</div>
+                <h4 class="cd-error-title">Error de Conexión</h4>
+                <p class="cd-error-message" id="cd-error-message"></p>
+                <button class="cd-btn cd-btn-primary" id="cd-error-close">Cerrar</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        this.errorModal = modal;
+        modal.querySelector('#cd-error-close').onclick = () => this._hideErrorModal();
+        modal.addEventListener('click', (e) => { if (e.target === modal) this._hideErrorModal(); });
+    }
+
+    _showErrorModal(message) {
+        this.errorModal.querySelector('#cd-error-message').textContent = message;
+        this.errorModal.classList.add('is-open');
+    }
+
+    _hideErrorModal() {
+        this.errorModal.classList.remove('is-open');
+    }
+
+    // ─── Indicador visual de estado ─────────────────────────
+    _setStatus(state, text = '') {
+        const indicator = this.overlay.querySelector('#cd-status-indicator');
+        const circle = this.overlay.querySelector('#cd-status-circle');
+        const statusText = this.overlay.querySelector('#cd-status-text');
+        const testBtn = this.overlay.querySelector('#cd-test-btn');
+
+        indicator.style.display = 'flex';
+        testBtn.style.display = 'none'; // ocultar botón mientras se muestra el estado
+
+        circle.className = 'cd-status-circle'; // reset
+        if (state === 'loading') {
+            circle.classList.add('loading');
+            statusText.textContent = text || 'Probando...';
+        } else if (state === 'success') {
+            circle.classList.add('success');
+            statusText.textContent = text || 'Conectado';
+        } else if (state === 'error') {
+            circle.classList.add('error');
+            statusText.textContent = text || 'Error';
+        }
+    }
+
+    _resetStatus() {
+        const indicator = this.overlay.querySelector('#cd-status-indicator');
+        const testBtn = this.overlay.querySelector('#cd-test-btn');
+        indicator.style.display = 'none';
+        testBtn.style.display = ''; // restaurar botón
     }
 
     // ─── Control de Eventos Actualizado ──────────────────────
@@ -235,9 +306,7 @@ static get DRIVERS() {
         ov.querySelector('#cd-save-btn').style.display  = step === 2 ? '' : 'none';
         ov.querySelector('#cd-test-btn').style.display  = step === 2 ? '' : 'none';
 
-        const r = ov.querySelector('#cd-result');
-        r.textContent = '';
-        r.className = 'cd-result';
+        this._resetStatus();
     }
 
     _setupStep2() {
@@ -301,55 +370,76 @@ static get DRIVERS() {
         return null;
     }
 
+    // ─── Nuevo endpoint ConnectionManager.test ───────────────
     async _test() {
         const data = this._data();
         const err = this._validate(data);
-        const resultEl = this.overlay.querySelector('#cd-result');
-        const btn = this.overlay.querySelector('#cd-test-btn');
-        if (err) { resultEl.textContent = err; resultEl.className = 'cd-result error'; return; }
+        if (err) {
+            this._showErrorModal(err);
+            return;
+        }
 
-        btn.classList.add('loading');
-        resultEl.textContent = '';
+        this._setStatus('loading');
+
         try {
-            const r = await fetch('api.php?action=test_connection', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            const res = await r.json();
-            if (res.success) {
-                resultEl.textContent = `✓ Conectado (${Math.round(res.latency)}ms)`;
-                resultEl.className = 'cd-result ok';
+            let res;
+            if (window.RapidBaseClient) {
+                const api = new RapidBaseClient('api/v1/index.php');
+                res = await api.connectionManager.test(data);
             } else {
-                resultEl.textContent = `✗ ${res.error || 'Error de negociación'}`;
-                resultEl.className = 'cd-result error';
+                const r = await fetch('api/v1/index.php?ep=ConnectionManager&action=test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                res = await r.json();
             }
-        } catch { resultEl.textContent = '✗ Error de enlace de red'; resultEl.className = 'cd-result error'; }
-        finally { btn.classList.remove('loading'); }
+            if (res.success) {
+                this._setStatus('success', `Conectado (${res.latency})`);
+            } else {
+                this._setStatus('error');
+                this._showErrorModal(res.error || 'Error de negociación');
+            }
+        } catch (networkError) {
+            this._setStatus('error');
+            this._showErrorModal('No se pudo contactar con el servidor. Verifique su red.');
+        }
     }
 
+    // ─── Nuevo endpoint ConnectionManager.create ─────────────
     async _save() {
         const data = this._data();
         const err = this._validate(data);
-        const resultEl = this.overlay.querySelector('#cd-result');
-        const btn = this.overlay.querySelector('#cd-save-btn');
-        if (err) { resultEl.textContent = err; resultEl.className = 'cd-result error'; return; }
+        if (err) {
+            this._showErrorModal(err);
+            return;
+        }
 
-        btn.classList.add('loading'); btn.disabled = true;
+        const saveBtn = this.overlay.querySelector('#cd-save-btn');
+        saveBtn.classList.add('loading');
+        saveBtn.disabled = true;
+
         try {
-            const r = await fetch('api.php?action=add_connection', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            const res = await r.json();
-            if (res.success) {
-                this.close();
-                window.app?.connManager?.init();
+            if (window.RapidBaseClient) {
+                const api = new RapidBaseClient('api/v1/index.php');
+                await api.connectionManager.create(data);
             } else {
-                resultEl.textContent = `✗ ${res.error || 'Fallo de persistencia'}`;
-                resultEl.className = 'cd-result error';
+                const r = await fetch('api/v1/index.php?ep=ConnectionManager&action=create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const res = await r.json();
+                if (!res.success) throw new Error(res.error);
             }
-        } catch { resultEl.textContent = '✗ Fallo crítico de red'; resultEl.className = 'cd-result error'; }
-        finally { btn.classList.remove('loading'); btn.disabled = false; }
+            this.close();
+            window.app?.connManager?.init();
+        } catch (e) {
+            this._showErrorModal(e.message);
+        } finally {
+            saveBtn.classList.remove('loading');
+            saveBtn.disabled = false;
+        }
     }
 
     open() {

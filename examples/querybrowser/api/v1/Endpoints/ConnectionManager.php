@@ -6,7 +6,11 @@ use RapidBase\Api\BaseEndpoint;
 use RapidBase\Core\X;
 use RapidBase\Core\Conn;
 use RapidBase\Core\DB;
-use RapidBase\Core\Gateway;
+
+// Carga manual del modelo (está fuera del bundle compilado)
+require_once __DIR__ . '/../Models/Connection.php';
+
+use RapidBase\Models\Connection;
 
 class ConnectionManager extends BaseEndpoint
 {
@@ -16,17 +20,9 @@ class ConnectionManager extends BaseEndpoint
     {
         if (self::$internalDbReady) return;
 
-        // Ruta al archivo real de conexiones
-        if (defined('CONNECTIONS_DB')) {
-            $dbFile = CONNECTIONS_DB;
-        } else {
-            $dbFile = __DIR__ . '/../../../data/connections.sqlite';
-        }
-
+        $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
         $dir = dirname($dbFile);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
-        }
+        if (!is_dir($dir)) mkdir($dir, 0777, true);
 
         if (!file_exists($dbFile)) {
             $pdo = new \PDO("sqlite:$dbFile");
@@ -55,67 +51,31 @@ class ConnectionManager extends BaseEndpoint
     {
         $this->ensureInternalDb();
         try {
-            $result = X::con('internal')->from('connections')->select();
-            $connections = array_map(function ($row) {
-                return [
-                    'id'          => $row[0],
-                    'name'        => $row[1],
-                    'driver'      => $row[2],
-                    'host'        => $row[3],
-                    'port'        => $row[4],
-                    'database'    => $row[5],
-                    'username'    => $row[6],
-                    'password'    => $row[7],
-                    'description' => $row[8],
-                    'environment' => $row[9],
-                    'status'      => $row[10],
-                ];
-            }, $result->data);
+            $connections = Connection::all();
+            $result = array_map(fn($c) => $c->toSafeArray(), $connections);
             return [
                 'success'     => true,
-                'count'       => count($connections),
-                'connections' => $connections,
+                'count'       => count($result),
+                'connections' => $result,
             ];
         } catch (\Throwable $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    /**
-     * Endpoint para probar credenciales en caliente ANTES de guardarlas 
-     * Invocado por ConnectionDialog.js -> api.php?action=test_connection
-     */
     public function test(): array
     {
         $params = $this->context->params;
-        $driver = $params['driver'] ?? 'mysql';
-        $host   = $params['host'] ?? 'localhost';
-        $port   = $params['port'] ?? null;
-        $dbName = $params['database'] ?? '';
-        $user   = $params['username'] ?? '';
-        $pass   = $params['password'] ?? '';
 
         try {
-            $options = [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_TIMEOUT => 4
-            ];
-
-            $dsn = match ($driver) {
-                'sqlite' => "sqlite:{$dbName}",
-                'mysql', 'mariadb' => "mysql:host={$host}" . ($port ? ";port={$port}" : "") . ";dbname={$dbName};charset=utf8mb4",
-                'pgsql'  => "pgsql:host={$host}" . ($port ? ";port={$port}" : "") . ";dbname={$dbName}",
-                'sqlsrv' => "sqlsrv:Server={$host}" . ($port ? ",{$port}" : "") . ";Database={$dbName};Encrypt=0;TrustServerCertificate=1",
-                default  => throw new \Exception("Controlador '{$driver}' no soportado."),
-            };
-
-            if ($driver === 'sqlsrv') {
-                $options[\PDO::SQLSRV_ATTR_ENCODING] = \PDO::SQLSRV_ENCODING_UTF8;
-            }
+            $temp = new Connection();
+            $temp->fill($params);
+            $dsn = $temp->buildDsn();
 
             $start = microtime(true);
-            $testPdo = new \PDO($dsn, $user, $pass, $options);
+            DB::setup($dsn, $params['username'] ?? '', $params['password'] ?? '', 'test_temp');
             $latency = round((microtime(true) - $start) * 1000, 2);
+            Conn::close('test_temp');
 
             return [
                 'success' => true,
@@ -133,36 +93,29 @@ class ConnectionManager extends BaseEndpoint
     public function create(): array
     {
         $this->ensureInternalDb();
-        $params = $this->context->params;
+        $rawParams = $this->context->params;
+
+        // Lista blanca de campos permitidos
+        $allowed = ['name', 'driver', 'host', 'port', 'database', 'username', 'password', 'description', 'environment', 'status'];
+        $params = array_intersect_key($rawParams, array_flip($allowed));
+
         try {
-            $id = X::con('internal')->from('connections')->insert([
-                'name'        => $params['name'] ?? 'Unnamed',
-                'driver'      => $params['driver'] ?? 'sqlite',
-                'host'        => $params['host'] ?? null,
-                'port'        => $params['port'] ?? null,
-                'database'    => $params['database'] ?? '',
-                'username'    => $params['username'] ?? null,
-                'password'    => $params['password'] ?? null,
-                'description' => $params['description'] ?? null,
-                'environment' => $params['environment'] ?? 'development',
-                'status'      => $params['status'] ?? 'active',
-            ]);
+            $id = Connection::create($params);
+            if (!$id || (is_int($id) && $id <= 0)) {
+                return ['success' => false, 'error' => 'No se pudo crear la conexión'];
+            }
+
+            // Intentar leer el registro recién creado
+            $conn = Connection::read($id);
+            if (!$conn) {
+                // Fallback: construir el objeto manualmente con el ID devuelto
+                $conn = new Connection(array_merge($params, ['id' => $id]));
+            }
+
             return [
                 'success'    => true,
                 'id'         => $id,
-                'connection' => [
-                    'id'          => $id,
-                    'name'        => $params['name'] ?? 'Unnamed',
-                    'driver'      => $params['driver'] ?? 'sqlite',
-                    'host'        => $params['host'] ?? null,
-                    'port'        => $params['port'] ?? null,
-                    'database'    => $params['database'] ?? '',
-                    'username'    => $params['username'] ?? null,
-                    'password'    => $params['password'] ?? null,
-                    'description' => $params['description'] ?? null,
-                    'environment' => $params['environment'] ?? 'development',
-                    'status'      => $params['status'] ?? 'active',
-                ]
+                'connection' => $conn->toSafeArray()
             ];
         } catch (\Throwable $e) {
             return ['success' => false, 'error' => $e->getMessage()];
@@ -175,55 +128,59 @@ class ConnectionManager extends BaseEndpoint
         $id = $this->context->params['id'] ?? null;
         if (!$id) return ['success' => false, 'error' => 'Missing id'];
         try {
-            X::con('internal')->from('connections', ['id' => $id])->delete();
+            Connection::delete($id);
             return ['success' => true, 'deleted_id' => $id];
         } catch (\Throwable $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    public function ping(): array
-    {
-        $params = $this->context->params;
-        $rawId = $params['connectionId'] ?? $params['id'] ?? null;
-        if (!$rawId) return ['success' => false, 'error' => 'Missing connectionId'];
 
-        // Quitar el prefijo "saved_" si está presente
-        $id = (int) str_replace('saved_', '', $rawId);
 
-        $this->ensureInternalDb();
-        $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
-        if (!$connRow) return ['success' => false, 'error' => 'Connection not found'];
+public function ping(): array
+{
+    $params = $this->context->params;
+    $rawId = $params['connectionId'] ?? $params['id'] ?? null;
+    if (!$rawId) return ['success' => false, 'error' => 'Missing connectionId'];
 
-        $driver = $connRow['driver'];
-        $dsn = match ($driver) {
-            'sqlite' => "sqlite:{$connRow['database']}",
-            'mysql', 'mariadb' => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
-            'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
-            'sqlsrv' => "sqlsrv:Server={$connRow['host']}" .
-                        ($connRow['port'] ? ",{$connRow['port']}" : "") .
-                        ";Database={$connRow['database']};Encrypt=0;TrustServerCertificate=1",
-            default  => throw new \Exception("Unsupported driver: " . ($driver ?? 'unknown')), // CORREGIDO: Bug de variable indefinida resuelto
-        };
+    $id = (int) str_replace('saved_', '', $rawId);
 
-        // Activar si no está en el pool
-        $connectionKey = "saved_{$id}";
-        if (!in_array($connectionKey, Conn::listConnectionIds())) {
-            DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connectionKey);
+    $this->ensureInternalDb();
+
+    // Intentar primero con el modelo
+    $conn = Connection::read($id);
+
+    // Si el modelo falla, obtener los datos directamente desde la BD interna
+    if (!$conn) {
+        $row = X::con('internal')->from('connections', ['id' => $id])->first();
+        if ($row) {
+            $conn = new Connection();
+            $conn->fill($row);   // $row ya es un array asociativo
         }
-
-        $result = X::con($connectionKey)->ping();
-
-        return [
-            'success'        => $result['success'],
-            'latency'        => $result['latency'] ?? 0,
-            'error'          => $result['error'] ?? null,
-            'database_name'  => $connRow['database'] ?? '',
-            'host'           => $connRow['host'] ?? null,
-            'port'           => $connRow['port'] ?? null,
-            'driver'         => $driver,
-        ];
     }
+
+    if (!$conn) return ['success' => false, 'error' => 'Connection not found'];
+
+    $connectionKey = "saved_{$id}";
+    if (!in_array($connectionKey, Conn::listConnectionIds())) {
+        DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connectionKey);
+    }
+
+    $result = X::con($connectionKey)->ping();
+
+    return [
+        'success'        => $result['success'],
+        'latency'        => $result['latency'] ?? 0,
+        'error'          => $result['error'] ?? null,
+        'database_name'  => $conn->database,
+        'host'           => $conn->host,
+        'port'           => $conn->port,
+        'driver'         => $conn->driver,
+    ];
+}
+
+
+
 
     public function activate(): array
     {
@@ -232,23 +189,11 @@ class ConnectionManager extends BaseEndpoint
         if (!$id) return ['success' => false, 'error' => 'Missing connectionId'];
 
         $this->ensureInternalDb();
-        $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
-        if (!$connRow) return ['success' => false, 'error' => 'Connection not found'];
+        $conn = Connection::read($id);
+        if (!$conn) return ['success' => false, 'error' => 'Connection not found'];
 
-        $driver = $connRow['driver'];
         $connectionKey = "saved_{$id}";
-        
-        $dsn = match ($driver) {
-            'sqlite' => "sqlite:{$connRow['database']}",
-            'mysql', 'mariadb' => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
-            'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
-            'sqlsrv' => "sqlsrv:Server={$connRow['host']}" .
-                        ($connRow['port'] ? ",{$connRow['port']}" : "") .
-                        ";Database={$connRow['database']};Encrypt=0;TrustServerCertificate=1",
-            default  => throw new \Exception("Unsupported driver: " . ($driver ?? 'unknown')),
-        };
-
-        DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connectionKey);
+        DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connectionKey);
 
         return [
             'success'      => true,

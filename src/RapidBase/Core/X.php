@@ -11,7 +11,7 @@ use PDO;
 class X
 {
     private string $connectionId;
-    private string|array|CompiledQuery|null $table = null;  // ← MODIFICADO: soporta CompiledQuery
+    private string|array|CompiledQuery|null $table = null;
     private array $filter = [];
     private bool $useCache = false;
     private int $cacheTtl = 3600;
@@ -27,6 +27,32 @@ class X
     {
         return new self($connectionId);
     }
+	
+	/**
+	 * Registra (o reemplaza) la conexión asociada a este identificador.
+	 * Equivale a DB::setup(), pero usando el connectionId de la instancia.
+	 *
+	 * @param string $dsn
+	 * @param string $user
+	 * @param string $pass
+	 * @return $this
+	 */
+	public function connect(string $dsn, string $user = '', string $pass = ''): self
+	{
+		DB::setup($dsn, $user, $pass, $this->connectionId);
+		return $this;
+	}
+
+	/**
+	 * Cierra la conexión asociada a esta instancia (la elimina del pool).
+	 *
+	 * @return $this
+	 */
+	public function close(): self
+	{
+		Conn::close($this->connectionId);
+		return $this;
+	}
 
     /**
      * Define la tabla o subconsulta para la operación.

@@ -7,51 +7,116 @@ use RapidBase\Core\X;
 use RapidBase\Core\Conn;
 use RapidBase\Core\DB;
 use RapidBase\Core\SchemaMap;
+use RapidBase\Meta\Discovery\DiscoveryFactory;
+
+// Cargar el modelo manualmente
+require_once __DIR__ . '/../Models/Connection.php';
+
+use RapidBase\Models\Connection;
 
 class SchemaExplorer extends BaseEndpoint
 {
+    /**
+     * Obtiene el modelo Connection desde la BD interna.
+     */
+    private function getConnectionModel(string $connId): ?Connection
+    {
+        $id = (int) str_replace('saved_', '', $connId);
+        if ($id <= 0) return null;
+
+        $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
+        if (!file_exists($dbFile)) return null;
+
+        DB::setup("sqlite:$dbFile", '', '', 'internal');
+        $row = X::con('internal')->from('connections', ['id' => $id])->first();
+        if (!$row) return null;
+
+        $conn = new Connection($row);
+        $conn->syncOriginal();
+        return $conn;
+    }
+
+    /**
+     * Activa la conexión en el pool si no está ya activa.
+     */
+    private function ensureConnectionActive(string $connId): bool
+    {
+        if (in_array($connId, Conn::listConnectionIds())) return true;
+
+        $conn = $this->getConnectionModel($connId);
+        if (!$conn) return false;
+
+        DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connId);
+        return true;
+    }
+
+    /**
+     * Asegura que el mapa de esquema para esta conexión esté cargado.
+     * Si no hay mapa, lo descubre usando DiscoveryFactory.
+     */
+    private function ensureSchemaMapLoaded(string $connId): void
+    {
+        $currentMap = SchemaMap::getMap();
+        if (!empty($currentMap['tables'])) return;   // ya cargado
+
+        $conn = $this->getConnectionModel($connId);
+        if (!$conn) throw new \Exception("Cannot load schema: connection data not found");
+
+        // Asegurarse de que la conexión esté activa (tener un PDO disponible)
+        $this->ensureConnectionActive($connId);
+
+        $pdo = Conn::get($connId);
+        $discovery = DiscoveryFactory::create($pdo);
+        $databaseName = $conn->database;
+
+        $allTables = $discovery->getTables($databaseName);
+        $tablesMetadata = [];
+        foreach ($allTables as $table) {
+            $tablesMetadata[$table] = $discovery->discoverColumns($table, $databaseName);
+        }
+
+        $relationships = $discovery->discoverRelationships($databaseName);
+
+        $map = [
+            'tables'        => $tablesMetadata,
+            'relationships' => $relationships,
+            'driver'        => $conn->driver,
+        ];
+
+        SchemaMap::setMap($map, $connId);
+    }
+
+    // ─── Endpoints públicos ─────────────────────────────────
+
     public function getSchema(): array
     {
         $connId = $this->context->params['connectionId']
                   ?? $this->context->params['connection_id']
                   ?? 'main';
 
-        if (!in_array($connId, Conn::listConnectionIds())) {
-            $id = (int) str_replace('saved_', '', $connId);
-            if ($id > 0) {
-                $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
-                if (file_exists($dbFile)) {
-                    DB::setup("sqlite:$dbFile", '', '', 'internal');
-                    $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
-                    if ($connRow) {
-                        $driver = $connRow['driver'];
-                        $dsn = match ($driver) {
-                            'sqlite' => "sqlite:{$connRow['database']}",
-                            'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
-                            'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
-                            default  => throw new \Exception("Unsupported driver: $driver"),
-                        };
-                        DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connId);
-                    } else {
-                        return ['success' => false, 'error' => 'Connection not found in database'];
-                    }
-                } else {
-                    return ['success' => false, 'error' => "Connection '$connId' not available."];
-                }
-            } else {
-                return ['success' => false, 'error' => "Connection '$connId' not available."];
+        try {
+            if (!$this->ensureConnectionActive($connId)) {
+                return ['success' => false, 'error' => 'Connection not found or unavailable'];
             }
+
+            // Cargar esquema si es necesario
+            $this->ensureSchemaMapLoaded($connId);
+
+            Conn::select($connId);
+            $description = X::con($connId)->description();
+
+            return [
+                'success'   => true,
+                'tables'    => $description['tables'],
+                'views'     => $description['views'],
+                'relations' => $description['relations'],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'error'   => $e->getMessage()
+            ];
         }
-
-        Conn::select($connId);
-        $description = X::con($connId)->description();
-
-        return [
-            'success'   => true,
-            'tables'    => $description['tables'],
-            'views'     => $description['views'],
-            'relations' => $description['relations'],
-        ];
     }
 
     public function describeTable(): array
@@ -65,41 +130,23 @@ class SchemaExplorer extends BaseEndpoint
             return ['success' => false, 'error' => 'Missing table parameter'];
         }
 
-        if (!in_array($connId, Conn::listConnectionIds())) {
-            $id = (int) str_replace('saved_', '', $connId);
-            if ($id > 0) {
-                $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
-                if (file_exists($dbFile)) {
-                    DB::setup("sqlite:$dbFile", '', '', 'internal');
-                    $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
-                    if ($connRow) {
-                        $driver = $connRow['driver'];
-                        $dsn = match ($driver) {
-                            'sqlite' => "sqlite:{$connRow['database']}",
-                            'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
-                            'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
-                            default  => throw new \Exception("Unsupported driver: $driver"),
-                        };
-                        DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connId);
-                    } else {
-                        return ['success' => false, 'error' => 'Connection not found in database'];
-                    }
-                } else {
-                    return ['success' => false, 'error' => "Connection '$connId' not available."];
-                }
-            } else {
-                return ['success' => false, 'error' => "Connection '$connId' not available."];
+        try {
+            if (!$this->ensureConnectionActive($connId)) {
+                return ['success' => false, 'error' => 'Connection not found or unavailable'];
             }
+            $this->ensureSchemaMapLoaded($connId);
+
+            Conn::select($connId);
+            $description = X::con($connId)->from($table)->description();
+
+            return [
+                'success'   => true,
+                'table'     => $table,
+                'structure' => $description['tables'][0] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
-
-        Conn::select($connId);
-        $description = X::con($connId)->from($table)->description();
-
-        return [
-            'success'   => true,
-            'table'     => $table,
-            'structure' => $description['tables'][0] ?? null,
-        ];
     }
 
     public function getRelatedTables(): array
@@ -113,59 +160,41 @@ class SchemaExplorer extends BaseEndpoint
             return ['success' => false, 'error' => 'Missing tables parameter'];
         }
 
-        if (!in_array($connId, Conn::listConnectionIds())) {
-            $id = (int) str_replace('saved_', '', $connId);
-            if ($id > 0) {
-                $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
-                if (file_exists($dbFile)) {
-                    DB::setup("sqlite:$dbFile", '', '', 'internal');
-                    $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
-                    if ($connRow) {
-                        $driver = $connRow['driver'];
-                        $dsn = match ($driver) {
-                            'sqlite' => "sqlite:{$connRow['database']}",
-                            'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
-                            'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
-                            default  => throw new \Exception("Unsupported driver: $driver"),
-                        };
-                        DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connId);
-                    } else {
-                        return ['success' => false, 'error' => 'Connection not found in database'];
-                    }
-                } else {
-                    return ['success' => false, 'error' => "Connection '$connId' not available."];
+        try {
+            if (!$this->ensureConnectionActive($connId)) {
+                return ['success' => false, 'error' => 'Connection not found or unavailable'];
+            }
+            $this->ensureSchemaMapLoaded($connId);
+
+            Conn::select($connId);
+
+            $tableList = json_decode($tables, true);
+            if (!is_array($tableList) || empty($tableList)) {
+                return ['success' => false, 'error' => 'Invalid tables list'];
+            }
+
+            $map = SchemaMap::getMap();
+            $relsFrom = $map['relationships']['from'] ?? [];
+            $relsTo   = $map['relationships']['to']   ?? [];
+
+            $toList = [];
+            $fromList = [];
+            foreach ($tableList as $t) {
+                foreach ($relsFrom[$t] ?? [] as $target => $rel) {
+                    if (!in_array($target, $tableList)) $toList[$target] = true;
                 }
-            } else {
-                return ['success' => false, 'error' => "Connection '$connId' not available."];
+                foreach ($relsTo[$t] ?? [] as $target => $rel) {
+                    if (!in_array($target, $tableList)) $fromList[$target] = true;
+                }
             }
+
+            return [
+                'success' => true,
+                'to'      => array_keys($toList),
+                'from'    => array_keys($fromList),
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
-
-        Conn::select($connId);
-
-        $tableList = json_decode($tables, true);
-        if (!is_array($tableList) || empty($tableList)) {
-            return ['success' => false, 'error' => 'Invalid tables list'];
-        }
-
-        $map = SchemaMap::getMap();
-        $relsFrom = $map['relationships']['from'] ?? [];
-        $relsTo   = $map['relationships']['to']   ?? [];
-
-        $toList = [];
-        $fromList = [];
-        foreach ($tableList as $t) {
-            foreach ($relsFrom[$t] ?? [] as $target => $rel) {
-                if (!in_array($target, $tableList)) $toList[$target] = true;
-            }
-            foreach ($relsTo[$t] ?? [] as $target => $rel) {
-                if (!in_array($target, $tableList)) $fromList[$target] = true;
-            }
-        }
-
-        return [
-            'success' => true,
-            'to'      => array_keys($toList),
-            'from'    => array_keys($fromList),
-        ];
     }
 }
