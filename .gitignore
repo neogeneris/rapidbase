@@ -5,6 +5,7 @@
 # Logs and temp files
 *.log
 *.tmp
+*.swp
 
 # Environment
 .env
@@ -15,28 +16,13 @@
 .vscode/
 .idea/
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
-.env
-.env.*
-.env.local
+# Dependencies
+vendor/
+node_modules/
+*.lock
 
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# IDE
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+# Build artifacts
+build/
+dist/
+target/
 ```
