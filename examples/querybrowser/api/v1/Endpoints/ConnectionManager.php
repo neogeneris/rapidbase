@@ -16,11 +16,21 @@ class ConnectionManager extends BaseEndpoint
 {
     private static bool $internalDbReady = false;
 
+    /**
+     * Reset the internal state for testing purposes.
+     * This allows each test to start with a clean slate.
+     */
+    public static function resetInstance(): void
+    {
+        self::$internalDbReady = false;
+    }
+
     private function ensureInternalDb(): void
     {
         if (self::$internalDbReady) return;
 
-        $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
+        // Permitir override mediante variable de entorno para tests
+        $dbFile = getenv('CONNECTIONS_DB_OVERRIDE') ?: (defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite');
         $dir = dirname($dbFile);
         if (!is_dir($dir)) mkdir($dir, 0777, true);
 

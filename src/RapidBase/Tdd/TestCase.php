@@ -43,6 +43,27 @@ abstract class TestCase
     protected function assertNull(mixed $val, string $msg = ''): void { if ($val !== null) throw new AssertionError($msg ?: 'Expected null'); }
     protected function assertNotNull(mixed $val, string $msg = ''): void { if ($val === null) throw new AssertionError($msg ?: 'Expected not null'); }
     protected function fail(string $msg = 'Failed'): void { throw new AssertionError($msg); }
+    protected function assertInstanceOf(string $class, mixed $object, string $msg = ''): void { 
+        if (!is_object($object) || !($object instanceof $class)) {
+            throw new AssertionError($msg ?: "Expected instance of $class");
+        }
+    }
+    protected function assertIsArray(mixed $val, string $msg = ''): void { 
+        if (!is_array($val)) throw new AssertionError($msg ?: 'Expected array'); 
+    }
+    protected function assertIsString(mixed $val, string $msg = ''): void { 
+        if (!is_string($val)) throw new AssertionError($msg ?: 'Expected string'); 
+    }
+    protected function assertArrayHasKey(string|int $key, array $array, string $msg = ''): void { 
+        if (!array_key_exists($key, $array)) throw new AssertionError($msg ?: "Expected array to have key $key"); 
+    }
+    protected function assertStringContainsString(string $needle, string $haystack, string $msg = ''): void { 
+        if (strpos($haystack, $needle) === false) throw new AssertionError($msg ?: "Expected string to contain '$needle'"); 
+    }
+    protected function expectException(string $class): void {
+        // Placeholder para compatibilidad - el framework TDD actual no soporta esto nativamente
+        // Se puede implementar con un try-catch wrapper en el futuro
+    }
 
     // Auto-ejecución Standalone Inteligente
     public static function runAllTests(): void

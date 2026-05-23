@@ -1,29 +1,14 @@
 ```
-# Dependencies
-vendor/
+# Cache and temporary files
+*.dat
+tmp_cache/
+*.sqlite
 
-# Logs and temp files
-*.log
-*.tmp
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# OS generated files
-.DS_Store
-Thumbs.db
+# Test artifacts
+tests/Unit/Endpoints/tmp_cache/
+tests/Unit/Endpoints/tmp_test_connections.sqlite
 
 # PHP specific
 *.php~
 *.php.bak
-*.swp
-
-# Test related
-.phpunit.result.cache
 ```
