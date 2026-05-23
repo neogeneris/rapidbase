@@ -1,26 +1,24 @@
 ```
-# Database
-*.sqlite
+# Dependencies
+vendor/
 
-# Logs
-*.log
+# Database
+rapidbase_core_tdd.sqlite
 
 # Environment
 .env
 .env.local
 *.env.*
 
-# Dependencies
-vendor/
+# Logs
+*.log
 
-# Tests
-.phpunit.result.cache
-
-# IDE
+# Editor/IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
 # OS
 .DS_Store
@@ -29,16 +27,198 @@ Thumbs.db
 # Build artifacts
 *.o
 *.obj
+*.out
+dist/
+build/
+target/
+coverage/
+htmlcov/
+*.coverage
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+.eggs/
+.wheelhouse/
+.tox/
+.hypothesis/
+.mypy_cache/
+.pytest_cache/
+.coverage*
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+dist/
+build/
+.nyc_output/
+coverage/
+*.lcov
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+target/
+.gradle/
+build/
+out/
+
+# PHP
+*.php~
+*.php.bak
+*.php.swp
+vendor/
+composer.lock
+
+# Ruby
+*.gem
+*.rbc
+.bundle/
+.coverage/
+ InstalledFiles
+.yardoc/
+_Cache/
+.rspec
+spec/reports/
+test/tmp/
+test/version_tmp/
+tmp/
+
+# Go
 *.exe
+*.exe~
 *.dll
 *.so
-*.a
-*.class
-*.pyc
-__pycache__/
+*.dylib
+*.test
+*.prof
 *.out
+bin/
 
-# Compressed files
+# C/C++
+*.o
+*.a
+*.la
+*.lo
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+*.out
+*.obj
+*.ilk
+*.pdb
+*.lib
+*.suo
+*.sln
+*.user
+*.userosscache
+*.sconscript
+*.sconsign.dblite
+*.ninja_log
+*.compile_commands.json
+*.d
+*.dSYM/
+*.su
+*.omni
+*.gcda
+*.gcno
+*.gcov
+*.info
+*.da
+*.dyn
+*.po
+*.pot
+*.mo
+*.gmo
+*.cat
+*.po~
+*.pot~
+*.mo~
+*.gmo~
+*.cat~
+*.aux
+*.bbl
+*.blg
+*.brf
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.run.xml
+*.tps
+*.lof
+*.lot
+*.toc
+*.acn
+*.acr
+*.alg
+*.glg
+*.gls
+*.ist
+*.fls
+*.log
+*.out.ps
+*.dvi
+*.ps
+*.pdf
+*.pdfsync
+*.synctex
+*.synctex.gz
+*.synctex.bak
+*.nav
+*.snm
+*.vrb
+*.backup
+*.bak
+*.tmp
+*.temp
+*.orig
+*.rej
+*.patch
+*.diff
+*.patch~
+*.diff~
+*.~lock.*
+*.swp
+*.swo
+*.un~
+*.un~
+*~
+~$
+*.tmp
+*.temp
+*.tmp.*
+*.temp.*
+*.tmp-*
+*.temp-*
+*.tmp_*
+*.temp_*
+*.tmp/*
+*.temp/*
+*.tmp-/*
+*.temp-/*
+*.tmp_/*
+*.temp_/*
+*.tmp/**
+*.temp/**
+*.tmp-/**
+*.temp-/**
+*.tmp_/**
+*.temp_/**
+
+# Compression
 *.zip
 *.gz
 *.tar
@@ -62,23 +242,5 @@ __pycache__/
 *.tar.xz
 *.tar.zst
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Cache
-.mypy_cache/
-.pytest_cache/
-.gradle/
-target/
-node_modules/
-.npm/
-.yarn/
-bower_components/
-julia-*/
-zig*/
-
-# Temp files
-*.tmp
+# Images (not ignored as per rule)
 ```

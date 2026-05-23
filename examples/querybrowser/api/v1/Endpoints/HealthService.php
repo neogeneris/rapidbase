@@ -12,7 +12,8 @@ class HealthService extends BaseEndpoint
      */
     public function ping(string $connectionId): array
     {
-        $key = "saved_{$connectionId}";
+        // El connectionId ya viene normalizado (nombre de conexión)
+        $key = $connectionId;
 
         // Si la conexión no está activa, intentamos cargarla bajo demanda
         if (!isset($this->context->session['connections'][$key])) {

@@ -31,11 +31,11 @@ class ConnectionManager {
     }
 
     async _pingConnection(id) {
-        return await this.apiClient.connectionManager.ping({ connectionId: `saved_${id}` });
+        return await this.apiClient.connectionManager.ping({ connectionId: id });
     }
 
     async _loadSchema(connectionId) {
-        const raw = await this.apiClient.schemaExplorer.getSchema({ connectionId: `saved_${connectionId}` });
+        const raw = await this.apiClient.schemaExplorer.getSchema({ connectionId: connectionId });
         return {
             success: true,
             tables: raw.tables || [],

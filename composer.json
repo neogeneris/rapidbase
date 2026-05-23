@@ -6,7 +6,7 @@
     },
     "autoload": {
         "psr-4": {
-            "RapidBase\\": ["src/RapidBase/", "src/"]
+            "RapidBase\\": ["src/RapidBase/", "src/", "examples/querybrowser/api/v1/"]
         }
     },
     "authors": [

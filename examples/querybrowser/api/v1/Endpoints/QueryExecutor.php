@@ -16,26 +16,33 @@ class QueryExecutor extends BaseEndpoint
                   ?? 'main';
 
         if (!in_array($connId, Conn::listConnectionIds())) {
-            $id = (int) str_replace('saved_', '', $connId);
-            if ($id > 0) {
-                $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
-                if (file_exists($dbFile)) {
-                    DB::setup("sqlite:$dbFile", '', '', 'internal');
-                    $connRow = X::con('internal')->from('connections', ['id' => $id])->first();
-                    if ($connRow) {
-                        $driver = $connRow['driver'];
-                        $dsn = match ($driver) {
-                            'sqlite' => "sqlite:{$connRow['database']}",
-                            'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
-                            'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
-                            default  => throw new \Exception("Unsupported driver: $driver"),
-                        };
-                        DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connId);
-                    } else {
-                        return ['success' => false, 'error' => "Connection not found in database"];
-                    }
+            // Intentar buscar por nombre de conexión primero
+            $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
+            if (file_exists($dbFile)) {
+                DB::setup("sqlite:$dbFile", '', '', 'internal');
+                
+                // Buscar primero por nombre (connId como nombre)
+                $connRow = X::con('internal')->from('connections', ['name' => $connId])->first();
+                
+                // Si no encuentra por nombre, intentar por ID numérico
+                if (!$connRow && is_numeric($connId)) {
+                    $connRow = X::con('internal')->from('connections', ['id' => (int)$connId])->first();
+                }
+                
+                if ($connRow) {
+                    $driver = $connRow['driver'];
+                    $dsn = match ($driver) {
+                        'sqlite' => "sqlite:{$connRow['database']}",
+                        'mysql'  => "mysql:host={$connRow['host']};port=" . ($connRow['port'] ?? 3306) . ";dbname={$connRow['database']};charset=utf8mb4",
+                        'pgsql'  => "pgsql:host={$connRow['host']};port=" . ($connRow['port'] ?? 5432) . ";dbname={$connRow['database']}",
+                        default  => throw new \Exception("Unsupported driver: $driver"),
+                    };
+                    // Usar el nombre normalizado como connectionKey
+                    $connectionKey = $this->normalizeConnectionName($connRow['name']);
+                    DB::setup($dsn, $connRow['username'] ?? '', $connRow['password'] ?? '', $connectionKey);
+                    $connId = $connectionKey;
                 } else {
-                    return ['success' => false, 'error' => "Connection '$connId' not available."];
+                    return ['success' => false, 'error' => "Connection not found in database"];
                 }
             } else {
                 return ['success' => false, 'error' => "Connection '$connId' not available."];
@@ -67,5 +74,16 @@ class QueryExecutor extends BaseEndpoint
                 'sql'     => $sql,
             ];
         }
+    }
+
+    /**
+     * Normalize connection name to be used as connection key.
+     */
+    private function normalizeConnectionName(string $name): string
+    {
+        $normalized = strtolower(trim($name));
+        $normalized = preg_replace('/[^a-z0-9_\-]/', '_', $normalized);
+        $normalized = preg_replace('/_+/', '_', $normalized);
+        return 'conn_' . $normalized;
     }
 }
