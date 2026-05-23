@@ -195,6 +195,22 @@ if (file_exists($target) && str_ends_with($target, 'Test.php')) {
             }
         }
         if (!$className) $className = pathinfo($target, PATHINFO_FILENAME);
+        
+        // Load the file to register the class in runtime (handles non-PSR-4 cases)
+        require_once $fileLocation;
+        
+        // Check PSR-4 compliance and warn if needed
+        if (isset($namespace) && $namespace) {
+            $expectedPath = str_replace('\\', '/', substr($className, strlen($namespace) + 1)) . '.php';
+            $actualDir = dirname($fileLocation);
+            $expectedDir = rtrim($baseDir . '/src/' . str_replace('\\', '/', $namespace), '/');
+            
+            if (strpos($actualDir, $expectedDir) !== 0) {
+                echo "WARNING: Non-PSR-4 structure detected. Class loaded from: $fileLocation\n";
+                echo "         Expected: $expectedDir/$expectedPath\n";
+            }
+        }
+        
         echo "Mode: Source File Resolution\n";
     } else {
         $className = $target;
