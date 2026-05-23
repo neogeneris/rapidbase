@@ -21,14 +21,19 @@ class SchemaExplorer extends BaseEndpoint
      */
     private function getConnectionModel(string $connId): ?Connection
     {
-        $id = (int) str_replace('saved_', '', $connId);
-        if ($id <= 0) return null;
-
         $dbFile = defined('CONNECTIONS_DB') ? CONNECTIONS_DB : __DIR__ . '/../../../data/connections.sqlite';
         if (!file_exists($dbFile)) return null;
 
         DB::setup("sqlite:$dbFile", '', '', 'internal');
-        $row = X::con('internal')->from('connections', ['id' => $id])->first();
+        
+        // Buscar primero por nombre
+        $row = X::con('internal')->from('connections', ['name' => $connId])->first();
+        
+        // Si no encuentra por nombre, intentar por ID numérico
+        if (!$row && is_numeric($connId)) {
+            $row = X::con('internal')->from('connections', ['id' => (int)$connId])->first();
+        }
+        
         if (!$row) return null;
 
         $conn = new Connection($row);
@@ -46,8 +51,21 @@ class SchemaExplorer extends BaseEndpoint
         $conn = $this->getConnectionModel($connId);
         if (!$conn) return false;
 
-        DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connId);
+        // Usar el nombre normalizado como connectionKey
+        $connectionKey = $this->normalizeConnectionName($conn->name);
+        DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connectionKey);
         return true;
+    }
+
+    /**
+     * Normalize connection name to be used as connection key.
+     */
+    private function normalizeConnectionName(string $name): string
+    {
+        $normalized = strtolower(trim($name));
+        $normalized = preg_replace('/[^a-z0-9_\-]/', '_', $normalized);
+        $normalized = preg_replace('/_+/', '_', $normalized);
+        return 'conn_' . $normalized;
     }
 
     /**
@@ -65,7 +83,10 @@ class SchemaExplorer extends BaseEndpoint
         // Asegurarse de que la conexión esté activa (tener un PDO disponible)
         $this->ensureConnectionActive($connId);
 
-        $pdo = Conn::get($connId);
+        // Usar el nombre normalizado como connectionKey
+        $connectionKey = $this->normalizeConnectionName($conn->name);
+        
+        $pdo = Conn::get($connectionKey);
         $discovery = DiscoveryFactory::create($pdo);
         $databaseName = $conn->database;
 
@@ -83,7 +104,7 @@ class SchemaExplorer extends BaseEndpoint
             'driver'        => $conn->driver,
         ];
 
-        SchemaMap::setMap($map, $connId);
+        SchemaMap::setMap($map, $connectionKey);
     }
 
     // ─── Endpoints públicos ─────────────────────────────────
@@ -95,6 +116,14 @@ class SchemaExplorer extends BaseEndpoint
                   ?? 'main';
 
         try {
+            // Obtener la conexión para obtener el nombre normalizado
+            $conn = $this->getConnectionModel($connId);
+            if (!$conn) {
+                return ['success' => false, 'error' => 'Connection not found or unavailable'];
+            }
+            
+            $connectionKey = $this->normalizeConnectionName($conn->name);
+            
             if (!$this->ensureConnectionActive($connId)) {
                 return ['success' => false, 'error' => 'Connection not found or unavailable'];
             }
@@ -102,8 +131,8 @@ class SchemaExplorer extends BaseEndpoint
             // Cargar esquema si es necesario
             $this->ensureSchemaMapLoaded($connId);
 
-            Conn::select($connId);
-            $description = X::con($connId)->description();
+            Conn::select($connectionKey);
+            $description = X::con($connectionKey)->description();
 
             return [
                 'success'   => true,
@@ -131,13 +160,21 @@ class SchemaExplorer extends BaseEndpoint
         }
 
         try {
+            // Obtener la conexión para obtener el nombre normalizado
+            $conn = $this->getConnectionModel($connId);
+            if (!$conn) {
+                return ['success' => false, 'error' => 'Connection not found or unavailable'];
+            }
+            
+            $connectionKey = $this->normalizeConnectionName($conn->name);
+            
             if (!$this->ensureConnectionActive($connId)) {
                 return ['success' => false, 'error' => 'Connection not found or unavailable'];
             }
             $this->ensureSchemaMapLoaded($connId);
 
-            Conn::select($connId);
-            $description = X::con($connId)->from($table)->description();
+            Conn::select($connectionKey);
+            $description = X::con($connectionKey)->from($table)->description();
 
             return [
                 'success'   => true,
@@ -161,12 +198,20 @@ class SchemaExplorer extends BaseEndpoint
         }
 
         try {
+            // Obtener la conexión para obtener el nombre normalizado
+            $conn = $this->getConnectionModel($connId);
+            if (!$conn) {
+                return ['success' => false, 'error' => 'Connection not found or unavailable'];
+            }
+            
+            $connectionKey = $this->normalizeConnectionName($conn->name);
+            
             if (!$this->ensureConnectionActive($connId)) {
                 return ['success' => false, 'error' => 'Connection not found or unavailable'];
             }
             $this->ensureSchemaMapLoaded($connId);
 
-            Conn::select($connId);
+            Conn::select($connectionKey);
 
             $tableList = json_decode($tables, true);
             if (!is_array($tableList) || empty($tableList)) {

@@ -28,9 +28,14 @@ if (file_exists($baseDir . '/vendor/autoload.php')) {
     spl_autoload_register(function ($class) use ($baseDir) {
         $prefix = 'RapidBase\\';
         $srcDir = rtrim($baseDir, '/') . '/src/';
+        $apiDir = rtrim($baseDir, '/') . '/examples/querybrowser/api/v1/';
         if (strncmp($prefix, $class, strlen($prefix)) === 0) {
             $file = $srcDir . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
             if (file_exists($file)) require $file;
+            else {
+                $file = $apiDir . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+                if (file_exists($file)) require $file;
+            }
         }
     });
 }

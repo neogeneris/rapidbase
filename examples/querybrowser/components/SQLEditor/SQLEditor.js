@@ -24,7 +24,7 @@ class SQLEditor {
                 <div class="se-toolbar">
                     <select class="se-connection-select" id="${id}-conn-select">
                         ${this.connections.map(c => 
-                            `<option value="saved_${c.id}" ${('saved_'+c.id) === this.connectionId ? 'selected' : ''}>
+                            `<option value="${this._normalizeConnectionName(c.name)}" ${this._normalizeConnectionName(c.name) === this.connectionId ? 'selected' : ''}>
                                 ${this._escapeHtml(c.name)} (${c.driver})
                             </option>`
                         ).join('')}
@@ -76,7 +76,6 @@ class SQLEditor {
                 const result = await api.connectionManager.list();
                 this.connections = result.connections || [];
                 if (!this.connectionId && this.connections.length > 0) {
-                    // Usar el nombre normalizado de la conexión en lugar de saved_ID
                     this.connectionId = this._normalizeConnectionName(this.connections[0].name);
                 }
             } else {

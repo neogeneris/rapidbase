@@ -147,52 +147,48 @@ class ConnectionManager extends BaseEndpoint
 
 
 
-public function ping(): array
-{
-    $params = $this->context->params;
-    $rawId = $params['connectionId'] ?? $params['id'] ?? null;
-    if (!$rawId) return ['success' => false, 'error' => 'Missing connectionId'];
+    public function ping(): array
+    {
+        $params = $this->context->params;
+        $rawId = $params['connectionId'] ?? $params['id'] ?? null;
+        if (!$rawId) return ['success' => false, 'error' => 'Missing connectionId'];
 
-    // Soportar tanto IDs numéricos (saved_X) como nombres de conexión
-    $id = is_numeric($rawId) ? (int)$rawId : (int)str_replace('saved_', '', $rawId);
-    $useName = !is_numeric($rawId) && !str_starts_with($rawId, 'saved_');
-    
-    $this->ensureInternalDb();
+        $this->ensureInternalDb();
 
-    // Intentar primero con el modelo
-    $conn = $useName ? Connection::findByName($rawId) : Connection::read($id);
+        // Soportar tanto IDs numéricos como nombres de conexión
+        $conn = is_numeric($rawId) ? Connection::read((int)$rawId) : Connection::findByName($rawId);
 
-    // Si el modelo falla, obtener los datos directamente desde la BD interna
-    if (!$conn) {
-        $row = $useName 
-            ? X::con('internal')->from('connections', ['name' => $rawId])->first()
-            : X::con('internal')->from('connections', ['id' => $id])->first();
-        if ($row) {
-            $conn = new Connection();
-            $conn->fill($row);
+        // Si el modelo falla, obtener los datos directamente desde la BD interna
+        if (!$conn) {
+            $row = is_numeric($rawId)
+                ? X::con('internal')->from('connections', ['id' => (int)$rawId])->first()
+                : X::con('internal')->from('connections', ['name' => $rawId])->first();
+            if ($row) {
+                $conn = new Connection();
+                $conn->fill($row);
+            }
         }
+
+        if (!$conn) return ['success' => false, 'error' => 'Connection not found'];
+
+        // Usar el nombre normalizado como connectionKey
+        $connectionKey = $this->normalizeConnectionName($conn->name);
+        if (!in_array($connectionKey, Conn::listConnectionIds())) {
+            DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connectionKey);
+        }
+
+        $result = X::con($connectionKey)->ping();
+
+        return [
+            'success'        => $result['success'],
+            'latency'        => $result['latency'] ?? 0,
+            'error'          => $result['error'] ?? null,
+            'database_name'  => $conn->database,
+            'host'           => $conn->host,
+            'port'           => $conn->port,
+            'driver'         => $conn->driver,
+        ];
     }
-
-    if (!$conn) return ['success' => false, 'error' => 'Connection not found'];
-
-    // Usar el nombre normalizado como connectionKey en lugar de saved_ID
-    $connectionKey = $this->normalizeConnectionName($conn->name);
-    if (!in_array($connectionKey, Conn::listConnectionIds())) {
-        DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connectionKey);
-    }
-
-    $result = X::con($connectionKey)->ping();
-
-    return [
-        'success'        => $result['success'],
-        'latency'        => $result['latency'] ?? 0,
-        'error'          => $result['error'] ?? null,
-        'database_name'  => $conn->database,
-        'host'           => $conn->host,
-        'port'           => $conn->port,
-        'driver'         => $conn->driver,
-    ];
-}
 
 
 
@@ -206,13 +202,10 @@ public function ping(): array
         $this->ensureInternalDb();
         
         // Soportar tanto IDs numéricos como nombres de conexión
-        $useName = !is_numeric($rawId) && !str_starts_with($rawId, 'saved_');
-        $id = is_numeric($rawId) ? (int)$rawId : (int)str_replace('saved_', '', $rawId);
-        
-        $conn = $useName ? Connection::findByName($rawId) : Connection::read($id);
+        $conn = is_numeric($rawId) ? Connection::read((int)$rawId) : Connection::findByName($rawId);
         if (!$conn) return ['success' => false, 'error' => 'Connection not found'];
 
-        // Usar el nombre normalizado como connectionKey en lugar de saved_ID
+        // Usar el nombre normalizado como connectionKey
         $connectionKey = $this->normalizeConnectionName($conn->name);
         DB::setup($conn->buildDsn(), $conn->username ?? '', $conn->password ?? '', $connectionKey);
 

@@ -40,6 +40,7 @@ class ComposerStaticInitaf6db5d437aef6dceff115beb5a16da4
         array (
             0 => __DIR__ . '/../..' . '/src/RapidBase',
             1 => __DIR__ . '/../..' . '/src',
+            2 => __DIR__ . '/../..' . '/examples/querybrowser/api/v1',
         ),
         'PhpParser\\' =>
         array (

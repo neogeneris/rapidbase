@@ -302,11 +302,13 @@
             connectSaved: async (id) => {
                 if (!id || id === 'undefined') return;
                 
-                const connectionKey = `saved_${id}`;
+                // El ID que recibimos es el nombre normalizado de la conexión
+                const connectionKey = id;
                 app.activeConnectionId = connectionKey;
 
                 if (window.RapidBaseClient) {
                     const api = new RapidBaseClient('api/v1/index.php');
+                    // Enviar el ID directamente (nombre o ID numérico)
                     const res = await api.connectionManager.activate({ connectionId: id });
                     if (!res.success) {
                         console.error('Error activando conexión:', res.error);
