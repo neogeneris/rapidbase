@@ -20,31 +20,36 @@ class ConnectionDialog {
                 id: 'mysql', 
                 label: 'MySQL', 
                 port: 3306, 
-                svg: `<img src="assets/icon/driver/mysql.svg" alt="MySQL" class="cd-driver-svg">` 
+                svg: `<img src="assets/icon/driver/mysql.svg" alt="MySQL" class="cd-driver-svg">`,
+                svgStep2: `<img src="assets/icon/driver/mysql.svg" alt="MySQL" class="cd-driver-svg-step2">`
             },
             { 
                 id: 'mariadb', 
                 label: 'MariaDB', 
                 port: 3306, 
-                svg: `<img src="assets/icon/driver/mariadb.svg" alt="MariaDB" class="cd-driver-svg">` 
+                svg: `<img src="assets/icon/driver/mariadb.svg" alt="MariaDB" class="cd-driver-svg">`,
+                svgStep2: `<img src="assets/icon/driver/mariadb.svg" alt="MariaDB" class="cd-driver-svg-step2">`
             },
             { 
                 id: 'sqlite', 
                 label: 'SQLite', 
                 port: null, 
-                svg: `<img src="assets/icon/driver/sqlite.svg" alt="SQLite" class="cd-driver-svg">` 
+                svg: `<img src="assets/icon/driver/sqlite.svg" alt="SQLite" class="cd-driver-svg">`,
+                svgStep2: `<img src="assets/icon/driver/sqlite.svg" alt="SQLite" class="cd-driver-svg-step2">`
             },
             { 
                 id: 'pgsql', 
                 label: 'PostgreSQL', 
                 port: 5432, 
-                svg: `<img src="assets/icon/driver/postgresql.svg" alt="PostgreSQL" class="cd-driver-svg">` 
+                svg: `<img src="assets/icon/driver/postgresql.svg" alt="PostgreSQL" class="cd-driver-svg">`,
+                svgStep2: `<img src="assets/icon/driver/postgresql.svg" alt="PostgreSQL" class="cd-driver-svg-step2">`
             },
             { 
                 id: 'sqlsrv', 
                 label: 'SQL Server', 
                 port: 1433, 
-                svg: `<img src="assets/icon/driver/sqlserver.svg" alt="SQL Server" class="cd-driver-svg">` 
+                svg: `<img src="assets/icon/driver/sqlserver.svg" alt="SQL Server" class="cd-driver-svg">`,
+                svgStep2: `<img src="assets/icon/driver/sqlserver.svg" alt="SQL Server" class="cd-driver-svg-step2">`
             }
         ];
     }
@@ -158,6 +163,7 @@ class ConnectionDialog {
                     <div class="cd-footer-status">
                         <button class="cd-btn cd-btn-ghost" id="cd-test-btn" style="display:none;">
                             <span class="cd-spinner"></span>
+                            <img src="assets/icon/reloj.gif" alt="Testing..." class="cd-test-loading-gif" style="display:none;">
                             <span class="cd-btn-text">⚡ Probar conexión</span>
                         </button>
                         <!-- Indicador visual circular -->
@@ -222,28 +228,65 @@ class ConnectionDialog {
         const circle = this.overlay.querySelector('#cd-status-circle');
         const statusText = this.overlay.querySelector('#cd-status-text');
         const testBtn = this.overlay.querySelector('#cd-test-btn');
+        const spinner = testBtn.querySelector('.cd-spinner');
+        const loadingGif = testBtn.querySelector('.cd-test-loading-gif');
+        const btnText = testBtn.querySelector('.cd-btn-text');
 
-        indicator.style.display = 'flex';
-        testBtn.style.display = 'none'; // ocultar botón mientras se muestra el estado
-
-        circle.className = 'cd-status-circle'; // reset
+        // No ocultar el botón, solo mostrar animación interna
         if (state === 'loading') {
-            circle.classList.add('loading');
-            statusText.textContent = text || 'Probando...';
+            // Cambiar background a blanco para coincidir con el GIF
+            testBtn.style.background = '#ffffff';
+            testBtn.style.borderColor = '#e2e8f0';
+            spinner.style.display = 'none';
+            loadingGif.style.display = 'inline-block';
+            btnText.style.display = 'none';
+            
+            // Ocultar indicador circular cuando usamos el botón con animación
+            indicator.style.display = 'none';
         } else if (state === 'success') {
-            circle.classList.add('success');
-            statusText.textContent = text || 'Conectado';
+            // Borde verde para éxito - botón permanece visible para reintentar
+            testBtn.style.border = '2px solid #22c55e';
+            testBtn.style.background = ''; // restaurar color original
+            spinner.style.display = 'none';
+            loadingGif.style.display = 'none';
+            btnText.style.display = 'inline';
+            btnText.textContent = '✓ Conexión exitosa';
+            
+            indicator.style.display = 'none';
+            
+            // Resetear después de 2 segundos para permitir nueva prueba
+            setTimeout(() => this._resetStatus(), 2000);
         } else if (state === 'error') {
-            circle.classList.add('error');
-            statusText.textContent = text || 'Error';
+            // Borde rojo para error - botón permanece visible para reintentar
+            testBtn.style.border = '2px solid #ef4444';
+            testBtn.style.background = ''; // restaurar color original
+            spinner.style.display = 'none';
+            loadingGif.style.display = 'none';
+            btnText.style.display = 'inline';
+            btnText.textContent = '✗ Error de conexión';
+            
+            indicator.style.display = 'none';
+            
+            // Resetear después de 2 segundos para permitir nueva prueba
+            setTimeout(() => this._resetStatus(), 2000);
         }
     }
 
     _resetStatus() {
         const indicator = this.overlay.querySelector('#cd-status-indicator');
         const testBtn = this.overlay.querySelector('#cd-test-btn');
+        const spinner = testBtn.querySelector('.cd-spinner');
+        const loadingGif = testBtn.querySelector('.cd-test-loading-gif');
+        const btnText = testBtn.querySelector('.cd-btn-text');
+        
         indicator.style.display = 'none';
-        testBtn.style.display = ''; // restaurar botón
+        // Restaurar estado original del botón
+        testBtn.style.border = '';
+        testBtn.style.background = '';
+        spinner.style.display = 'none';
+        loadingGif.style.display = 'none';
+        btnText.style.display = 'inline';
+        btnText.textContent = '⚡ Probar conexión';
     }
 
     // ─── Control de Eventos Actualizado ──────────────────────
@@ -304,6 +347,7 @@ class ConnectionDialog {
         ov.querySelector('#cd-next-btn').style.display  = step === 1 ? '' : 'none';
         ov.querySelector('#cd-prev-btn').style.display  = step === 2 ? '' : 'none';
         ov.querySelector('#cd-save-btn').style.display  = step === 2 ? '' : 'none';
+        // El botón de test solo aparece en el paso 2
         ov.querySelector('#cd-test-btn').style.display  = step === 2 ? '' : 'none';
 
         this._resetStatus();
@@ -312,7 +356,7 @@ class ConnectionDialog {
     _setupStep2() {
         const ov = this.overlay;
         const d = ConnectionDialog.DRIVERS.find(x => x.id === this.selectedDriver);
-        ov.querySelector('#cd-step2-badge').innerHTML = `${d.svg}<span>Motor Seleccionado: <strong>${d.label}</strong></span>`;
+        ov.querySelector('#cd-step2-badge').innerHTML = `${d.svgStep2}<span>Motor Seleccionado: <strong>${d.label}</strong></span>`;
 
         const isSqlite = this.selectedDriver === 'sqlite';
 
