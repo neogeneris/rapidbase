@@ -511,7 +511,12 @@ class ConnectionDialog {
         ov.querySelector('#cd-password').value = ''; // Don't populate password for security
         ov.querySelector('#cd-description').value = data.description || '';
         if (data.driver) {
-            this._pickDriver(data.driver);
+            // Convert 'mysql' back to 'mariadb' if needed based on connection data
+            // Since the backend stores them separately, we need to preserve the original driver
+            const driverToUse = data.driver === 'mysql' && data.name.toLowerCase().includes('mariadb') 
+                ? 'mariadb' 
+                : data.driver;
+            this._pickDriver(driverToUse);
         }
         if (data.environment) {
             this._pickEnv(data.environment);
