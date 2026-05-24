@@ -225,8 +225,8 @@ class ConnectionManager extends BaseEndpoint
     {
         // Convertir a lowercase y reemplazar espacios y caracteres especiales con underscores
         $normalized = strtolower(trim($name));
-        $normalized = preg_replace('/[^a-z0-9_\-]/', '_', $normalized);
-        $normalized = preg_replace('/_+/', '_', $normalized); // Evitar múltiples underscores seguidos
-        return 'conn_' . $normalized;
+        $normalized = preg_replace('/[^a-z0-9_\-\s]/', '_', $normalized);
+        $normalized = preg_replace('/[\s_]+/', '_', $normalized); // Evitar múltiples underscores seguidos
+        return $normalized;
     }
 }

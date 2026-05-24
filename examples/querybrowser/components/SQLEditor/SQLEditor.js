@@ -83,9 +83,9 @@ class SQLEditor {
                 const result = await api.connectionManager.list();
                 loadedConnections = result.connections || [];
             } else {
-                const resp = await fetch('api.php?action=list_connections');
+                const resp = await fetch('api/v1/index.php?ep=ConnectionManager&action=list');
                 const data = await resp.json();
-                loadedConnections = (data.connections || []).map(c => ({ id: c[0], name: c[1], driver: c[2] }));
+                loadedConnections = (data.connections || []).map(c => ({ id: c.id, name: c.name, driver: c.driver }));
             }
             
             this.connections = loadedConnections;
@@ -274,6 +274,9 @@ class SQLEditor {
      * Converts to lowercase, replaces spaces and special characters with underscores.
      */
     _normalizeConnectionName(name) {
+        if (!name || typeof name !== 'string') {
+            return '';
+        }
         let normalized = name.trim().toLowerCase();
         normalized = normalized.replace(/\s+/g, '_');
         normalized = normalized.replace(/[^a-z0-9_]/g, '_');
