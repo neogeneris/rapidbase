@@ -492,15 +492,17 @@ class ConnectionDialog {
     }
 
     open(mode = 'create', connectionData = null) {
-        this._reset();
         if (mode === 'edit' && connectionData) {
             this._populateForEdit(connectionData);
+        } else {
+            this._reset();
         }
         this.overlay.classList.add('is-open');
     }
 
     _populateForEdit(data) {
         const ov = this.overlay;
+        // Set values directly without resetting first
         ov.querySelector('#cd-name').value = data.name || '';
         ov.querySelector('#cd-host').value = data.host || 'localhost';
         ov.querySelector('#cd-port').value = data.port || '';
@@ -517,6 +519,8 @@ class ConnectionDialog {
             this._pickEnv('dev');
         }
         this.editingId = data.id;
+        // Make sure overlay is visible before going to step 2
+        this.overlay.classList.add('is-open');
         // Go directly to step 2 for editing
         this._goTo(2);
     }
