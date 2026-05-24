@@ -268,8 +268,10 @@
     font-weight: 600;
     color: #475569;
 }
-.cd-driver-badge svg {
-    width: 18px; height: 18px;
+.cd-driver-badge img {
+    width: 18px; 
+    height: 18px;
+    object-fit: contain;
 }
 
 .cd-row {
@@ -344,13 +346,21 @@
 
 @keyframes cd-spin { to { transform: rotate(360deg); } }
 
+/* GIF animado para el botón de test - oculto por defecto */
+.cd-test-loading-gif {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    display: none;
+}
+
 /* Normalizar el contenedor del icono */
 .cd-driver-icon {
     width: 48px;
     height: 48px;
-	object-fit: contain;   /* mantiene la proporción dentro del tamaño fijo */
+    object-fit: contain;   /* mantiene la proporción dentro del tamaño fijo */
     flex-shrink: 0;
-	
+    
     display: flex;
     align-items: center;
     justify-content: center;
@@ -359,11 +369,19 @@
 
 /* Controlar que las imágenes SVG no se desborden ni se deformen */
 .cd-driver-svg {
-    max-width: 100%;
-    max-height: 100%;
+    width: 36px;
+    height: 36px;
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15)); /* Le da volumen sobre el fondo glassificado */
     transition: transform 0.2s ease;
+}
+
+/* SVG para step 2 badge - tamaño normalizado */
+.cd-driver-svg-step2 {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 /* Efecto feedback cuando la tarjeta está activa */
