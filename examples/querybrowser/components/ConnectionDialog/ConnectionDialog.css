@@ -44,7 +44,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 20px;
+    padding: 8px 20px;
     border-bottom: 1px solid #e2e8f0;
     background: #f8fafc;
     flex-shrink: 0;
@@ -74,13 +74,13 @@
 .cd-close-btn {
     width: 26px; height: 26px;
     display: flex; align-items: center; justify-content: center;
-    border: none; background: none;
-    color: #94a3b8; cursor: pointer;
+    border: none; background: #f1f5f9;
+    color: #475569; cursor: pointer;
     border-radius: 4px;
     transition: all 0.15s;
     padding: 0;
 }
-.cd-close-btn:hover { background: #f1f5f9; color: #1e293b; }
+.cd-close-btn:hover { background: #e2e8f0; color: #1e293b; }
 .cd-close-btn svg { width: 16px; height: 16px; }
 
 /* Step pills */
@@ -100,7 +100,7 @@
 
 /* ─── Body ──────────────────────────────────────────────── */
 .cd-body {
-    padding: 12px 20px;
+    padding: 10px 20px;
     overflow-y: auto;
     flex-shrink: 0;
 }
@@ -116,16 +116,16 @@
     color: #1e293b;
     text-transform: uppercase;
     letter-spacing: 0.6px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 /* Reducir margen en secciones con campos para ahorrar espacio vertical */
 .cd-section.fields-gap {
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 .cd-section-title {
-    margin: 0 0 6px 0;
+    margin: 0 0 4px 0;
     font-size: 11px;
     font-weight: 600;
     color: #1e293b;
@@ -135,9 +135,9 @@
 .cd-driver-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    margin-bottom: 10px;
-    padding: 8px;
+    gap: 5px;
+    margin-bottom: 8px;
+    padding: 5px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
@@ -145,14 +145,14 @@
 
 /* Normalizar el contenedor del icono */
 .cd-driver-icon {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
     
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 }
 
 .cd-driver-card {
@@ -160,8 +160,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    padding: 6px 4px 4px;
+    gap: 1px;
+    padding: 4px 3px 2px;
     border: 2px solid #e2e8f0;
     border-radius: 7px;
     background: #ffffff;
@@ -189,8 +189,8 @@
     color: #3b82f6;
 }
 .cd-driver-icon img {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     display: block;
     object-fit: contain;
 }
@@ -211,7 +211,7 @@
 .cd-field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .cd-label {
@@ -233,7 +233,7 @@
     border-radius: 5px;
     outline: none;
     padding: 0 10px;
-    height: 34px;
+    height: 32px;
     transition: border-color 0.18s, box-shadow 0.18s;
 }
 .cd-input:focus,
@@ -245,11 +245,11 @@
 .cd-textarea::placeholder { color: #94a3b8; }
 
 .cd-textarea {
-    height: 64px;
-    padding: 8px 10px;
+    height: 56px;
+    padding: 6px 10px;
     resize: vertical;
     font-size: 12px;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 /* Environment badges */
@@ -293,12 +293,12 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 10px 16px;
+    padding: 8px 14px;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(226, 232, 240, 0.6);
     border-radius: 8px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 .cd-driver-badge span {
@@ -307,18 +307,19 @@
     color: #1e293b;
 }
 
-.cd-row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-.cd-row .cd-field { flex: 1; }
-
 /* Row compacto para Step 1 - reduce espacio vertical */
 .cd-row-compact {
     gap: 10px;
+    margin-bottom: 8px;
+}
+.cd-row-compact .cd-field { flex: 1; }
+
+.cd-row {
+    display: flex;
+    gap: 12px;
     margin-bottom: 10px;
 }
+.cd-row .cd-field { flex: 1; }
 
 /* Select styling */
 .cd-select {
@@ -330,7 +331,7 @@
     border-radius: 5px;
     outline: none;
     padding: 0 10px;
-    height: 34px;
+    height: 32px;
     transition: border-color 0.18s, box-shadow 0.18s;
     cursor: pointer;
 }
@@ -350,8 +351,8 @@
     gap: 8px;
     flex-shrink: 0;
 }
-.cd-footer-left,
-.cd-footer-right {
+.cd-footer-status,
+.cd-footer-buttons {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -366,8 +367,8 @@
 
 /* Buttons */
 .cd-btn {
-    height: 32px;
-    padding: 0 15px;
+    height: 30px;
+    padding: 0 14px;
     font-size: 12px;
     font-weight: 600;
     border-radius: 5px;
@@ -412,6 +413,14 @@
     display: none;
 }
 
+/* SVG para step 2 badge - tamaño normalizado basado en MySQL (96x96 viewBox) */
+.cd-driver-svg-step2 {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
 /* Normalizar el contenedor del icono - Step 2 badge */
 .cd-driver-badge img {
     width: 64px; 
@@ -419,21 +428,13 @@
     object-fit: contain;
 }
 
-/* Controlar que las imágenes SVG no se desborden ni se deformen */
+/* SVG para step 1 - tamaño normalizado */
 .cd-driver-svg {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     object-fit: contain;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15)); /* Le da volumen sobre el fondo glassificado */
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
     transition: transform 0.2s ease;
-}
-
-/* SVG para step 2 badge - tamaño normalizado basado en MySQL (96x96 viewBox) */
-.cd-driver-svg-step2 {
-    width: 64px;
-    height: 64px;
-    object-fit: contain;
-    flex-shrink: 0;
 }
 
 /* Efecto feedback cuando la tarjeta está activa */
@@ -530,9 +531,9 @@
 }
 
 .cd-error-modal-content {
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
     border-radius: 16px;
     padding: 32px;
     text-align: center;
@@ -556,6 +557,6 @@
 
 .cd-error-message {
     font-size: 14px;
-    color: #475569;
+    color: #0f172a;
     margin-bottom: 20px;
 }
