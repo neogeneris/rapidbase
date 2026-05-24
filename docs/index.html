@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RapidBase - Documentación para Agentes de Desarrollo</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #7c3aed;
+            --accent: #06b6d4;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 2rem 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .logo {
+            padding: 0 1.5rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            padding: 0.5rem 1.5rem;
+        }
+
+        .nav-links {
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin: 0;
+        }
+
+        .nav-links a {
+            display: block;
+            padding: 0.625rem 1.5rem;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.875rem;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-links a:hover {
+            background: var(--bg);
+            border-left-color: var(--primary);
+        }
+
+        .nav-links a.active {
+            background: #eff6ff;
+            border-left-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .nav-links .nested {
+            padding-left: 1rem;
+        }
+
+        .nav-links .nested a {
+            font-size: 0.8125rem;
+            padding-left: 2rem;
+        }
+
+        /* Main Content */
+        .main {
+            padding: 2rem 3rem;
+            max-width: 1200px;
+        }
+
+        .breadcrumb {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        section {
+            background: var(--surface);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+            color: var(--text);
+        }
+
+        h3 {
+            font-size: 1.125rem;
+            margin: 1.5rem 0 0.75rem;
+            color: var(--text);
+        }
+
+        h4 {
+            font-size: 1rem;
+            margin: 1rem 0 0.5rem;
+            color: var(--text);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        ul, ol {
+            margin: 1rem 0 1rem 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875em;
+            color: #e11d48;
+        }
+
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.25rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 1rem 1.25rem;
+            border-radius: 0.25rem;
+            margin: 1rem 0;
+        }
+
+        .warning-box {
+            background: #fffbeb;
+            border-left: 4px solid var(--warning);
+            padding: 1rem 1.25rem;
+            border-radius: 0.25rem;
+            margin: 1rem 0;
+        }
+
+        .success-box {
+            background: #ecfdf5;
+            border-left: 4px solid var(--success);
+            padding: 1rem 1.25rem;
+            border-radius: 0.25rem;
+            margin: 1rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        tr:hover {
+            background: var(--bg);
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+
+        .tag-core { background: #dbeafe; color: #1e40af; }
+        .tag-api { background: #ede9fe; color: #5b21b6; }
+        .tag-cache { background: #ccfbf1; color: #115e59; }
+        .tag-tdd { background: #fef3c7; color: #92400e; }
+        .tag-orm { background: #fce7f3; color: #9d174d; }
+
+        .file-tree {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+            background: var(--bg);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .file-tree .dir { color: var(--primary); }
+        .file-tree .file { color: var(--text); }
+        .file-tree .desc { color: var(--text-muted); font-size: 0.8125rem; }
+
+        .toc {
+            background: var(--bg);
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .toc h4 {
+            margin-top: 0;
+        }
+
+        .toc ul {
+            margin: 0.5rem 0 0 1rem;
+        }
+
+        .toc a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .method-card {
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 0.75rem 0;
+        }
+
+        .method-name {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .quick-nav {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+
+        .quick-nav a {
+            padding: 0.5rem 1rem;
+            background: var(--bg);
+            border-radius: 0.375rem;
+            text-decoration: none;
+            color: var(--primary);
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .quick-nav a:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                display: none;
+            }
+            .main {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <h1>🚀 RapidBase</h1>
+                <p>Documentación para Agentes IA</p>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">Inicio</div>
+                <ul class="nav-links">
+                    <li><a href="#overview" class="active">Visión General</a></li>
+                    <li><a href="#architecture">Arquitectura</a></li>
+                    <li><a href="#quickstart">Inicio Rápido</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">src/ - Código Fuente</div>
+                <ul class="nav-links">
+                    <li><a href="#core">Core</a></li>
+                    <li class="nested"><a href="#q-querybuilder">Q.php QueryBuilder</a></li>
+                    <li class="nested"><a href="#gateway">Gateway.php</a></li>
+                    <li class="nested"><a href="#db">DB.php</a></li>
+                    <li class="nested"><a href="#x">X.php Executor</a></li>
+                    <li><a href="#cache">Sistema de Caché</a></li>
+                    <li><a href="#autoloader">Autoloader</a></li>
+                    <li><a href="#api-framework">API Framework</a></li>
+                    <li><a href="#tdd">TDD Framework</a></li>
+                    <li><a href="#orm">ORM ActiveRecord</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">tests/ - Pruebas</div>
+                <ul class="nav-links">
+                    <li><a href="#tests-structure">Estructura</a></li>
+                    <li><a href="#tdd-runner">TDD Runner</a></li>
+                    <li><a href="#test-types">Tipos de Tests</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">examples/ - Ejemplos</div>
+                <ul class="nav-links">
+                    <li><a href="#querybrowser">QueryBrowser</a></li>
+                    <li><a href="#rapidbase-bundle">RapidBase Bundle</a></li>
+                    <li><a href="#endpoints">Endpoints Demo</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">docs/ - Documentación</div>
+                <ul class="nav-links">
+                    <li><a href="#docs-existing">Archivos Existentes</a></li>
+                    <li><a href="#unique-features">Características Únicas</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="breadcrumb">
+                <a href="#overview">Home</a> › Documentación para Agentes
+            </div>
+
+            <section id="overview">
+                <h1>🚀 RapidBase - Documentación para Agentes de Desarrollo</h1>
+                <p>
+                    Esta documentación está diseñada específicamente para agentes de IA que necesitan comprender 
+                    rápidamente la estructura, arquitectura y funcionalidades del proyecto RapidBase.
+                </p>
+
+                <div class="info-box">
+                    <strong>Propósito:</strong> RapidBase es un motor de base de datos performance-first con ORM, 
+                    query builder avanzado, sistema de caché, autoloader inteligente, framework TDD integrado y 
+                    framework para APIs autodescriptivas.
+                </div>
+
+                <h3>Estructura del Proyecto</h3>
+                <div class="file-tree">
+/workspace/
+├── <span class="dir">src/RapidBase/</span>          <span class="desc"># Núcleo del framework</span>
+│   ├── <span class="dir">Core/</span>               <span class="desc"># Motor principal (DB, Gateway, X, Q)</span>
+│   ├── <span class="dir">Api/</span>                <span class="desc"># Framework de APIs</span>
+│   ├── <span class="dir">Tdd/</span>                <span class="desc"># Framework TDD</span>
+│   ├── <span class="dir">Autoloader/</span>         <span class="desc"># Autoloader avanzado</span>
+│   ├── <span class="dir">ORM/</span>                 <span class="desc"># ActiveRecord</span>
+│   └── <span class="dir">Cache/</span>              <span class="desc"># Sistema de caché</span>
+├── <span class="dir">tests/</span>                  <span class="desc"># Suite de pruebas (505 archivos)</span>
+├── <span class="dir">examples/</span>               <span class="desc"># Ejemplos y demos</span>
+│   └── <span class="dir">querybrowser/</span>       <span class="desc"># Aplicación demo completa</span>
+└── <span class="dir">docs/</span>                   <span class="desc"># Documentación existente</span>
+                </div>
+
+                <div class="quick-nav">
+                    <a href="#core">Ver Core</a>
+                    <a href="#api-framework">Ver API</a>
+                    <a href="#tdd">Ver TDD</a>
+                    <a href="#querybrowser">Ver QueryBrowser</a>
+                </div>
+            </section>
+
+            <section id="architecture">
+                <h2>🏗️ Arquitectura del Sistema</h2>
+                
+                <h3>Flujo de Ejecución Típico</h3>
+                <ol>
+                    <li><strong>DB.php / X.php</strong> → Fachadas públicas que reciben llamadas del usuario</li>
+                    <li><strong>Gateway.php</strong> → Pasarela intermedia con eventos, caché y logging</li>
+                    <li><strong>Q.php</strong> → QueryBuilder que construye SQL con características avanzadas</li>
+                    <li><strong>Executor.php</strong> → Ejecuta queries contra la base de datos</li>
+                    <li><strong>Conn.php</strong> → Gestiona conexiones PDO</li>
+                </ol>
+
+                <div class="info-box">
+                    <strong>Nota importante:</strong> DB.php es más rápido que X.php porque es una fachada más directa. 
+                    X.php ofrece aislamiento de conexiones pero con overhead adicional.
+                </div>
+
+                <h3>Componentes Principales</h3>
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Ubicación</th>
+                        <th>Propósito</th>
+                    </tr>
+                    <tr>
+                        <td><code>Q.php</code></td>
+                        <td>Core/SQL/</td>
+                        <td>QueryBuilder con autojoin, matrices de condiciones, sorters compactos</td>
+                    </tr>
+                    <tr>
+                        <td><code>Gateway.php</code></td>
+                        <td>Core/</td>
+                        <td>Pasarela central con eventos, caché, logging y estadísticas</td>
+                    </tr>
+                    <tr>
+                        <td><code>DB.php</code></td>
+                        <td>Core/</td>
+                        <td>Fachada directa y rápida para operaciones CRUD</td>
+                    </tr>
+                    <tr>
+                        <td><code>X.php</code></td>
+                        <td>Core/</td>
+                        <td>Fachada con aislamiento de conexiones (más lenta pero flexible)</td>
+                    </tr>
+                    <tr>
+                        <td><code>CacheService</code></td>
+                        <td>Core/Cache/</td>
+                        <td>Sistema de caché multi-adapter (Redis, Memcached, SQLite, etc.)</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section id="quickstart">
+                <h2>⚡ Inicio Rápido</h2>
+                
+                <h3>Configuración Básica</h3>
+                <pre><code>&lt;?php
+use RapidBase\Core\DB;
+
+// Configurar conexión
+DB::setup('sqlite:database.db', '', '');
+
+// Query simple
+$users = DB::select('users', ['status' => 'active']);
+
+// Query con matriz de condiciones
+$users = DB::select('users', [
+    ['role' => 'admin', 'status' => 'active'],
+    ['role' => 'moderator', 'verified' => true]
+]);</code></pre>
+
+                <div class="success-box">
+                    <strong>Ventaja clave:</strong> La sintaxis de matriz permite expresar lógica booleana compleja 
+                    de forma compacta sin closures anidadas.
+                </div>
+            </section>
+
+            <!-- ==================== SRC SECTION ==================== -->
+            <section id="core">
+                <h2>📁 src/ - Código Fuente</h2>
+                <p>El núcleo de RapidBase contiene 53 archivos PHP organizados en módulos especializados.</p>
+
+                <div class="toc">
+                    <h4>Contenido de esta sección:</h4>
+                    <ul>
+                        <li><a href="#q-querybuilder">Q.php - QueryBuilder Avanzado</a></li>
+                        <li><a href="#gateway">Gateway.php - Pasarela Central</a></li>
+                        <li><a href="#db">DB.php - Fachada Directa</a></li>
+                        <li><a href="#x">X.php - Executor con Aislamiento</a></li>
+                        <li><a href="#cache">Sistema de Caché</a></li>
+                        <li><a href="#autoloader">Autoloader Avanzado</a></li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="q-querybuilder">
+                <h3 id="q">Q.php - QueryBuilder Avanzado <span class="tag tag-core">Core</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Core/SQL/Q.php</code>
+                </p>
+                <p>
+                    Q.php no es un típico fluent query builder. Implementa características únicas:
+                </p>
+
+                <h4>Características Principales</h4>
+                <ul>
+                    <li><strong>Auto-Join Progresivo:</strong> Detecta automáticamente las tablas necesarias basado en los campos solicitados</li>
+                    <li><strong>Matriz de Condiciones:</strong> Sintaxis visual para lógica booleana compleja</li>
+                    <li><strong>Sorters Compactos:</strong> Definición de ordenamiento con sintaxis ultra-corta</li>
+                    <li><strong>Paginación Nativa:</strong> Usa números de página en lugar de offset manual</li>
+                </ul>
+
+                <h4>Ejemplo: Matriz de Condiciones</h4>
+                <pre><code>// Encontrar usuarios que son:
+// (Admins AND activos) OR (Moderadores AND verificados)
+
+DB::select('users', [
+    [ 'role' => 'admin', 'status' => 'active' ],
+    [ 'role' => 'moderator', 'verified' => true ]
+]);
+
+// SQL generado:
+// WHERE (role='admin' AND status='active') 
+//    OR (role='moderator' AND verified=1)</code></pre>
+
+                <h4>Ejemplo: Sorters Compactos</h4>
+                <pre><code>// Ordenar por fecha ASC, precio DESC
+'order' => ['date', '-price']
+
+// Ordenar por índice de columna (útil para COUNT, SUM)
+'select' => 'category, COUNT(*) as total',
+'order' => [2, -1]  // ORDER BY total ASC, category DESC</code></pre>
+
+                <div class="info-box">
+                    <strong>Niveles de Auto-Join:</strong>
+                    <ul>
+                        <li><code>auto</code> - Detección automática basada en schema</li>
+                        <li><code>manual</code> - Developer define exactamente qué joins usar</li>
+                        <li><code>off</code> - SQL estándar sin magia</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="gateway">
+                <h3>Gateway.php - Pasarela Central <span class="tag tag-core">Core</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Core/Gateway.php</code>
+                </p>
+                <p>
+                    Gateway es un punto intermedio, una pasarela que permite tener eventos, caché y es un cuello 
+                    de botella por donde pasan las llamadas.
+                </p>
+
+                <h4>Responsabilidades</h4>
+                <ul>
+                    <li>Gestión de eventos pre/post ejecución</li>
+                    <li>Integración con CacheService</li>
+                    <li>Logging de estadísticas y performance</li>
+                    <li>Normalización de respuestas</li>
+                    <li>Manejo de transacciones</li>
+                </ul>
+
+                <h4>Flujo de Datos</h4>
+                <pre><code>DB::select() / X::select()
+        ↓
+   Gateway.select()
+        ↓
+   Q.build() → SQL
+        ↓
+   Executor.run()
+        ↓
+   CacheService (opcional)
+        ↓
+   QueryResponse</code></pre>
+
+                <div class="warning-box">
+                    <strong>Importante:</strong> Gateway es el cuello de botella intencional. Todas las optimizaciones 
+                    de caché y eventos deben pasar por aquí para mantener consistencia.
+                </div>
+            </section>
+
+            <section id="db">
+                <h3>DB.php - Fachada Directa <span class="tag tag-core">Core</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Core/DB.php</code>
+                </p>
+                <p>
+                    DB.php es una fachada más directa que usa Gateway. Es más rápida que X.php pero ofrece menos 
+                    control sobre aislamiento de conexiones.
+                </p>
+
+                <h4>Métodos Principales</h4>
+                <div class="method-card">
+                    <span class="method-name">setup($dsn, $user, $pass, $name = 'main')</span>
+                    <p>Configura una conexión y realiza auto-descubrimiento del schema</p>
+                </div>
+                <div class="method-card">
+                    <span class="method-name">select($table, $where = [], $fields = '*', ...)</span>
+                    <p>Query SELECT con todas las características avanzadas de Q.php</p>
+                </div>
+                <div class="method-card">
+                    <span class="method-name">insert($table, $data)</span>
+                    <p>INSERT directo retornando lastId</p>
+                </div>
+                <div class="method-card">
+                    <span class="method-name">update($table, $data, $where)</span>
+                    <p>UPDATE con soporte para matriz de condiciones</p>
+                </div>
+
+                <h4>Ejemplo de Uso</h4>
+                <pre><code>&lt;?php
+use RapidBase\Core\DB;
+
+// Configurar
+DB::setup('mysql:host=localhost;dbname=mydb', 'user', 'pass');
+
+// Select con paginación nativa
+$result = DB::select('products', 
+    ['category' => 'electronics'],  // where
+    'id, name, price',              // fields
+    null,                           // groupBy
+    [],                             // having
+    ['name', '-price'],             // sort
+    3,                              // page number (no offset!)
+    PDO::FETCH_NUM                  // fetch mode
+);
+
+echo "Página {$result['page']} de productos";</code></pre>
+            </section>
+
+            <section id="x">
+                <h3>X.php - Executor con Aislamiento <span class="tag tag-core">Core</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Core/X.php</code>
+                </p>
+                <p>
+                    X.php es una fachada, un ejecutor que usa Gateway con la ventaja teórica de aislar las conexiones. 
+                    Sin embargo, es más lenta que DB.php debido al overhead adicional.
+                </p>
+
+                <h4>Cuándo Usar X.php vs DB.php</h4>
+                <table>
+                    <tr>
+                        <th>Escenario</th>
+                        <th>Recomendación</th>
+                    </tr>
+                    <tr>
+                        <td>Aplicación single-tenant</td>
+                        <td><code>DB.php</code> (más rápido)</td>
+                    </tr>
+                    <tr>
+                        <td>Multi-tenant con conexiones dinámicas</td>
+                        <td><code>X::con($tenantId)</code></td>
+                    </tr>
+                    <tr>
+                        <td>Testing con múltiples bases de datos</td>
+                        <td><code>X::con('test_db')</code></td>
+                    </tr>
+                    <tr>
+                        <td>API pública con aislamiento</td>
+                        <td><code>X::con($userId)</code></td>
+                    </tr>
+                </table>
+
+                <h4>Ejemplo: Aislamiento de Conexiones</h4>
+                <pre><code>&lt;?php
+use RapidBase\Core\X;
+
+// Crear executor para tenant específico
+$tenant = X::con('tenant_123')
+    ->connect('mysql:host=db1.example.com;dbname=tenant123', 'user', 'pass')
+    ->from('users', ['status' => 'active']);
+
+// Ejecutar query aislada
+$users = $tenant->select();
+
+// Cerrar conexión cuando se termine
+$tenant->close();</code></pre>
+            </section>
+
+            <section id="cache">
+                <h3>Sistema de Caché <span class="tag tag-cache">Cache</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Core/Cache/</code>
+                </p>
+                <p>
+                    Sistema de caché multi-adapter que soporta múltiples backends intercambiables.
+                </p>
+
+                <h4>Adapters Disponibles</h4>
+                <ul>
+                    <li><code>MemoryCacheAdapter</code> - Caché en memoria (volátil, rápido)</li>
+                    <li><code>RedisCacheAdapter</code> - Redis para producción</li>
+                    <li><code>MemcachedCacheAdapter</code> - Memcached alternativo</li>
+                    <li><code>DirectoryCacheAdapter</code> - Archivos en disco</li>
+                    <li><code>SQLiteMemoryCacheAdapter</code> - SQLite en memoria</li>
+                    <li><code>SessionCacheAdapter</code> - Sesión PHP</li>
+                </ul>
+
+                <h4>CountCache - Optimización Especial</h4>
+                <p>
+                    CountCache es una implementación especializada para contar registros sin ejecutar 
+                    COUNT() repetidamente. Mantiene contadores incrementales que se actualizan con INSERT/DELETE.
+                </p>
+
+                <h4>Ejemplo de Configuración</h4>
+                <pre><code>&lt;?php
+use RapidBase\Core\Cache\CacheService;
+use RapidBase\Core\Cache\Adapters\RedisCacheAdapter;
+
+// Configurar adapter
+$adapter = new RedisCacheAdapter([
+    'host' => 'localhost',
+    'port' => 6379
+]);
+
+CacheService::setAdapter($adapter);
+
+// Uso en queries
+$result = DB::select('products', [], '*', null, [], [], 1, PDO::FETCH_NUM, null, true);
+// El último parámetro (true) habilita caché automática</code></pre>
+            </section>
+
+            <section id="autoloader">
+                <h3>Autoloader Avanzado <span class="tag tag-core">Core</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Autoloader/Autoloader.php</code>
+                </p>
+                <p>
+                    No es un autoloader PSR-4 estándar. Incluye características avanzadas:
+                </p>
+
+                <h4>Características Únicas</h4>
+                <ul>
+                    <li><strong>Caché de rutas:</strong> Guarda mapeo clase→archivo para acelerar cargas futuras</li>
+                    <li><strong>Estadísticas de uso:</strong> Trackea qué clases se usan más</li>
+                    <li><strong>Preloading inteligente:</strong> Precarga clases frecuentemente usadas</li>
+                    <li><strong>Detección de dependencias:</strong> Sabe qué archivo usa qué clases</li>
+                    <li><strong>Búsqueda recursiva:</strong> Escanea directorios si no encuentra la clase</li>
+                </ul>
+
+                <h4>Ejemplo: Smart Preloading</h4>
+                <pre><code>&lt;?php
+use RapidBase\Autoloader\Autoloader;
+
+$loader = Autoloader::getInstance('/path/to/src')
+    ->enableStats(true)
+    ->setPreloadThreshold(3)  // Preload después de 3 usos
+    ->register();
+
+// Después de varias ejecuciones, las clases usadas 
+// frecuentemente se precargan automáticamente
+$loader->preloadSmart();</code></pre>
+
+                <div class="info-box">
+                    <strong>Uso en QueryBrowser:</strong> El QueryBrowser usa una versión bundeada (RapidBase.php) 
+                    que incluye el autoloader miniaturizado para evitar problemas con includes manuales.
+                </div>
+            </section>
+
+            <section id="api-framework">
+                <h3>API Framework <span class="tag tag-api">API</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Api/</code>
+                </p>
+                <p>
+                    Framework para crear APIs autodescriptivas con mínimo boilerplate. Los endpoints se descubren 
+                    automáticamente y pueden ser testeados individualmente.
+                </p>
+
+                <h4>Componentes</h4>
+                <ul>
+                    <li><code>ApiContext.php</code> - Contexto de request (params, session, auth)</li>
+                    <li><code>BaseEndpoint.php</code> - Clase base para todos los endpoints</li>
+                </ul>
+
+                <h4>Creación de Endpoint</h4>
+                <pre><code>&lt;?php
+namespace RapidBase\Endpoints;
+
+use RapidBase\Api\BaseEndpoint;
+
+class UserService extends BaseEndpoint
+{
+    /**
+     * Lista usuarios con filtros
+     * @param string $role Filtro por rol
+     * @return array Lista de usuarios
+     */
+    public function list($role = null)
+    {
+        $where = $role ? ['role' => $role] : [];
+        return DB::select('users', $where);
+    }
+
+    /**
+     * Crea nuevo usuario
+     */
+    public function create($data)
+    {
+        return ['id' => DB::insert('users', $data)];
+    }
+}</code></pre>
+
+                <h4>Auto-descripción</h4>
+                <p>
+                    Cada endpoint expone automáticamente su catálogo vía <code>describe()</code>, 
+                    <code>version()</code> y <code>catalog()</code>. El Magic Client de JavaScript usa 
+                    esta metadata para permitir llamadas sin configuración previa.
+                </p>
+
+                <h4>Magic Client (JavaScript)</h4>
+                <pre><code>// ¡Sin configuración! El proxy detecta endpoints automáticamente
+const api = new RapidBaseClient('api/v1/index.php');
+
+// Se traduce a: ?ep=UserService&action=list&role=admin
+const users = await api.userService.list({ role: 'admin' });</code></pre>
+            </section>
+
+            <section id="tdd">
+                <h3>TDD Framework <span class="tag tag-tdd">TDD</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/Tdd/</code>
+                </p>
+                <p>
+                    Framework propio de pruebas unitarias TDD, diseñado para trabajar sin dependencias externas.
+                </p>
+
+                <h4>Componentes</h4>
+                <ul>
+                    <li><code>Runner.php</code> - Ejecutor principal con auto-descubrimiento</li>
+                    <li><code>TddRunner.php</code> - Wrapper con reporting</li>
+                    <li><code>TestCase.php</code> - Clase base para tests</li>
+                    <li><code>EnvironmentBuilder.php</code> - Setup de entorno de testing</li>
+                </ul>
+
+                <h4>Características</h4>
+                <ul>
+                    <li><strong>Auto-descubrimiento:</strong> Detecta Models y Endpoints automáticamente</li>
+                    <li><strong>Generación de skeletons:</strong> Crea tests básicos desde reflexión</li>
+                    <li><strong>Reporting visual:</strong> Historial de tests con métricas de performance</li>
+                    <li><strong>Modos de ejecución:</strong> --all, --first, --failing, --scan</li>
+                </ul>
+
+                <h4>Ejemplo: Test de Endpoint</h4>
+                <pre><code>&lt;?php
+use RapidBase\Tdd\TestCase;
+
+class UserServiceTest extends TestCase
+{
+    protected $endpoint = 'UserService';
+
+    public function testList()
+    {
+        $response = $this->call('list', ['role' => 'admin']);
+        
+        $this->assertTrue($response['success']);
+        $this->assertIsArray($response['data']);
+    }
+}</code></pre>
+
+                <h4>Comandos Útiles</h4>
+                <pre><code># Ejecutar todos los tests
+php tdd_runner.php --all
+
+# Generar skeletons para nuevos endpoints
+php tdd_runner.php --skeleton ../tests_informales
+
+# Re-ejecutar solo los que fallaron
+php tdd_runner.php --failing
+
+# Ver reporte histórico
+php tdd_report.php</code></pre>
+            </section>
+
+            <section id="orm">
+                <h3>ORM ActiveRecord <span class="tag tag-orm">ORM</span></h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>src/RapidBase/ORM/ActiveRecord/</code>
+                </p>
+                <p>
+                    Implementación de ActiveRecord que usa <code>PDO::FETCH_OBJ</code> para hidratación eficiente.
+                </p>
+
+                <h4>Modelo Base</h4>
+                <pre><code>&lt;?php
+namespace RapidBase\ORM\ActiveRecord;
+
+class Model
+{
+    // Métodos principales:
+    // - find($id)
+    // - save()
+    // - delete()
+    // - all()
+    // - where($conditions)
+}</code></pre>
+
+                <h4>Ejemplo de Modelo</h4>
+                <pre><code>&lt;?php
+use RapidBase\ORM\ActiveRecord\Model;
+
+class User extends Model
+{
+    protected $table = 'users';
+    
+    // Validaciones automáticas
+    protected $rules = [
+        'email' => 'required|email|unique',
+        'password' => 'required|min:6'
+    ];
+}
+
+// Uso
+$user = User::find(1);
+echo $user->email;  // Acceso como propiedad
+
+$users = User::where(['status' => 'active'])->get();</code></pre>
+            </section>
+
+            <!-- ==================== TESTS SECTION ==================== -->
+            <section id="tests-structure">
+                <h2>📁 tests/ - Suite de Pruebas</h2>
+                <p>
+                    El proyecto contiene <strong>505 archivos de test</strong> organizados en diferentes categorías.
+                </p>
+
+                <div class="file-tree">
+tests/
+├── <span class="dir">Unit/</span>              <span class="desc"># Tests unitarios por componente</span>
+├── <span class="dir">Functional/</span>        <span class="desc"># Tests funcionales de flujos</span>
+├── <span class="dir">Integration/</span>         <span class="desc"># Tests de integración entre módulos</span>
+├── <span class="dir">Performance/</span>           <span class="desc"># Benchmarks y pruebas de carga</span>
+├── <span class="dir">PoC/RapidBase/</span>       <span class="desc"># TDD Runner y tests del framework</span>
+├── <span class="dir">Stress/</span>              <span class="desc"># Pruebas de estrés</span>
+└── <span class="dir">phpUnit/</span>             <span class="desc"># Tests PHPUnit tradicionales</span>
+                </div>
+            </section>
+
+            <section id="tdd-runner">
+                <h3>TDD Runner</h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>tests/PoC/RapidBase/Tdd/Runner.php</code>
+                </p>
+                <p>
+                    El TDD Runner es el corazón del sistema de testing. Permite:
+                </p>
+                <ul>
+                    <li>Descubrir automáticamente clases testeables</li>
+                    <li>Generar esqueletos de test basados en reflexión</li>
+                    <li>Ejecutar tests con detección inteligente de fallos</li>
+                    <li>Generar reportes visuales de historial</li>
+                </ul>
+
+                <div class="info-box">
+                    <strong>Workflow recomendado:</strong>
+                    <ol>
+                        <li>Crear Endpoint/Model</li>
+                        <li>Ejecutar <code>--skeleton</code> para generar test básico</li>
+                        <li>Refinar test con aserciones específicas</li>
+                        <li>Ejecutar <code>--first</code> para TDD iterativo</li>
+                        <li>Ver reporte con <code>tdd_report.php</code></li>
+                    </ol>
+                </div>
+            </section>
+
+            <section id="test-types">
+                <h3>Tipos de Tests</h3>
+                
+                <h4>Tests Unitarios</h4>
+                <p>Prueban componentes individuales aislados. Ubicados en <code>tests/Unit/</code>.</p>
+
+                <h4>Tests Funcionales</h4>
+                <p>Validan flujos completos de negocio. Ubicados en <code>tests/Functional/</code>.</p>
+
+                <h4>Tests de Performance</h4>
+                <p>Benchmarks comparativos entre diferentes implementaciones. Incluyen:
+                </p>
+                <ul>
+                    <li><code>FETCH_ASSOC vs FETCH_NUM</code></li>
+                    <li><code>static vs dynamic calls</code></li>
+                    <li><code>Hash algorithms benchmark</code></li>
+                </ul>
+
+                <h4>Pruebas de Estrés</h4>
+                <p>Simulan carga pesada para detectar cuellos de botella. Ubicadas en <code>tests/Stress/</code>.</p>
+            </section>
+
+            <!-- ==================== EXAMPLES SECTION ==================== -->
+            <section id="querybrowser">
+                <h2>📁 examples/ - Ejemplos y Demos</h2>
+                <p>
+                    El directorio examples contiene aplicaciones demostrativas. El más destacado es 
+                    <strong>QueryBrowser</strong>, un proyecto completo que demuestra las capacidades de RapidBase.
+                </p>
+
+                <div class="file-tree">
+examples/
+├── <span class="dir">querybrowser/</span>      <span class="desc"># Aplicación completa demo</span>
+│   ├── api/v1/
+│   │   ├── Endpoints/      <span class="desc"># Endpoints testeables</span>
+│   │   ├── Models/         <span class="desc"># Modelos del proyecto</span>
+│   │   └── lib/
+│   │       └── RapidBase.php <span class="desc"># Bundle miniaturizado</span>
+│   ├── components/         <span class="desc"># Componentes frontend</span>
+│   ├── tests/Unit/         <span class="desc"># Tests específicos del proyecto</span>
+│   └── index.php           <span class="desc"># Punto de entrada</span>
+└── <span class="dir">rest/</span>                <span class="desc"># Ejemplos REST simples</span>
+                </div>
+            </section>
+
+            <section id="rapidbase-bundle">
+                <h3>RapidBase Bundle</h3>
+                <p>
+                    <strong>Ubicación:</strong> <code>examples/querybrowser/api/v1/lib/RapidBase.php</code>
+                </p>
+                <p>
+                    RapidBase.php es un bundle que se usa en el QueryBrowser para no estar peleando con autoloaders 
+                    o includes. Contiene las clases esenciales miniaturizadas en un solo archivo.
+                </p>
+
+                <h4>Clases Incluidas</h4>
+                <ul>
+                    <li>ApiContext, BaseEndpoint</li>
+                    <li>Autoloader (versión compacta)</li>
+                    <li>DB, Gateway, Q, X (core esencial)</li>
+                    <li>CacheService y adapters</li>
+                    <li>Backend abstracto y JsonBackend</li>
+                </ul>
+
+                <div class="info-box">
+                    <strong>Ventaja:</strong> El bundle permite usar RapidBase en proyectos pequeños sin configurar 
+                    autoloaders complejos. Ideal para demos y prototipos rápidos.
+                </div>
+            </section>
+
+            <section id="endpoints">
+                <h3>Endpoints en QueryBrowser</h3>
+                <p>
+                    QueryBrowser demuestra el uso del API con Endpoints que pueden ser testeados por separado.
+                </p>
+
+                <h4>Ejemplos de Endpoints</h4>
+                <ul>
+                    <li><code>ConnectionManager</code> - Gestión de conexiones a databases</li>
+                    <li><code>SchemaExplorer</code> - Exploración de schemas</li>
+                    <li><code>QueryBuilder</code> - Construcción visual de queries</li>
+                    <li><code>GridViewer</code> - Visualización de datos en grid</li>
+                </ul>
+
+                <h4>Testing Independiente</h4>
+                <p>
+                    Cada endpoint tiene sus tests en <code>examples/querybrowser/tests/Unit/</code> y puede 
+                    ejecutarse independientemente del resto de la aplicación.
+                </p>
+            </section>
+
+            <!-- ==================== DOCS SECTION ==================== -->
+            <section id="docs-existing">
+                <h2>📁 docs/ - Documentación Existente</h2>
+                <p>
+                    El proyecto ya cuenta con documentación detallada en varios archivos markdown y HTML.
+                </p>
+
+                <h4>Archivos Principales</h4>
+                <table>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Descripción</th>
+                    </tr>
+                    <tr>
+                        <td><code>labs/unique_features_rapidbase.md</code></td>
+                        <td>Características únicas que diferencian a RapidBase</td>
+                    </tr>
+                    <tr>
+                        <td><code>performance_architecture.md</code></td>
+                        <td>Arquitectura orientada a performance</td>
+                    </tr>
+                    <tr>
+                        <td><code>API/README.md</code></td>
+                        <td>Documentación del framework API</td>
+                    </tr>
+                    <tr>
+                        <td><code>API/tutorial.md</code></td>
+                        <td>Tutorial paso a paso para crear endpoints</td>
+                    </tr>
+                    <tr>
+                        <td><code>TDD_RUNNER_GUIDE.md</code></td>
+                        <td>Guía completa del TDD Runner</td>
+                    </tr>
+                    <tr>
+                        <td><code>OPTIMIZATION_FINDINGS.md</code></td>
+                        <td>Hallazgos de optimización</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section id="unique-features">
+                <h3>Características Únicas de RapidBase</h3>
+                <p>
+                    Basado en <code>docs/labs/unique_features_rapidbase.md</code>, estas son las funcionalidades 
+                    que distinguen a RapidBase de otros ORMs como Eloquent, Doctrine o Medoo.
+                </p>
+
+                <h4>1. Matrix Where</h4>
+                <p>
+                    Sintaxis matricial para lógica booleana compleja sin closures anidadas.
+                </p>
+                <pre><code>// (Admin AND active) OR (Moderator AND verified)
+[
+    ['role' => 'admin', 'status' => 'active'],
+    ['role' => 'moderator', 'verified' => true]
+]</code></pre>
+
+                <h4>2. Compact Ordering</h4>
+                <p>
+                    Definición ultra-corta de ordenamiento con índices y prefijos.
+                </p>
+                <pre><code>'order' => ['date', '-price', 2, -1]
+// ORDER BY date ASC, price DESC, col2 ASC, col1 DESC</code></pre>
+
+                <h4>3. Smart Pagination</h4>
+                <p>
+                    Paginación por número de página en lugar de offset manual.
+                </p>
+                <pre><code>'page' => 3, 'limit' => 20
+// Internally: LIMIT 20 OFFSET 40</code></pre>
+
+                <h4>4. Progressive Auto-Join</h4>
+                <p>
+                    Detección automática de JOINs basada en schema con control granular.
+                </p>
+
+                <h4>5. Native Performance</h4>
+                <p>
+                    Uso de <code>PDO::FETCH_NUM</code> por defecto para máxima eficiencia en memoria.
+                </p>
+
+                <div class="success-box">
+                    <strong>Comparativa:</strong> RapidBase tiene curva de aprendizaje ⭐ (muy baja) vs 
+                    ⭐⭐⭐ de Eloquent y ⭐⭐⭐⭐ de Doctrine, mientras ofrece mejor performance.
+                </div>
+            </section>
+
+            <!-- ==================== QUICK REFERENCE ==================== -->
+            <section id="quick-reference">
+                <h2>📋 Referencia Rápida</h2>
+
+                <h4>Atajos de Navegación</h4>
+                <div class="quick-nav">
+                    <a href="#q-querybuilder">QueryBuilder Q</a>
+                    <a href="#gateway">Gateway</a>
+                    <a href="#db">DB.php</a>
+                    <a href="#x">X.php</a>
+                    <a href="#cache">Caché</a>
+                    <a href="#api-framework">API</a>
+                    <a href="#tdd">TDD</a>
+                    <a href="#querybrowser">QueryBrowser</a>
+                </div>
+
+                <h4>Snippets Comunes</h4>
+                <pre><code>// Setup básico
+DB::setup('sqlite:database.db', '', '');
+
+// Select con todas las opciones
+DB::select(
+    'users',                    // tabla
+    ['status' => 'active'],     // where (matriz soportada)
+    'id, name, email',          // campos
+    'category',                 // groupBy
+    ['total' => ['>' => 10]],   // having
+    ['name', '-created'],       // sort
+    1,                          // page number
+    PDO::FETCH_NUM              // fetch mode
+);
+
+// Insert
+$id = DB::insert('users', ['name' => 'John', 'email' => 'john@example.com']);
+
+// Update
+DB::update('users', ['status' => 'inactive'], ['id' => $id]);
+
+// Delete
+DB::delete('users', ['id' => $id]);
+
+// Con X.php (aislamiento)
+$users = X::con('tenant_1')
+    ->from('users')
+    ->cached(3600)
+    ->select();</code></pre>
+
+                <h4>Patrones de Diseño</h4>
+                <ul>
+                    <li><strong>Gateway Pattern:</strong> Gateway.php como punto único de entrada</li>
+                    <li><strong>Builder Pattern:</strong> Q.php para construcción de queries</li>
+                    <li><strong>Strategy Pattern:</strong> Adapters de caché intercambiables</li>
+                    <li><strong>Active Record:</strong> Model.php para ORM</li>
+                    <li><strong>Command Pattern:</strong> Endpoints como comandos ejecutables</li>
+                </ul>
+            </section>
+
+            <section id="glossary">
+                <h2>📖 Glosario</h2>
+                <table>
+                    <tr>
+                        <th>Término</th>
+                        <th>Definición</th>
+                    </tr>
+                    <tr>
+                        <td><code>Matrix Where</code></td>
+                        <td>Sintaxis de matriz para condiciones WHERE complejas</td>
+                    </tr>
+                    <tr>
+                        <td><code>Auto-Join</code></td>
+                        <td>Detección automática de relaciones JOIN basada en schema</td>
+                    </tr>
+                    <tr>
+                        <td><code>ProjectionMap</code></td>
+                        <td>Metadata que mapea índices numéricos a nombres de columnas</td>
+                    </tr>
+                    <tr>
+                        <td><code>Fetch Num</code></td>
+                        <td>Estrategia de fetch con arrays numéricos para eficiencia</td>
+                    </tr>
+                    <tr>
+                        <td><code>Magic Client</code></td>
+                        <td>Proxy JavaScript que llama endpoints sin configuración</td>
+                    </tr>
+                    <tr>
+                        <td><code>TDD Runner</code></td>
+                        <td>Ejecutor de tests con auto-descubrimiento y reporting</td>
+                    </tr>
+                    <tr>
+                        <td><code>RapidBase Bundle</code></td>
+                        <td>Versión miniaturizada en un solo archivo para demos</td>
+                    </tr>
+                </table>
+            </section>
+
+            <footer style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.875rem;">
+                <p>
+                    <strong>RapidBase Documentation</strong> - Generada para agentes de desarrollo IA<br>
+                    Última actualización: 2026 | Basada en la estructura actual del proyecto
+                </p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
+                    // Update active state in sidebar
+                    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+                    this.classList.add('active');
+                }
+            });
+        });
+
+        // Highlight current section in sidebar
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('section[id]');
+            const scrollPos = window.scrollY + 100;
+
+            sections.forEach(section => {
+                const top = section.offsetTop;
+                const height = section.offsetHeight;
+                const id = section.getAttribute('id');
+
+                if (scrollPos >= top && scrollPos < top + height) {
+                    document.querySelectorAll('.nav-links a').forEach(a => {
+                        a.classList.remove('active');
+                        if (a.getAttribute('href') === `#${id}`) {
+                            a.classList.add('active');
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
