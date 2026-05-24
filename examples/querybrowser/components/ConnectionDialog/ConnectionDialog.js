@@ -501,42 +501,54 @@ class ConnectionDialog {
     }
 
     _populateForEdit(data) {
+        // Ensure the overlay exists and is built
+        if (!this.overlay) {
+            this._build();
+        }
+        
         const ov = this.overlay;
         
-        // Make the overlay visible FIRST (before any DOM manipulation)
+        // Reset to step 1 first to ensure clean state
+        this.currentStep = 1;
+        ov.querySelector('#cd-step-1').style.display = 'block';
+        ov.querySelector('#cd-step-2').style.display = 'none';
+        
+        // First ensure overlay is in the DOM and visible
         this.overlay.classList.add('is-open');
         
-        // Force reflow to ensure CSS transitions apply
-        void this.overlay.offsetWidth;
-        
-        // Set values after overlay is visible
-        ov.querySelector('#cd-name').value = data.name || '';
-        ov.querySelector('#cd-host').value = data.host || 'localhost';
-        ov.querySelector('#cd-port').value = data.port || '';
-        ov.querySelector('#cd-database').value = data.database || '';
-        ov.querySelector('#cd-username').value = data.username || '';
-        ov.querySelector('#cd-password').value = ''; // Don't populate password for security
-        ov.querySelector('#cd-description').value = data.description || '';
-        
-        if (data.environment) {
-            this._pickEnv(data.environment);
-        } else {
-            this._pickEnv('dev');
-        }
-        
-        if (data.driver) {
-            // Convert 'mysql' back to 'mariadb' if needed based on connection data
-            // Since the backend stores them separately, we need to preserve the original driver
-            const driverToUse = data.driver === 'mysql' && data.name.toLowerCase().includes('mariadb') 
-                ? 'mariadb' 
-                : data.driver;
-            this._pickDriver(driverToUse);
-        }
-        
-        this.editingId = data.id;
-        
-        // Now go directly to step 2
-        this._goTo(2);
+        // Use requestAnimationFrame to ensure the browser has processed the visibility change
+        requestAnimationFrame(() => {
+            // Set values after overlay is visible
+            ov.querySelector('#cd-name').value = data.name || '';
+            ov.querySelector('#cd-host').value = data.host || 'localhost';
+            ov.querySelector('#cd-port').value = data.port || '';
+            ov.querySelector('#cd-database').value = data.database || '';
+            ov.querySelector('#cd-username').value = data.username || '';
+            ov.querySelector('#cd-password').value = ''; // Don't populate password for security
+            ov.querySelector('#cd-description').value = data.description || '';
+            
+            if (data.environment) {
+                this._pickEnv(data.environment);
+            } else {
+                this._pickEnv('dev');
+            }
+            
+            if (data.driver) {
+                // Convert 'mysql' back to 'mariadb' if needed based on connection data
+                // Since the backend stores them separately, we need to preserve the original driver
+                const driverToUse = data.driver === 'mysql' && data.name.toLowerCase().includes('mariadb') 
+                    ? 'mariadb' 
+                    : data.driver;
+                this._pickDriver(driverToUse);
+            }
+            
+            this.editingId = data.id;
+            
+            // Small delay to ensure everything is rendered before switching to step 2
+            setTimeout(() => {
+                this._goTo(2);
+            }, 50);
+        });
     }
 
     close() {
