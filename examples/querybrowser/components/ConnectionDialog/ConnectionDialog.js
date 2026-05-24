@@ -73,8 +73,8 @@ class ConnectionDialog {
 
                 <header class="cd-header">
                     <div class="cd-header-meta">
-                        <h3 class="cd-title">New Connection</h3>
-                        <p class="cd-subtitle" id="cd-subtitle">Step 1 — Select Driver</p>
+                        <h3 class="cd-title">Nueva Conexión</h3>
+                        <p class="cd-subtitle" id="cd-subtitle">Paso 1 — Seleccionar driver</p>
                     </div>
                     <div class="cd-header-actions">
                         <div class="cd-pills">
@@ -92,7 +92,7 @@ class ConnectionDialog {
                             ${ConnectionDialog.DRIVERS.map(d => `
                                 <div class="cd-driver-card ${d.id === this.selectedDriver ? 'active' : ''}" data-driver="${d.id}" role="radio">
                                     <div class="cd-driver-icon">${d.svg}</div>
-                                    <div class="cd-driver-label">${d.label}</div>
+                                    <span class="cd-driver-name">${d.label}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -132,27 +132,27 @@ class ConnectionDialog {
                     <section class="cd-section fields-gap">
                         <div class="cd-row" id="cd-network-row">
                             <div class="cd-field" style="flex: 2.5">
-                                <label class="cd-label">Host de red</label>
+                                <label class="cd-label">Network Host</label>
                                 <input type="text" class="cd-input" id="cd-host" value="localhost">
                             </div>
                             <div class="cd-field" style="flex: 1">
-                                <label class="cd-label">Puerto</label>
+                                <label class="cd-label">Port</label>
                                 <input type="number" class="cd-input" id="cd-port" value="3306">
                             </div>
                         </div>
 
                         <div class="cd-field" id="cd-db-field">
-                            <label class="cd-label" id="cd-db-label">Base de datos <span class="cd-req">*</span></label>
-                            <input type="text" class="cd-input" id="cd-database" placeholder="nombre_esquema">
+                            <label class="cd-label" id="cd-db-label">Database <span class="cd-req">*</span></label>
+                            <input type="text" class="cd-input" id="cd-database" placeholder="schema_name">
                         </div>
 
                         <div class="cd-row" id="cd-auth-row">
                             <div class="cd-field">
-                                <label class="cd-label">Usuario</label>
+                                <label class="cd-label">Username</label>
                                 <input type="text" class="cd-input" id="cd-username" placeholder="root">
                             </div>
                             <div class="cd-field">
-                                <label class="cd-label">Contraseña</label>
+                                <label class="cd-label">Password</label>
                                 <input type="password" class="cd-input" id="cd-password" placeholder="••••••••">
                             </div>
                         </div>
@@ -164,7 +164,7 @@ class ConnectionDialog {
                         <button class="cd-btn cd-btn-ghost" id="cd-test-btn" style="display:none;">
                             <span class="cd-spinner"></span>
                             <img src="assets/icon/reloj.gif" alt="Testing..." class="cd-test-loading-gif" style="display:none;">
-                            <span class="cd-btn-text">⚡ Test connection</span>
+                            <span class="cd-btn-text">⚡ Probar conexión</span>
                         </button>
                         <!-- Indicador visual circular -->
                         <div class="cd-status-indicator" id="cd-status-indicator" style="display:none;">
@@ -342,7 +342,7 @@ class ConnectionDialog {
 
         ov.querySelector('#cd-subtitle').textContent = step === 1
             ? 'Step 1 — Select Driver'
-            : 'Step 2 — Connection Details';
+            : 'Step 2 — Connection Data';
 
         ov.querySelector('#cd-next-btn').style.display  = step === 1 ? '' : 'none';
         ov.querySelector('#cd-prev-btn').style.display  = step === 2 ? '' : 'none';
@@ -356,10 +356,7 @@ class ConnectionDialog {
     _setupStep2() {
         const ov = this.overlay;
         const d = ConnectionDialog.DRIVERS.find(x => x.id === this.selectedDriver);
-        ov.querySelector('#cd-step2-badge').innerHTML = `
-            <div class="cd-driver-badge-icon">${d.svgStep2}</div>
-            <div class="cd-driver-badge-text">Selected Engine: <strong>${d.label}</strong></div>
-        `;
+        ov.querySelector('#cd-step2-badge').innerHTML = `${d.svgStep2}<span>Selected Driver: <strong>${d.label}</strong></span>`;
 
         const isSqlite = this.selectedDriver === 'sqlite';
 
@@ -370,8 +367,8 @@ class ConnectionDialog {
         const dbInput = ov.querySelector('#cd-database');
 
         if (isSqlite) {
-            dbLabel.innerHTML = 'SQLite File Path <span class="cd-req">*</span>';
-            dbInput.placeholder = '/absolute/path/to/file.sqlite';
+            dbLabel.innerHTML = 'SQLite file path <span class="cd-req">*</span>';
+            dbInput.placeholder = '/absolute/path/infrastructure/file.sqlite';
         } else {
             dbLabel.innerHTML = 'Database <span class="cd-req">*</span>';
             dbInput.placeholder = 'database_schema_name';
@@ -449,7 +446,7 @@ class ConnectionDialog {
             }
         } catch (networkError) {
             this._setStatus('error');
-            this._showErrorModal('Could not contact the server. Please check your network.');
+            this._showErrorModal('Could not contact the server. Check your network.');
         }
     }
 
