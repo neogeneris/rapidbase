@@ -92,7 +92,7 @@ class ConnectionDialog {
                             ${ConnectionDialog.DRIVERS.map(d => `
                                 <div class="cd-driver-card ${d.id === this.selectedDriver ? 'active' : ''}" data-driver="${d.id}" role="radio">
                                     <div class="cd-driver-icon">${d.svg}</div>
-                                    <span class="cd-driver-name">${d.label}</span>
+                                    <div class="cd-driver-label">${d.label}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -356,7 +356,10 @@ class ConnectionDialog {
     _setupStep2() {
         const ov = this.overlay;
         const d = ConnectionDialog.DRIVERS.find(x => x.id === this.selectedDriver);
-        ov.querySelector('#cd-step2-badge').innerHTML = `${d.svgStep2}<span>Selected Engine: <strong>${d.label}</strong></span>`;
+        ov.querySelector('#cd-step2-badge').innerHTML = `
+            <div class="cd-driver-badge-icon">${d.svgStep2}</div>
+            <div class="cd-driver-badge-text">Selected Engine: <strong>${d.label}</strong></div>
+        `;
 
         const isSqlite = this.selectedDriver === 'sqlite';
 
