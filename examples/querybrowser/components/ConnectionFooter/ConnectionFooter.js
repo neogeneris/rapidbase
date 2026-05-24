@@ -9,7 +9,7 @@ class ConnectionFooter {
 
     async fetchInfo() {
         try {
-            const resp = await fetch(`api.php?action=get_connection_info&connectionId=${this.connectionId}`);
+            const resp = await fetch(`api/v1/index.php?ep=ConnectionManager&action=ping&connectionId=${this.connectionId}`);
             const data = await resp.json();
             if (data.error) throw new Error(data.error);
             this.render(data);

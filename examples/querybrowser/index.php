@@ -317,7 +317,7 @@
                 } else {
                     const form = new FormData();
                     form.append('connId', id);
-                    const resp = await fetch('api.php?action=connect_saved', { method: 'POST', body: form });
+                    const resp = await fetch('api/v1/index.php?ep=ConnectionManager&action=activate', { method: 'POST', body: form });
                     const data = await resp.json();
                     if (data.status !== 'ok') {
                         console.error('Error activando conexión', data);
