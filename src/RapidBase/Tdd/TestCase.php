@@ -124,7 +124,7 @@ abstract class TestCase
         
         // Evitar instanciación directa si la clase no existe por fallos de autoloading
         if (!class_exists($class)) {
-            echo "[CRITICAL] No se pudo cargar la clase de test: $class. Verifique el Autoloader.\n";
+            echo "[CRITICAL] Could not load test class: $class. Check the Autoloader.\n";
             exit(1);
         }
 

@@ -135,7 +135,7 @@ class Gateway
         $table = $args[0] ?? 'unknown';
         $tableName = self::tableNameFromMixed($table);
 
-        // No se permite CompiledQuery en operaciones de escritura
+        // CompiledQuery is not allowed in write operations
         if ($table instanceof CompiledQuery) {
             throw new \RuntimeException("Cannot use subquery (CompiledQuery) for INSERT, UPDATE, DELETE operations.");
         }

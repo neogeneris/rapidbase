@@ -144,7 +144,7 @@ class DB implements DBInterface
     {
         if ($table === null) {
             if (!method_exists($class, 'getTable')) {
-                throw new \InvalidArgumentException("La clase $class debe tener un método estático getTable()");
+                throw new \InvalidArgumentException("Class $class must have a static getTable() method");
             }
             $table = $class::getTable();
         }
