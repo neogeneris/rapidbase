@@ -4,7 +4,8 @@
  */
 class SQLEditor {
     constructor(connectionId = null) {
-        this.connectionId = connectionId;          // puede ser null al inicio
+        // Normalizar connectionId si se proporciona
+        this.connectionId = connectionId ? this._normalizeConnectionName(connectionId) : null;
         this.connections = [];                     // lista de conexiones disponibles
         this.grid = null;
         this.cmEditor = null;
