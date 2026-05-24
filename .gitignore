@@ -1,6 +1,49 @@
-# Examples
-examples/querybrowser/components/ConnectionDialog/ConnectionDialog.css
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+dist/
+build/
+target/
 
-Wait, I need to reconsider this. The file 'examples/querybrowser/components/ConnectionDialog/ConnectionDialog.css' is a source code file (CSS), not a build artifact or temporary file, so it should NOT be added to .gitignore. Since the only change is a modification to a source file, the .gitignore should remain empty.
+# Dependencies
+node_modules/
+vendor/
+composer.lock
 
-(No content)
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PHP specific
+*.php~
+.htaccess~
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Cache
+.mypy_cache/
+.pytest_cache/
+.gradle/
+```

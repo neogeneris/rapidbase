@@ -89,6 +89,24 @@ class Connection extends Model
     }
 
     /**
+     * Override update to use 'internal' connection
+     */
+    public static function update($id, array $attributes = []): bool
+    {
+        try {
+            $result = X::con('internal')
+                ->from(static::$table)
+                ->where(['id' => $id])
+                ->values($attributes)
+                ->update();
+            return $result['success'] ?? false;
+        } catch (\Throwable $e) {
+            // Fallback al método padre si falla
+            return DB::update(static::$table, $attributes, ['id' => $id]);
+        }
+    }
+
+    /**
      * Build DSN string from connection attributes.
      * Supports sqlite, mysql, mariadb, pgsql, sqlsrv drivers.
      *

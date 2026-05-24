@@ -448,7 +448,7 @@ class ConnectionDialog {
         }
     }
 
-    // ─── Nuevo endpoint ConnectionManager.create ─────────────
+    // ─── Nuevo endpoint ConnectionManager.create / update ─────────────
     async _save() {
         const data = this._data();
         const err = this._validate(data);
@@ -464,9 +464,15 @@ class ConnectionDialog {
         try {
             if (window.RapidBaseClient) {
                 const api = new RapidBaseClient('api/v1/index.php');
-                await api.connectionManager.create(data);
+                if (this.editingId) {
+                    data.id = this.editingId;
+                    await api.connectionManager.update(data);
+                } else {
+                    await api.connectionManager.create(data);
+                }
             } else {
-                const r = await fetch('api/v1/index.php?ep=ConnectionManager&action=create', {
+                const action = this.editingId ? 'update' : 'create';
+                const r = await fetch(`api/v1/index.php?ep=ConnectionManager&action=${action}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -484,9 +490,30 @@ class ConnectionDialog {
         }
     }
 
-    open() {
+    open(mode = 'create', connectionData = null) {
         this._reset();
+        if (mode === 'edit' && connectionData) {
+            this._populateForEdit(connectionData);
+        }
         this.overlay.classList.add('is-open');
+    }
+
+    _populateForEdit(data) {
+        const ov = this.overlay;
+        ov.querySelector('#cd-name').value = data.name || '';
+        ov.querySelector('#cd-host').value = data.host || 'localhost';
+        ov.querySelector('#cd-port').value = data.port || '';
+        ov.querySelector('#cd-database').value = data.database || '';
+        ov.querySelector('#cd-username').value = data.username || '';
+        ov.querySelector('#cd-password').value = ''; // Don't populate password for security
+        ov.querySelector('#cd-description').value = data.description || '';
+        if (data.driver) {
+            this._pickDriver(data.driver);
+        }
+        if (data.environment) {
+            this._pickEnv(data.environment);
+        }
+        this.editingId = data.id;
     }
 
     close() {

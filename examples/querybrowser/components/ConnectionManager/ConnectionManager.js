@@ -212,6 +212,14 @@ class ConnectionManager {
                     <div class="conn-details-row">
                         <span class="conn-driver">${driver}</span>
                         <span class="conn-host-port">${hostPortText ? '· ' + window.escapeHtml(hostPortText) : ''}</span>
+                        <div class="conn-actions">
+                            <button class="conn-action-btn edit-btn" title="Edit connection" onclick="event.stopPropagation(); app.editConnection('${id}')">
+                                <img src="assets/icons/gtk-edit.svg" alt="Edit">
+                            </button>
+                            <button class="conn-action-btn delete-btn" title="Delete connection" onclick="event.stopPropagation(); app.deleteConnection('${id}')">
+                                <img src="assets/icons/edit-delete-symbolic.svg" alt="Delete">
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
