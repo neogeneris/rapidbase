@@ -73,15 +73,15 @@ class ConnectionDialog {
 
                 <header class="cd-header">
                     <div class="cd-header-meta">
-                        <h3 class="cd-title">Nueva Conexión</h3>
-                        <p class="cd-subtitle" id="cd-subtitle">Paso 1 — Seleccionar driver</p>
+                        <h3 class="cd-title">New Connection</h3>
+                        <p class="cd-subtitle" id="cd-subtitle">Step 1 — Select Driver</p>
                     </div>
                     <div class="cd-header-actions">
                         <div class="cd-pills">
                             <span class="cd-pill active" data-step="1"></span>
                             <span class="cd-pill" data-step="2"></span>
                         </div>
-                        <button class="cd-close-btn" id="cd-close" aria-label="Cerrar">&times;</button>
+                        <button class="cd-close-btn" id="cd-close" aria-label="Close">&times;</button>
                     </div>
                 </header>
 
@@ -99,23 +99,18 @@ class ConnectionDialog {
                     </section>
 
                     <section class="cd-section fields-gap">
-                        <div class="cd-field">
-                            <label class="cd-label">Connection Name <span class="cd-req">*</span></label>
-                            <input type="text" class="cd-input" id="cd-name" placeholder="e.g. Production Main" autocomplete="off">
-                        </div>
-
-                        <div class="cd-field">
-                            <label class="cd-label">Environment</label>
-                            <div class="cd-env-group" role="radiogroup">
-                                <button class="cd-env-pill active" data-status="dev">
-                                    <span class="cd-env-dot dev"></span> Development
-                                </button>
-                                <button class="cd-env-pill" data-status="qa">
-                                    <span class="cd-env-dot qa"></span> QA
-                                </button>
-                                <button class="cd-env-pill" data-status="production">
-                                    <span class="cd-env-dot prod"></span> Production
-                                </button>
+                        <div class="cd-row cd-row-compact">
+                            <div class="cd-field" style="flex: 1.5">
+                                <label class="cd-label">Connection Name <span class="cd-req">*</span></label>
+                                <input type="text" class="cd-input" id="cd-name" placeholder="e.g. Production Main" autocomplete="off">
+                            </div>
+                            <div class="cd-field" style="flex: 1">
+                                <label class="cd-label">Environment</label>
+                                <select class="cd-select" id="cd-environment">
+                                    <option value="dev">Development</option>
+                                    <option value="qa">QA</option>
+                                    <option value="production">Production</option>
+                                </select>
                             </div>
                         </div>
 
@@ -304,9 +299,9 @@ class ConnectionDialog {
             c.onclick = () => this._pickDriver(c.dataset.driver)
         );
 
-        ov.querySelectorAll('.cd-env-pill').forEach(b =>
-            b.onclick = () => this._pickEnv(b.dataset.status)
-        );
+        ov.querySelector('#cd-environment').addEventListener('change', (e) => {
+            this.selectedEnvironment = e.target.value;
+        });
 
         ov.querySelector('#cd-next-btn').onclick = () => this._goTo(2);
         ov.querySelector('#cd-prev-btn').onclick = () => this._goTo(1);
@@ -401,7 +396,7 @@ class ConnectionDialog {
             username:    ov.querySelector('#cd-username').value.trim() || null,
             password:    ov.querySelector('#cd-password').value || null,
             description: ov.querySelector('#cd-description').value.trim() || null,
-            environment: this.selectedEnvironment,
+            environment: ov.querySelector('#cd-environment').value,
             status:      'active',
         };
     }
