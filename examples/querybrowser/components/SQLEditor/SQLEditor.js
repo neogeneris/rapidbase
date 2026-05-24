@@ -76,18 +76,35 @@ class SQLEditor {
 
     async _loadConnections() {
         try {
+            let loadedConnections = [];
+            
             if (window.RapidBaseClient) {
                 const api = new RapidBaseClient('api/v1/index.php');
                 const result = await api.connectionManager.list();
-                this.connections = result.connections || [];
-                if (!this.connectionId && this.connections.length > 0) {
-                    this.connectionId = this._normalizeConnectionName(this.connections[0].name);
-                }
+                loadedConnections = result.connections || [];
             } else {
                 const resp = await fetch('api.php?action=list_connections');
                 const data = await resp.json();
-                this.connections = (data.connections || []).map(c => ({ id: c[0], name: c[1], driver: c[2] }));
-                if (!this.connectionId && this.connections.length > 0) {
+                loadedConnections = (data.connections || []).map(c => ({ id: c[0], name: c[1], driver: c[2] }));
+            }
+            
+            this.connections = loadedConnections;
+            
+            // Si tenemos conexiones cargadas
+            if (this.connections.length > 0) {
+                // Si hay un connectionId previo, verificar si coincide con alguna conexión
+                if (this.connectionId) {
+                    const found = this.connections.some(c => 
+                        this._normalizeConnectionName(c.name) === this.connectionId
+                    );
+                    if (!found) {
+                        console.warn(`Connection "${this.connectionId}" not found in loaded connections. Available:`, 
+                            this.connections.map(c => this._normalizeConnectionName(c.name)));
+                        // Usar la primera conexión disponible como fallback
+                        this.connectionId = this._normalizeConnectionName(this.connections[0].name);
+                    }
+                } else {
+                    // Si no hay connectionId previo, usar la primera conexión
                     this.connectionId = this._normalizeConnectionName(this.connections[0].name);
                 }
             }
@@ -254,13 +271,14 @@ class SQLEditor {
 
     /**
      * Normalize connection name to match the server-side normalization.
-     * Converts to lowercase, replaces special characters with underscores.
+     * Converts to lowercase, replaces spaces and special characters with underscores.
      */
     _normalizeConnectionName(name) {
         let normalized = name.trim().toLowerCase();
-        normalized = normalized.replace(/[^a-z0-9_\-]/g, '_');
+        normalized = normalized.replace(/\s+/g, '_');
+        normalized = normalized.replace(/[^a-z0-9_]/g, '_');
         normalized = normalized.replace(/_+/g, '_'); // Avoid multiple consecutive underscores
-        return 'conn_' + normalized;
+        return normalized;
     }
 
     onActivate() {}
