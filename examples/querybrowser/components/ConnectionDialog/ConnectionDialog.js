@@ -68,6 +68,9 @@ class ConnectionDialog {
         ov.id = 'cd-overlay';
         ov.className = 'cd-overlay';
 
+        // SVG close icon (GNOME symbolic)
+        const closeIconSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M5 5l6 6m0-6l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
         ov.innerHTML = `
             <div class="cd-dialog">
 
@@ -81,7 +84,7 @@ class ConnectionDialog {
                             <span class="cd-pill active" data-step="1"></span>
                             <span class="cd-pill" data-step="2"></span>
                         </div>
-                        <button class="cd-close-btn" id="cd-close" aria-label="Close">&times;</button>
+                        <button class="cd-close-btn" id="cd-close" aria-label="Close">${closeIconSVG}</button>
                     </div>
                 </header>
 

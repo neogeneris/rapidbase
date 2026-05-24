@@ -44,26 +44,44 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 20px;
+    padding: 10px 20px;
     border-bottom: 1px solid #e2e8f0;
     background: #f8fafc;
     flex-shrink: 0;
+}
+.cd-header-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 .cd-title {
     font-size: 13.5px;
     font-weight: 700;
     color: #1e293b;
+    margin: 0;
 }
 .cd-subtitle {
     font-size: 11px;
     color: #1e293b;
-    margin-top: 1px;
+    margin: 0;
 }
-.cd-header-right {
+.cd-header-actions {
     display: flex;
     align-items: center;
     gap: 12px;
 }
+
+.cd-close-btn {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: none;
+    color: #94a3b8; cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+    padding: 0;
+}
+.cd-close-btn:hover { background: #f1f5f9; color: #1e293b; }
+.cd-close-btn svg { width: 16px; height: 16px; }
 
 /* Step pills */
 .cd-pills {
@@ -80,19 +98,9 @@
 .cd-pill.active { background: #3b82f6; width: 34px; }
 .cd-pill.done   { background: #22c55e; }
 
-.cd-x {
-    width: 26px; height: 26px;
-    display: flex; align-items: center; justify-content: center;
-    border: none; background: none;
-    color: #94a3b8; cursor: pointer;
-    border-radius: 4px; font-size: 18px; line-height: 1;
-    transition: all 0.15s;
-}
-.cd-x:hover { background: #f1f5f9; color: #475569; }
-
 /* ─── Body ──────────────────────────────────────────────── */
 .cd-body {
-    padding: 16px 20px;
+    padding: 12px 20px;
     overflow-y: auto;
     flex-shrink: 0;
 }
@@ -108,7 +116,7 @@
     color: #1e293b;
     text-transform: uppercase;
     letter-spacing: 0.6px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 /* Reducir margen en secciones con campos para ahorrar espacio vertical */
@@ -116,16 +124,35 @@
     margin-top: 4px;
 }
 
+.cd-section-title {
+    margin: 0 0 6px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
 /* Driver grid */
 .cd-driver-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
-    padding: 12px;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 8px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
+}
+
+/* Normalizar el contenedor del icono */
+.cd-driver-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
 }
 
 .cd-driver-card {
@@ -133,8 +160,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 12px 8px 8px;
+    gap: 3px;
+    padding: 6px 4px 4px;
     border: 2px solid #e2e8f0;
     border-radius: 7px;
     background: #ffffff;
@@ -168,12 +195,13 @@
     object-fit: contain;
 }
 .cd-driver-name {
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 700;
     color: #1e293b;
     text-transform: uppercase;
     letter-spacing: 0.3px;
     text-align: center;
+    line-height: 1.1;
 }
 .cd-driver-card.active .cd-driver-name {
     color: #1d4ed8;
@@ -265,18 +293,13 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 12px 20px;
+    padding: 10px 16px;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(226, 232, 240, 0.6);
     border-radius: 8px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-.cd-driver-badge img {
-    width: 64px; 
-    height: 64px;
-    object-fit: contain;
 }
 .cd-driver-badge span {
     font-size: 13px;
@@ -321,7 +344,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 9px 20px;
+    padding: 8px 20px;
     border-top: 1px solid #e2e8f0;
     background: #f8fafc;
     gap: 8px;
@@ -389,16 +412,11 @@
     display: none;
 }
 
-/* Normalizar el contenedor del icono */
-.cd-driver-icon {
-    width: 48px;
-    height: 48px;
-    flex-shrink: 0;
-    
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 8px;
+/* Normalizar el contenedor del icono - Step 2 badge */
+.cd-driver-badge img {
+    width: 64px; 
+    height: 64px;
+    object-fit: contain;
 }
 
 /* Controlar que las imágenes SVG no se desborden ni se deformen */
