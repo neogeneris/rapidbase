@@ -40,8 +40,8 @@ class JoinResolver
 
         $result = $this->buildFromWithMap($tables);
         $data = [
-            'from'       => $result[0],
-            'tablesInfo' => $result[1] ?? [],
+            'from'       => $result['from'],
+            'tablesInfo' => $result['tablesInfo'] ?? [],
         ];
 
         if ($key !== null) {
@@ -82,20 +82,20 @@ class JoinResolver
             $parsed = $this->parseTable($table);
             $tablesInfo[] = $parsed;
             if ($parsed['isSubquery'] ?? false) {
-                return ["FROM " . $parsed['real'] . " AS " . $this->quote($parsed['alias']), $tablesInfo];
+                return ['from' => "FROM " . $parsed['real'] . " AS " . $this->quote($parsed['alias']), 'tablesInfo' => $tablesInfo];
             }
-            return ["FROM " . $this->quote($table), $tablesInfo];
+            return ['from' => "FROM " . $this->quote($table), 'tablesInfo' => $tablesInfo];
         }
 
-        if (!is_array($table)) return ["", $tablesInfo];
-        if (count($table) === 0) return ["", $tablesInfo];
+        if (!is_array($table)) return ['from' => "", 'tablesInfo' => $tablesInfo];
+        if (count($table) === 0) return ['from' => "", 'tablesInfo' => $tablesInfo];
         if (count($table) === 1 && isset($table[0]) && is_string($table[0])) {
             $parsed = $this->parseTable($table[0]);
             $tablesInfo[] = $parsed;
             if ($parsed['isSubquery'] ?? false) {
-                return ["FROM " . $parsed['real'] . " AS " . $this->quote($parsed['alias']), $tablesInfo];
+                return ['from' => "FROM " . $parsed['real'] . " AS " . $this->quote($parsed['alias']), 'tablesInfo' => $tablesInfo];
             }
-            return ["FROM " . $this->quote($table[0]), $tablesInfo];
+            return ['from' => "FROM " . $this->quote($table[0]), 'tablesInfo' => $tablesInfo];
         }
 
         foreach ($table as $item) {
@@ -201,34 +201,42 @@ class JoinResolver
 
     private function buildFromGraph(array $realNames, array $aliases, array &$tablesInfo): array
     {
-        $orderedRealNames = $this->orderTablesByWeakness($realNames);
-        $aliasesOrdered = [];
-        foreach ($orderedRealNames as $real) {
-            $aliasesOrdered[$real] = $aliases[$real];
+        try {
+            $orderedRealNames = $this->orderTablesByWeakness($realNames);
+            $aliasesOrdered = [];
+            foreach ($orderedRealNames as $real) {
+                $aliasesOrdered[$real] = $aliases[$real];
+            }
+            $aliases = $aliasesOrdered;
+
+            $tree = $this->buildJoinTree($orderedRealNames);
+            $rootReal = $tree['root'];
+            $rootAlias = $aliases[$rootReal];
+
+            $parts = ["FROM " . $this->quote($rootReal)];
+            if ($rootAlias !== $rootReal) {
+                $parts[] = "AS " . $this->quote($rootAlias);
+            }
+
+            foreach ($tree['edges'] as $edge) {
+                $parentReal = $edge['parent'];
+                $childReal  = $edge['child'];
+                $rel        = $edge['rel'];
+                $parentAlias = $aliases[$parentReal];
+                $childAlias  = $aliases[$childReal];
+
+                $onClause = $this->buildJoinCondition($parentReal, $parentAlias, $childReal, $childAlias, $rel);
+                $parts[] = "LEFT JOIN " . $this->quote($childReal) . ($childAlias !== $childReal ? " AS " . $this->quote($childAlias) : "") . " " . $onClause;
+            }
+
+            return [
+                'from' => implode(' ', $parts),
+                'tablesInfo' => $tablesInfo
+            ];
+        } catch (\RuntimeException $e) {
+            // Si no se pueden conectar todas las tablas, usar modo lineal como fallback
+            return $this->buildFromLinear($realNames);
         }
-        $aliases = $aliasesOrdered;
-
-        $tree = $this->buildJoinTree($orderedRealNames);
-        $rootReal = $tree['root'];
-        $rootAlias = $aliases[$rootReal];
-
-        $parts = ["FROM " . $this->quote($rootReal)];
-        if ($rootAlias !== $rootReal) {
-            $parts[] = "AS " . $this->quote($rootAlias);
-        }
-
-        foreach ($tree['edges'] as $edge) {
-            $parentReal = $edge['parent'];
-            $childReal  = $edge['child'];
-            $rel        = $edge['rel'];
-            $parentAlias = $aliases[$parentReal];
-            $childAlias  = $aliases[$childReal];
-
-            $onClause = $this->buildJoinCondition($parentReal, $parentAlias, $childReal, $childAlias, $rel);
-            $parts[] = "LEFT JOIN " . $this->quote($childReal) . ($childAlias !== $childReal ? " AS " . $this->quote($childAlias) : "") . " " . $onClause;
-        }
-
-        return [implode(' ', $parts), $tablesInfo];
     }
 
     private function orderTablesByWeakness(array $tableNames): array
@@ -269,42 +277,42 @@ class JoinResolver
             $graph[$t] = [];
         }
 
-        // ========== CORREGIDO: fk_table en todas las relaciones ==========
+        // ========== SOPORTE FORMATO CORTO Y LARGO ==========
  $findRelation = function (string $a, string $b): ?array {
     $from = $this->relMap['from'] ?? [];
     $to   = $this->relMap['to']   ?? [];
 
+    // Helper para normalizar relacion (soporta ['user_id'=>'id'] y ['local_key'=>'user_id','foreign_key'=>'id'])
+    $normalize = function(array $rel, string $fkTable, string $type): array {
+        if (isset($rel['local_key'])) {
+            $rel['fk_table'] = $fkTable;
+            return $rel;
+        }
+        $localKey = key($rel);
+        $foreignKey = reset($rel);
+        return [
+            'type'        => $type,
+            'local_key'   => $localKey,
+            'foreign_key' => $foreignKey,
+            'fk_table'    => $fkTable,
+        ];
+    };
+
     // a -> b directa en from (FK en a)
     if (isset($from[$a][$b])) {
-        $rel = $from[$a][$b];
-        $rel['fk_table'] = $a;
-        return $rel;
+        return $normalize($from[$a][$b], $a, 'belongsTo');
     }
-    // b -> a en from (FK en b) → invertimos dirección pero mantenemos claves originales
+    // b -> a en from (FK en b)
     if (isset($from[$b][$a])) {
-        $rel = $from[$b][$a];
-        return [
-            'type'        => 'hasMany',
-            'local_key'   => $rel['local_key'],   // FK sigue siendo la misma
-            'foreign_key' => $rel['foreign_key'], // PK sigue siendo la misma
-            'fk_table'    => $b,
-        ];
+        return $normalize($from[$b][$a], $b, 'hasMany');
     }
-    // a -> b en to (FK en a) → invertimos dirección y tipo
+    // a -> b en to (FK en a)
     if (isset($to[$a][$b])) {
-        $rel = $to[$a][$b];
-        return [
-            'type'        => 'belongsTo',
-            'local_key'   => $rel['local_key'],   // FK en a
-            'foreign_key' => $rel['foreign_key'],
-            'fk_table'    => $a,
-        ];
+        return $normalize($to[$a][$b], $a, 'belongsTo');
     }
-    // b -> a en to (FK en b) → relación directa
+    // b -> a en to (FK en b)
     if (isset($to[$b][$a])) {
-        $rel = $to[$b][$a];
-        $rel['fk_table'] = $b;
-        return $rel;
+        return $normalize($to[$b][$a], $b, 'hasMany');
     }
     return null;
 };      // ================================================================
@@ -459,7 +467,7 @@ class JoinResolver
             $currentAlias = $nextAlias;
         }
 
-        return [implode(' ', $parts), $tablesInfo];
+        return ['from' => implode(' ', $parts), 'tablesInfo' => $tablesInfo];
     }
 
     private function buildJoinConditionFromDef(
@@ -529,7 +537,7 @@ class JoinResolver
             }
         }
 
-        return [implode(' ', $parts), $tablesInfo];
+        return ['from' => implode(' ', $parts), 'tablesInfo' => $tablesInfo];
     }
 
     private function quote(string $identifier): string

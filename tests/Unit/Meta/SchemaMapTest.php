@@ -6,7 +6,7 @@
  * Uses a manually constructed map to isolate from SchemaMapper/Discovery.
  */
 
-require_once __DIR__ . '/../../../examples/querybrowser/RapidBase.php';
+require_once __DIR__ . '/../../../bin/RapidBase.php';
 
 use RapidBase\Core\SchemaMap;
 use RapidBase\Core\SQL\ConditionMatrix;
