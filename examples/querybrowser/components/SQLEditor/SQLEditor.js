@@ -19,15 +19,19 @@ class SQLEditor {
 
         this.instanceId = `sqleditor-${Date.now()}`;
         const id = this.instanceId;
+        
+        // Generar opciones del selector después de cargar las conexiones
+        const connectionOptions = this.connections.map(c => {
+            const normalized = this._normalizeConnectionName(c.name);
+            const isSelected = normalized === this.connectionId ? 'selected' : '';
+            return `<option value="${normalized}" ${isSelected}>${this._escapeHtml(c.name)} (${c.driver})</option>`;
+        }).join('');
+        
         this.parentElement.innerHTML = `
             <div class="se-wrapper">
                 <div class="se-toolbar">
                     <select class="se-connection-select" id="${id}-conn-select">
-                        ${this.connections.map(c => 
-                            `<option value="${this._normalizeConnectionName(c.name)}" ${this._normalizeConnectionName(c.name) === this.connectionId ? 'selected' : ''}>
-                                ${this._escapeHtml(c.name)} (${c.driver})
-                            </option>`
-                        ).join('')}
+                        ${connectionOptions}
                     </select>
                     <div class="se-actions">
                         <button class="se-btn se-run-btn" title="Ejecutar (F5)">▶ Ejecutar</button>
