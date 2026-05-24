@@ -353,6 +353,33 @@
             showNewConnection: () => {
                 if (!app.connDialog) app.connDialog = new ConnectionDialog();
                 app.connDialog.open();
+            },
+
+            editConnection: (id) => {
+                if (!app.connDialog) app.connDialog = new ConnectionDialog();
+                const conn = app.connManager.allConnections.find(c => c.id === id);
+                if (conn) {
+                    app.connDialog.open('edit', conn);
+                }
+            },
+
+            deleteConnection: async (id) => {
+                if (!confirm('Are you sure you want to delete this connection?')) return;
+                try {
+                    const result = await app.connManager.apiClient.connectionManager.delete({ id: id });
+                    if (result.success) {
+                        app.connManager.allConnections = app.connManager.allConnections.filter(c => c.id !== id);
+                        app.connManager.render();
+                        if (app.connManager.activeConnectionId === id) {
+                            app.connManager.activeConnectionId = null;
+                            if (app.tableList) app.tableList.clear();
+                        }
+                    } else {
+                        alert(result.error || 'Failed to delete connection');
+                    }
+                } catch (e) {
+                    alert('Error deleting connection: ' + e.message);
+                }
             }
         };
 

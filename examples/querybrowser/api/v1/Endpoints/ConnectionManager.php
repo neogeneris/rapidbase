@@ -145,6 +145,33 @@ class ConnectionManager extends BaseEndpoint
         }
     }
 
+    public function update(): array
+    {
+        $this->ensureInternalDb();
+        $rawParams = $this->context->params;
+        $id = $rawParams['id'] ?? null;
+        if (!$id) return ['success' => false, 'error' => 'Missing id'];
+
+        // Lista blanca de campos permitidos
+        $allowed = ['name', 'driver', 'host', 'port', 'database', 'username', 'password', 'description', 'environment', 'status'];
+        $params = array_intersect_key($rawParams, array_flip($allowed));
+
+        try {
+            $updated = Connection::update($id, $params);
+            if (!$updated) {
+                return ['success' => false, 'error' => 'No se pudo actualizar la conexión'];
+            }
+
+            $conn = Connection::read($id);
+            return [
+                'success'    => true,
+                'connection' => $conn ? $conn->toSafeArray() : null
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
 
 
     public function ping(): array

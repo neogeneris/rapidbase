@@ -318,7 +318,8 @@
     background: #f59e0b;
     animation: blink 0.8s ease-in-out infinite;
 }
-/* ==========================================================================
+
+/* ==========================================================================
    21. COMPONENTE CONNECTION MANAGER: MODO CRISTAL (UNIFICADO Y COMPLETADO)
    ========================================================================== */
 
@@ -464,4 +465,56 @@ body .status-dot {
     height: 24px;
     object-fit: contain;   /* mantiene la proporción dentro del tamaño fijo */
     flex-shrink: 0;
+}
+
+/* ============================================================
+   ACTION BUTTONS (Edit/Delete) in Connection List
+   ============================================================ */
+.conn-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.conn-item:hover .conn-actions {
+    opacity: 1;
+}
+
+.conn-action-btn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.conn-action-btn img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+.conn-action-btn.edit-btn:hover {
+    background: rgba(59, 130, 246, 0.15);
+}
+
+.conn-action-btn.delete-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* Glass mode adjustments */
+#conn-manager-box:hover .conn-action-btn.edit-btn:hover {
+    background: rgba(59, 130, 246, 0.25);
+}
+
+#conn-manager-box:hover .conn-action-btn.delete-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
 }
