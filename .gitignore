@@ -1,17 +1,1 @@
-```
-# Database files
-*.sqlite
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Logs
-*.log
-
-# Temporary files
-*.tmp
-*.swp
-*~
-```
+Nothing needs to be added to the .gitignore file based on the provided changes. The only modified file is a JavaScript source file (SQLEditor.js), which should not be ignored.
