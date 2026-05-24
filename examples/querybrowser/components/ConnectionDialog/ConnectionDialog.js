@@ -496,13 +496,14 @@ class ConnectionDialog {
             this._populateForEdit(connectionData);
         } else {
             this._reset();
+            this.overlay.classList.add('is-open');
         }
-        this.overlay.classList.add('is-open');
     }
 
     _populateForEdit(data) {
         const ov = this.overlay;
-        // Set values directly without resetting first
+        
+        // Set values first (BEFORE making overlay visible and calling _goTo)
         ov.querySelector('#cd-name').value = data.name || '';
         ov.querySelector('#cd-host').value = data.host || 'localhost';
         ov.querySelector('#cd-port').value = data.port || '';
@@ -510,6 +511,13 @@ class ConnectionDialog {
         ov.querySelector('#cd-username').value = data.username || '';
         ov.querySelector('#cd-password').value = ''; // Don't populate password for security
         ov.querySelector('#cd-description').value = data.description || '';
+        
+        if (data.environment) {
+            this._pickEnv(data.environment);
+        } else {
+            this._pickEnv('dev');
+        }
+        
         if (data.driver) {
             // Convert 'mysql' back to 'mariadb' if needed based on connection data
             // Since the backend stores them separately, we need to preserve the original driver
@@ -518,15 +526,11 @@ class ConnectionDialog {
                 : data.driver;
             this._pickDriver(driverToUse);
         }
-        if (data.environment) {
-            this._pickEnv(data.environment);
-        } else {
-            this._pickEnv('dev');
-        }
+        
         this.editingId = data.id;
-        // Make sure overlay is visible before going to step 2
+        
+        // Now make the overlay visible and go directly to step 2
         this.overlay.classList.add('is-open');
-        // Go directly to step 2 for editing
         this._goTo(2);
     }
 
