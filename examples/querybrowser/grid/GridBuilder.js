@@ -104,6 +104,8 @@ class GridBuilder {
                     }
                     const el = this._createElement(thHtml);
                     el.style.display = '';
+                    // Usar el nombre cualificado completo si está disponible en this.columns
+                    // Esto preserva información como "comments.post_id" en lugar de solo "post_id"
                     el.dataset.column = this.columns[idx] || idx;
                     wrapper.appendChild(el);
                 });
