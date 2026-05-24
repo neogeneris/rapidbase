@@ -73,8 +73,8 @@ class ConnectionDialog {
 
                 <header class="cd-header">
                     <div class="cd-header-meta">
-                        <h3 class="cd-title">Nueva Conexión</h3>
-                        <p class="cd-subtitle" id="cd-subtitle">Paso 1 — Seleccionar driver</p>
+                        <h3 class="cd-title">New Connection</h3>
+                        <p class="cd-subtitle" id="cd-subtitle">Step 1 — Select Driver</p>
                     </div>
                     <div class="cd-header-actions">
                         <div class="cd-pills">
@@ -87,7 +87,7 @@ class ConnectionDialog {
 
                 <main class="cd-body" id="cd-step-1">
                     <section class="cd-section">
-                        <h4 class="cd-section-title">Seleccione el motor de base de datos</h4>
+                        <h4 class="cd-section-title">Select Database Engine</h4>
                         <div class="cd-driver-grid" id="cd-driver-grid">
                             ${ConnectionDialog.DRIVERS.map(d => `
                                 <div class="cd-driver-card ${d.id === this.selectedDriver ? 'active' : ''}" data-driver="${d.id}" role="radio">
@@ -100,28 +100,28 @@ class ConnectionDialog {
 
                     <section class="cd-section fields-gap">
                         <div class="cd-field">
-                            <label class="cd-label">Nombre de la conexión <span class="cd-req">*</span></label>
-                            <input type="text" class="cd-input" id="cd-name" placeholder="Ej: Producción Main" autocomplete="off">
+                            <label class="cd-label">Connection Name <span class="cd-req">*</span></label>
+                            <input type="text" class="cd-input" id="cd-name" placeholder="e.g. Production Main" autocomplete="off">
                         </div>
 
                         <div class="cd-field">
-                            <label class="cd-label">Entorno</label>
+                            <label class="cd-label">Environment</label>
                             <div class="cd-env-group" role="radiogroup">
                                 <button class="cd-env-pill active" data-status="dev">
-                                    <span class="cd-env-dot dev"></span> Desarrollo
+                                    <span class="cd-env-dot dev"></span> Development
                                 </button>
                                 <button class="cd-env-pill" data-status="qa">
                                     <span class="cd-env-dot qa"></span> QA
                                 </button>
                                 <button class="cd-env-pill" data-status="production">
-                                    <span class="cd-env-dot prod"></span> Producción
+                                    <span class="cd-env-dot prod"></span> Production
                                 </button>
                             </div>
                         </div>
 
                         <div class="cd-field">
-                            <label class="cd-label">Descripción</label>
-                            <textarea class="cd-textarea" id="cd-description" placeholder="Notas contextuales sobre esta infraestructura..."></textarea>
+                            <label class="cd-label">Description</label>
+                            <textarea class="cd-textarea" id="cd-description" placeholder="Contextual notes about this infrastructure..."></textarea>
                         </div>
                     </section>
                 </main>
@@ -164,7 +164,7 @@ class ConnectionDialog {
                         <button class="cd-btn cd-btn-ghost" id="cd-test-btn" style="display:none;">
                             <span class="cd-spinner"></span>
                             <img src="assets/icon/reloj.gif" alt="Testing..." class="cd-test-loading-gif" style="display:none;">
-                            <span class="cd-btn-text">⚡ Probar conexión</span>
+                            <span class="cd-btn-text">⚡ Test connection</span>
                         </button>
                         <!-- Indicador visual circular -->
                         <div class="cd-status-indicator" id="cd-status-indicator" style="display:none;">
@@ -175,12 +175,12 @@ class ConnectionDialog {
                         </div>
                     </div>
                     <div class="cd-footer-buttons">
-                        <button class="cd-btn cd-btn-ghost" id="cd-cancel-btn">Cancelar</button>
-                        <button class="cd-btn cd-btn-ghost" id="cd-prev-btn" style="display:none;">← Anterior</button>
-                        <button class="cd-btn cd-btn-primary" id="cd-next-btn">Siguiente →</button>
+                        <button class="cd-btn cd-btn-ghost" id="cd-cancel-btn">Cancel</button>
+                        <button class="cd-btn cd-btn-ghost" id="cd-prev-btn" style="display:none;">← Previous</button>
+                        <button class="cd-btn cd-btn-primary" id="cd-next-btn">Next →</button>
                         <button class="cd-btn cd-btn-success" id="cd-save-btn" style="display:none;">
                             <span class="cd-spinner"></span>
-                            <span class="cd-btn-text">✔ Finalizar</span>
+                            <span class="cd-btn-text">✔ Finish</span>
                         </button>
                     </div>
                 </footer>
@@ -202,9 +202,9 @@ class ConnectionDialog {
         modal.innerHTML = `
             <div class="cd-error-modal-content">
                 <div class="cd-error-icon">✗</div>
-                <h4 class="cd-error-title">Error de Conexión</h4>
+                <h4 class="cd-error-title">Connection Error</h4>
                 <p class="cd-error-message" id="cd-error-message"></p>
-                <button class="cd-btn cd-btn-primary" id="cd-error-close">Cerrar</button>
+                <button class="cd-btn cd-btn-primary" id="cd-error-close">Close</button>
             </div>
         `;
         document.body.appendChild(modal);
@@ -250,7 +250,7 @@ class ConnectionDialog {
             spinner.style.display = 'none';
             loadingGif.style.display = 'none';
             btnText.style.display = 'inline';
-            btnText.textContent = '✓ Conexión exitosa';
+            btnText.textContent = '✓ Connection successful';
             
             indicator.style.display = 'none';
             
@@ -263,7 +263,7 @@ class ConnectionDialog {
             spinner.style.display = 'none';
             loadingGif.style.display = 'none';
             btnText.style.display = 'inline';
-            btnText.textContent = '✗ Error de conexión';
+            btnText.textContent = '✗ Connection error';
             
             indicator.style.display = 'none';
             
@@ -286,7 +286,7 @@ class ConnectionDialog {
         spinner.style.display = 'none';
         loadingGif.style.display = 'none';
         btnText.style.display = 'inline';
-        btnText.textContent = '⚡ Probar conexión';
+        btnText.textContent = '⚡ Test connection';
     }
 
     // ─── Control de Eventos Actualizado ──────────────────────
@@ -341,8 +341,8 @@ class ConnectionDialog {
         });
 
         ov.querySelector('#cd-subtitle').textContent = step === 1
-            ? 'Paso 1 — Seleccionar driver'
-            : 'Paso 2 — Datos de conexión';
+            ? 'Step 1 — Select Driver'
+            : 'Step 2 — Connection Details';
 
         ov.querySelector('#cd-next-btn').style.display  = step === 1 ? '' : 'none';
         ov.querySelector('#cd-prev-btn').style.display  = step === 2 ? '' : 'none';
@@ -356,7 +356,7 @@ class ConnectionDialog {
     _setupStep2() {
         const ov = this.overlay;
         const d = ConnectionDialog.DRIVERS.find(x => x.id === this.selectedDriver);
-        ov.querySelector('#cd-step2-badge').innerHTML = `${d.svgStep2}<span>Motor Seleccionado: <strong>${d.label}</strong></span>`;
+        ov.querySelector('#cd-step2-badge').innerHTML = `${d.svgStep2}<span>Selected Engine: <strong>${d.label}</strong></span>`;
 
         const isSqlite = this.selectedDriver === 'sqlite';
 
@@ -367,11 +367,11 @@ class ConnectionDialog {
         const dbInput = ov.querySelector('#cd-database');
 
         if (isSqlite) {
-            dbLabel.innerHTML = 'Ruta del archivo SQLite <span class="cd-req">*</span>';
-            dbInput.placeholder = '/absoluta/infraestructura/archivo.sqlite';
+            dbLabel.innerHTML = 'SQLite File Path <span class="cd-req">*</span>';
+            dbInput.placeholder = '/absolute/path/to/file.sqlite';
         } else {
-            dbLabel.innerHTML = 'Base de datos <span class="cd-req">*</span>';
-            dbInput.placeholder = 'nombre_esquema_db';
+            dbLabel.innerHTML = 'Database <span class="cd-req">*</span>';
+            dbInput.placeholder = 'database_schema_name';
             ov.querySelector('#cd-port').value = d.port;
         }
     }
@@ -407,10 +407,10 @@ class ConnectionDialog {
     }
 
     _validate(d) {
-        if (!d.name) return 'El nombre es obligatorio.';
+        if (!d.name) return 'Name is required.';
         if (!d.database) return this.selectedDriver === 'sqlite'
-            ? 'La ruta del archivo SQLite es obligatoria.'
-            : 'El nombre de la base de datos es obligatorio.';
+            ? 'SQLite file path is required.'
+            : 'Database name is required.';
         return null;
     }
 
@@ -439,14 +439,14 @@ class ConnectionDialog {
                 res = await r.json();
             }
             if (res.success) {
-                this._setStatus('success', `Conectado (${res.latency})`);
+                this._setStatus('success', `Connected (${res.latency})`);
             } else {
                 this._setStatus('error');
-                this._showErrorModal(res.error || 'Error de negociación');
+                this._showErrorModal(res.error || 'Negotiation error');
             }
         } catch (networkError) {
             this._setStatus('error');
-            this._showErrorModal('No se pudo contactar con el servidor. Verifique su red.');
+            this._showErrorModal('Could not contact the server. Please check your network.');
         }
     }
 
