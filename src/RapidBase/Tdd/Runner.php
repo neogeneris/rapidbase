@@ -416,9 +416,9 @@ class Runner
         try {
             $reflection = new ReflectionClass($className);
             
-            // Verificar que herede de Model
+            // Check that it inherits from Model
             if (!$reflection->isSubclassOf('RapidBase\ORM\ActiveRecord\Model')) {
-                $diagnosis['suggestions'][] = "La clase no hereda de RapidBase\\ORM\\ActiveRecord\\Model";
+                $diagnosis['suggestions'][] = "Class does not inherit from RapidBase\\ORM\ActiveRecord\Model";
                 return $diagnosis;
             }
             
@@ -470,9 +470,9 @@ class Runner
         try {
             $reflection = new ReflectionClass($className);
             
-            // Verificar que herede de BaseEndpoint
+            // Check that it inherits from BaseEndpoint
             if (!$reflection->isSubclassOf('RapidBase\Api\BaseEndpoint')) {
-                $diagnosis['suggestions'][] = "La clase no hereda de RapidBase\\Api\\BaseEndpoint";
+                $diagnosis['suggestions'][] = "Class does not inherit from RapidBase\\Api\\BaseEndpoint";
                 return $diagnosis;
             }
             
@@ -512,16 +512,16 @@ class Runner
         $this->hr(70, '=');
         echo "           RAPIDBASE TDD - DIAGNÓSTICO DE CLASE             \n";
         $this->hr(70, '=');
-        echo "  Clase: {$diagnosis['class']}\n";
+        echo "  Class: {$diagnosis['class']}\n";
         $this->hr(70);
         
-        echo "  Archivo: " . ($diagnosis['file_exists'] ? "✓ Existe" : "✗ No encontrado") . "\n";
-        echo "  Sintaxis: " . ($diagnosis['syntax_ok'] ? "✓ OK" : "✗ Error") . "\n";
-        echo "  Cargable: " . ($diagnosis['loadable'] ? "✓ Sí" : "✗ No") . "\n";
-        echo "  Namespace: " . ($diagnosis['namespace_ok'] ? "✓ Coincide" : "✗ No coincide") . "\n";
+        echo "  File: " . ($diagnosis['file_exists'] ? "✓ Exists" : "✗ Not found") . "\n";
+        echo "  Syntax: " . ($diagnosis['syntax_ok'] ? "✓ OK" : "✗ Error") . "\n";
+        echo "  Loadable: " . ($diagnosis['loadable'] ? "✓ Yes" : "✗ No") . "\n";
+        echo "  Namespace: " . ($diagnosis['namespace_ok'] ? "✓ Matches" : "✗ Mismatch") . "\n";
         
         if ($diagnosis['expected_namespace']) {
-            echo "    Esperado: {$diagnosis['expected_namespace']}\n";
+            echo "    Expected: {$diagnosis['expected_namespace']}\n";
         }
         if ($diagnosis['actual_namespace']) {
             echo "    Actual: {$diagnosis['actual_namespace']}\n";
@@ -554,23 +554,23 @@ class Runner
         }
         
         if (!empty($diagnosis['interface_issues'])) {
-            echo "  Problemas de interfaces:\n";
+            echo "  Interface issues:\n";
             foreach ($diagnosis['interface_issues'] as $issue) {
                 echo "    - $issue\n";
             }
         }
         
         if (!empty($diagnosis['methods'])) {
-            echo "  Métodos públicos (" . count($diagnosis['methods']) . "):\n";
+            echo "  Public methods (" . count($diagnosis['methods']) . "):\n";
             foreach ($diagnosis['methods'] as $method) {
                 echo "    - {$method}()\n";
             }
         }
         
-        echo "  Tests existentes: " . ($diagnosis['has_tests'] ? "✓ Sí" : "✗ No") . "\n";
+        echo "  Existing tests: " . ($diagnosis['has_tests'] ? "✓ Yes" : "✗ No") . "\n";
         
         if (!empty($diagnosis['suggestions'])) {
-            echo "\n  Sugerencias:\n";
+            echo "\n  Suggestions:\n";
             foreach ($diagnosis['suggestions'] as $suggestion) {
                 echo "    ⚠ $suggestion\n";
             }
@@ -601,7 +601,7 @@ class Runner
         $diagnosis = $this->diagnose($className);
         
         if (!$diagnosis['loadable']) {
-            throw new \Exception("No se puede generar el test: la clase no se pudo cargar");
+            throw new \Exception("Cannot generate test: class could not be loaded");
         }
         
         $reflection = new ReflectionClass($className);

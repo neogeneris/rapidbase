@@ -173,7 +173,7 @@ class TddRunner {
                 $loadedClass = $fqnClass;
                 $diagnosis['loadable'] = true;
             } else {
-                $diagnosis['suggestions'][] = "No se pudo cargar la clase. El bundle puede haberla registrado con otro nombre.";
+                $diagnosis['suggestions'][] = "Could not load class. The bundle may have registered it under a different name.";
             }
             
             if ($loadedClass) {
@@ -223,7 +223,7 @@ class TddRunner {
         $diagnosis = $this->diagnose($className, $classPath);
         
         if (!$diagnosis['loadable']) {
-            throw new \Exception("No se puede generar el test: la clase no se pudo cargar");
+            throw new \Exception("Cannot generate test: class could not be loaded");
         }
         
         $reflection = new ReflectionClass($diagnosis['expected_namespace'] . '\\' . $className);
@@ -403,13 +403,13 @@ class TddRunner {
         echo "  Clase: {$diagnosis['class']}\n";
         $this->hr(70);
         
-        echo "  Archivo: " . ($diagnosis['file_exists'] ? "✓ Existe" : "✗ No encontrado") . "\n";
+        echo "  File: " . ($diagnosis['file_exists'] ? "✓ Exists" : "✗ Not found") . "\n";
         echo "  Sintaxis: " . ($diagnosis['syntax_ok'] ? "✓ OK" : "✗ Error") . "\n";
-        echo "  Cargable: " . ($diagnosis['loadable'] ? "✓ Sí" : "✗ No") . "\n";
-        echo "  Namespace: " . ($diagnosis['namespace_ok'] ? "✓ Coincide" : "✗ No coincide") . "\n";
+        echo "  Loadable: " . ($diagnosis['loadable'] ? "✓ Yes" : "✗ No") . "\n";
+        echo "  Namespace: " . ($diagnosis['namespace_ok'] ? "✓ Matches" : "✗ Mismatch") . "\n";
         
         if ($diagnosis['expected_namespace']) {
-            echo "    Esperado: {$diagnosis['expected_namespace']}\n";
+            echo "    Expected: {$diagnosis['expected_namespace']}\n";
         }
         if ($diagnosis['actual_namespace']) {
             echo "    Actual: {$diagnosis['actual_namespace']}\n";
@@ -420,21 +420,21 @@ class TddRunner {
         }
         
         if (!empty($diagnosis['interface_issues'])) {
-            echo "  Problemas de interfaces:\n";
+            echo "  Interface issues:\n";
             foreach ($diagnosis['interface_issues'] as $issue) {
                 echo "    - $issue\n";
             }
         }
         
         if (!empty($diagnosis['methods'])) {
-            echo "  Métodos públicos (" . count($diagnosis['methods']) . "):\n";
+            echo "  Public methods (" . count($diagnosis['methods']) . "):\n";
             foreach ($diagnosis['methods'] as $method) {
                 echo "    - $method()\n";
             }
         }
         
         if (!empty($diagnosis['suggestions'])) {
-            echo "\n  Sugerencias:\n";
+            echo "\n  Suggestions:\n";
             foreach ($diagnosis['suggestions'] as $suggestion) {
                 echo "    ⚠ $suggestion\n";
             }
