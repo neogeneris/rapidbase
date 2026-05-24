@@ -1,1 +1,1 @@
-Nothing should be ignored based on the provided file changes. The modified file is a source code file (.js) which should not be added to .gitignore.
+Nothing should be ignored based on the provided file changes. The only modified file is a JavaScript source file (`examples/querybrowser/components/ConnectionDialog/ConnectionDialog.js`), which should not be added to .gitignore.
