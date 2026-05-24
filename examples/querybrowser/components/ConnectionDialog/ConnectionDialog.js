@@ -503,13 +503,7 @@ class ConnectionDialog {
     _populateForEdit(data) {
         const ov = this.overlay;
         
-        // Make the overlay visible FIRST (before any DOM manipulation)
-        this.overlay.classList.add('is-open');
-        
-        // Force reflow to ensure CSS transitions apply
-        void this.overlay.offsetWidth;
-        
-        // Set values after overlay is visible
+        // Set values first (BEFORE making overlay visible and calling _goTo)
         ov.querySelector('#cd-name').value = data.name || '';
         ov.querySelector('#cd-host').value = data.host || 'localhost';
         ov.querySelector('#cd-port').value = data.port || '';
@@ -535,7 +529,8 @@ class ConnectionDialog {
         
         this.editingId = data.id;
         
-        // Now go directly to step 2
+        // Now make the overlay visible and go directly to step 2
+        this.overlay.classList.add('is-open');
         this._goTo(2);
     }
 
