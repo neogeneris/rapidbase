@@ -381,11 +381,12 @@ class ConnectionDialog {
         );
     }
 
-    _pickEnv(status) {
-        this.selectedEnvironment = status;
-        this.overlay.querySelectorAll('.cd-env-pill').forEach(b =>
-            b.classList.toggle('active', b.dataset.status === status)
-        );
+    _pickEnv(env) {
+        this.selectedEnvironment = env;
+        const select = this.overlay.querySelector('#cd-environment');
+        if (select && env) {
+            select.value = env;
+        }
     }
 
     _data() {
@@ -512,8 +513,12 @@ class ConnectionDialog {
         }
         if (data.environment) {
             this._pickEnv(data.environment);
+        } else {
+            this._pickEnv('dev');
         }
         this.editingId = data.id;
+        // Go directly to step 2 for editing
+        this._goTo(2);
     }
 
     close() {
