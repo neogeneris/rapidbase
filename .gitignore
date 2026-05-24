@@ -2,14 +2,16 @@
 # Database files
 *.sqlite
 
-# Test-related temporary files
-*.tmp
+# Environment
+.env
+.env.local
+.env.*
 
 # Logs
 *.log
 
-# Environment files
-.env
-.env.local
-*.env.*
+# Temporary files
+*.tmp
+*.swp
+*~
 ```
