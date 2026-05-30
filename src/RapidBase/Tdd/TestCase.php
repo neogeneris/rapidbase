@@ -76,6 +76,21 @@ abstract class TestCase
     protected function assertStringNotStartsWith(string $prefix, string $string, string $msg = ''): void {
         if (str_starts_with($string, $prefix)) throw new AssertionError($msg ?: "Expected string not to start with '$prefix'");
     }
+    protected function assertGreaterThan(mixed $expected, mixed $actual, string $msg = ''): void {
+        if ($actual <= $expected) throw new AssertionError($msg ?: "Expected greater than $expected got $actual");
+    }
+    protected function assertGreaterThanOrEqual(mixed $expected, mixed $actual, string $msg = ''): void {
+        if ($actual < $expected) throw new AssertionError($msg ?: "Expected greater than or equal to $expected got $actual");
+    }
+    protected function assertLessThan(mixed $expected, mixed $actual, string $msg = ''): void {
+        if ($actual >= $expected) throw new AssertionError($msg ?: "Expected less than $expected got $actual");
+    }
+    protected function assertLessThanOrEqual(mixed $expected, mixed $actual, string $msg = ''): void {
+        if ($actual > $expected) throw new AssertionError($msg ?: "Expected less than or equal to $expected got $actual");
+    }
+    protected function assertNotFalse(mixed $value, string $msg = ''): void {
+        if ($value === false) throw new AssertionError($msg ?: 'Expected not false');
+    }
     protected function expectException(string $class): void {
         // Placeholder para compatibilidad - el framework TDD actual no soporta esto nativamente
         // Se puede implementar con un try-catch wrapper en el futuro

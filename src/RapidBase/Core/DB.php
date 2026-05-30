@@ -247,14 +247,15 @@ class DB implements DBInterface
             $displayPage = max(1, (int)$page[0]);
             $displayLimit = max(1, (int)$page[1]);
             $gatewayPage = Q::page($displayPage, $displayLimit);
-        } elseif (is_numeric($page) && (int)$page > 1) {
+        } elseif (is_numeric($page) && (int)$page > 0) {
             $displayPage = max(1, (int)$page);
             $displayLimit = 10;
             $gatewayPage = Q::page($displayPage, $displayLimit);
         } else {
+            // page=0 o no numérico: sin límites (retorna todos los registros)
             $displayPage = 1;
-            $displayLimit = 10;
-            $gatewayPage = Q::page(1, 10);
+            $displayLimit = 0; // 0 significa sin límite
+            $gatewayPage = []; // Sin paginación
         }
 
 		// Obtener el total real con COUNT (sin paginación)
