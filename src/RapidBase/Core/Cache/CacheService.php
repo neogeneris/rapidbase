@@ -3,10 +3,11 @@
 namespace RapidBase\Core\Cache;
 
 use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
+use RapidBase\Core\Contracts\KeyValueInterface;
 
 class CacheService
 {
-    private static ?DirectoryCacheAdapter $adapter = null;
+    private static ?KeyValueInterface $adapter = null;
     private static bool $enabled = true;
 
     public static function init(string $path): void

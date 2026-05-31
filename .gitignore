@@ -1,6 +1,10 @@
 ```
-# Database files
+# Cache and test artifacts
+tests/tmp/
 *.sqlite
+
+# Dependencies
+vendor/
 
 # Logs and temp files
 *.log
@@ -15,45 +19,7 @@
 .vscode/
 .idea/
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.venv.bak/
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Coverage reports
-.coverage
-coverage/
-htmlcov/
-.coverage.*
-.nox/
-
-# Testing
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-
-# Build artifacts
-dist/
-build/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# OS generated files
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 ```

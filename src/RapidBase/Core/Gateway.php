@@ -65,16 +65,23 @@ class Gateway
 
             $total = (int)($res['total'] ?? $res['count'] ?? 0);
 
+            // Hidratar resultados FETCH_NUM a arrays asociativos usando projectionMap
+            $rows = $res['rows'];
+            $projectionMap = $compiled->getProjectionMap();
+            if (!empty($projectionMap) && $fetchMode === \PDO::FETCH_NUM && empty($class)) {
+                $rows = self::hydrateRows($rows, $projectionMap);
+            }
+
             self::logStatus(true, $compiled->getSql(), $compiled->getParams(), null, $res, 'select', $tableName, $duration);
 
             return [
-                'data'          => $res['rows'],
+                'data'          => $rows,
                 'total'         => $total,
                 'page'          => $returnedPage,
                 'limit'         => $returnedLimit,
                 'source'        => 'database',
                 'timestamp'     => microtime(true),
-                'projectionMap' => $compiled->getProjectionMap(),
+                'projectionMap' => $projectionMap,
                 'fetchMode'     => $fetchMode,
                 'class'         => $class,
                 'metadata'      => [
@@ -379,6 +386,34 @@ class Gateway
             }
         });
         return implode('_', $names);
+    }
+    
+    /**
+     * Hidrata filas FETCH_NUM a arrays asociativos usando el projectionMap.
+     * Mantiene la eficiencia de FETCH_NUM internamente pero devuelve arrays con claves nombradas.
+     */
+    private static function hydrateRows(array $rows, array $projectionMap): array
+    {
+        if (empty($rows) || empty($projectionMap)) {
+            return $rows;
+        }
+        
+        // Invertir el mapa: índice => nombre de columna
+        $indexToName = array_flip($projectionMap);
+        ksort($indexToName); // Ordenar por índice para mantener el orden correcto
+        
+        $hydrated = [];
+        foreach ($rows as $row) {
+            $assocRow = [];
+            foreach ($row as $index => $value) {
+                if (isset($indexToName[$index])) {
+                    $assocRow[$indexToName[$index]] = $value;
+                }
+            }
+            $hydrated[] = $assocRow;
+        }
+        
+        return $hydrated;
     }
     
     /**

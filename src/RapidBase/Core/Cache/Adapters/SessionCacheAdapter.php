@@ -2,11 +2,15 @@
 
 namespace RapidBase\Core\Cache\Adapters;
 
+use RapidBase\Core\Contracts\KeyValueInterface;
+
 /**
- * SessionCacheAdapter: Persistencia en la sesión de PHP.
+ * SessionCacheAdapter - PHP Session Cache Adapter
+ * 
  * Ideal para estados de conexión y resultados de queries rápidos.
+ * Los datos persisten durante la sesión del usuario.
  */
-class SessionCacheAdapter
+class SessionCacheAdapter implements KeyValueInterface
 {
     private string $sessionKey;
     private int $defaultTtl;
@@ -24,17 +28,9 @@ class SessionCacheAdapter
         }
     }
 
-    public function set(string $key, mixed $value, mixed $ttl = null): bool
-    {
-        $ttl = is_numeric($ttl) ? (int)$ttl : $this->defaultTtl;
-        
-        $_SESSION[$this->sessionKey][$key] = [
-            'data'       => $value, // No necesitamos serialize() manual, PHP lo hace en sesión
-            'expires_at' => time() + $ttl
-        ];
-        return true;
-    }
-
+    /**
+     * @inheritDoc
+     */
     public function get(string $key): mixed
     {
         if (!isset($_SESSION[$this->sessionKey][$key])) {
@@ -44,14 +40,50 @@ class SessionCacheAdapter
         $entry = $_SESSION[$this->sessionKey][$key];
 
         if (time() >= $entry['expires_at']) {
-            $this->forget($key);
+            $this->delete($key);
             return null;
         }
 
         return $entry['data'];
     }
 
-    public function forget(string $key): bool
+    /**
+     * @inheritDoc
+     */
+    public function set(string $key, mixed $value, int $ttl = 0): bool
+    {
+        $ttl = is_numeric($ttl) && $ttl > 0 ? (int)$ttl : $this->defaultTtl;
+        
+        $_SESSION[$this->sessionKey][$key] = [
+            'data'       => $value,
+            'expires_at' => time() + $ttl
+        ];
+        return true;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function has(string $key): bool
+    {
+        if (!isset($_SESSION[$this->sessionKey][$key])) {
+            return false;
+        }
+
+        $entry = $_SESSION[$this->sessionKey][$key];
+        
+        if (time() >= $entry['expires_at']) {
+            $this->delete($key);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function delete(string $key): bool
     {
         if (isset($_SESSION[$this->sessionKey][$key])) {
             unset($_SESSION[$this->sessionKey][$key]);
@@ -60,9 +92,11 @@ class SessionCacheAdapter
     }
 
     /**
+     * @inheritDoc
+     * 
      * Borrado masivo o por prefijo
      */
-    public function clear(?string $prefix = null): void
+    public function clear(?string $prefix = null): bool
     {
         if ($prefix === null) {
             $_SESSION[$this->sessionKey] = [];
@@ -72,10 +106,29 @@ class SessionCacheAdapter
                     unset($_SESSION[$this->sessionKey][$k]);
                 }
             }
-        } 
+        }
+        return true;
     }
 
-    // Métodos de compatibilidad con tu CacheService
-    public function getPath(): string { return 'php://session'; }
-    public function getLastReadDuration(): float { return 0.0001; } // Virtualmente instantáneo
+    /**
+     * @inheritDoc
+     */
+    public function all(string $prefix = ''): array
+    {
+        $results = [];
+        
+        foreach ($_SESSION[$this->sessionKey] as $key => $entry) {
+            // Verificar que no haya expirado
+            if (isset($entry['expires_at']) && time() >= $entry['expires_at']) {
+                continue;
+            }
+            
+            // Filtrar por prefijo si se especificó
+            if ($prefix === '' || str_starts_with($key, $prefix)) {
+                $results[$key] = $entry['data'] ?? null;
+            }
+        }
+        
+        return $results;
+    }
 }

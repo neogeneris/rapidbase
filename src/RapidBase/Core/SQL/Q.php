@@ -309,7 +309,8 @@ class Q
             $quotedId = ConditionMatrix::quote($idCol);
             return new CompiledQuery("UPDATE $quotedTable SET $setSql WHERE $quotedId IN (SELECT $quotedId FROM $quotedTable$whereSql LIMIT " . (int)$limit . ")", $params, CompiledQuery::UPDATE);
         }
-        [$sql, $params] = SqlCompiler::compileUpdate([SqlCompiler::FROM => ConditionMatrix::quote($table), SqlCompiler::WHERE => $whereData['sql'], SqlCompiler::PARAMS => $params], $data);
+        // Construir SQL directamente sin SqlCompiler::compileUpdate para evitar duplicacion de params
+        $sql = "UPDATE $quotedTable SET $setSql$whereSql";
         return new CompiledQuery($sql, $params, CompiledQuery::UPDATE);
     }
 

@@ -2,13 +2,15 @@
 
 namespace RapidBase\Core\Cache\Adapters;
 
+use RapidBase\Core\Contracts\KeyValueInterface;
+
 /**
  * RedisCacheAdapter - Redis Cache Adapter for Distributed Caching
  * 
  * High-performance cache adapter using Redis server.
  * Supports TTL, persistence across requests, and distributed environments.
  */
-class RedisCacheAdapter
+class RedisCacheAdapter implements KeyValueInterface
 {
     /**
      * @var \Redis Redis client instance
@@ -44,7 +46,7 @@ class RedisCacheAdapter
     }
 
     /**
-     * Retrieve value from Redis
+     * @inheritDoc
      */
     public function get(string $key): mixed
     {
@@ -59,7 +61,7 @@ class RedisCacheAdapter
     }
 
     /**
-     * Store value in Redis with optional TTL
+     * @inheritDoc
      */
     public function set(string $key, mixed $value, int $ttl = 0): bool
     {
@@ -74,7 +76,7 @@ class RedisCacheAdapter
     }
 
     /**
-     * Check if key exists in Redis
+     * @inheritDoc
      */
     public function has(string $key): bool
     {
@@ -83,7 +85,7 @@ class RedisCacheAdapter
     }
 
     /**
-     * Delete key from Redis
+     * @inheritDoc
      */
     public function delete(string $key): bool
     {
@@ -92,11 +94,12 @@ class RedisCacheAdapter
     }
 
     /**
-     * Clear all keys with current prefix
+     * @inheritDoc
      */
-    public function flush(): bool
+    public function clear(?string $prefix = null): bool
     {
-        $keys = $this->redis->keys($this->prefix . '*');
+        $pattern = $prefix !== null ? $this->prefix . $prefix . '*' : $this->prefix . '*';
+        $keys = $this->redis->keys($pattern);
         if (!empty($keys)) {
             $this->redis->del($keys);
         }
@@ -165,6 +168,30 @@ class RedisCacheAdapter
             'used_memory' => $info['used_memory_human'] ?? 'unknown',
             'connected_clients' => $info['connected_clients'] ?? 0
         ];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function all(string $prefix = ''): array
+    {
+        $results = [];
+        $pattern = $this->prefix . ($prefix === '' ? '*' : $prefix . '*');
+        
+        $keys = $this->redis->keys($pattern);
+        
+        foreach ($keys as $fullKey) {
+            $value = $this->redis->get($fullKey);
+            if ($value !== false) {
+                // Remover el prefijo interno para devolver solo la parte relativa
+                $relativeKey = str_starts_with($fullKey, $this->prefix) 
+                    ? substr($fullKey, strlen($this->prefix)) 
+                    : $fullKey;
+                $results[$relativeKey] = $value;
+            }
+        }
+        
+        return $results;
     }
 
     /**
