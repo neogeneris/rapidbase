@@ -237,9 +237,8 @@ class QTest extends TestCase
     {
         $this->env()->test('HAVING funciona con JOINs', function($test) {
             $query = Q::from(['users', 'posts']);
-            // Usar having() en lugar de pasar HAVING en select() para evitar ConditionMatrix
-            $compiled = $query->select('*', null, [], 'users.id');
-            $compiled->having([['COUNT', 'posts.id', '>', 1]]);
+            // HAVING se pasa como quinto parametro en select()
+            $compiled = $query->select('*', null, [], 'users.id', [['COUNT', 'posts.id', '>', 1]]);
             
             $sql = $compiled->getSql();
             $test->assertStringContainsString('HAVING', $sql);
