@@ -44,6 +44,6 @@ if (!defined('RAPIDBASE_TEST_CACHE_PATH')) {
 }
 
 // Inicializar caché si es necesario
-if (class_exists('\\RapidBase\\Core\\Cache\\CacheService')) {
-    \\RapidBase\\Core\\Cache\\CacheService::init(RAPIDBASE_TEST_CACHE_PATH);
+if (class_exists('\RapidBase\Core\Cache\CacheService')) {
+    \RapidBase\Core\Cache\CacheService::init(RAPIDBASE_TEST_CACHE_PATH);
 }
