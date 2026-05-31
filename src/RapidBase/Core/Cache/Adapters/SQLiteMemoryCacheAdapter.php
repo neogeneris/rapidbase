@@ -2,13 +2,15 @@
 
 namespace RapidBase\Core\Cache\Adapters;
 
+use RapidBase\Core\Contracts\KeyValueInterface;
+
 /**
  * SQLiteMemoryCacheAdapter - In-Memory SQLite Table Cache Adapter
  * 
  * Uses SQLite :memory: database for caching with SQL query capabilities.
  * Good for complex cache invalidation patterns and structured data.
  */
-class SQLiteMemoryCacheAdapter
+class SQLiteMemoryCacheAdapter implements KeyValueInterface
 {
     /**
      * @var \PDO SQLite in-memory database connection
@@ -45,7 +47,7 @@ class SQLiteMemoryCacheAdapter
     }
 
     /**
-     * Retrieve value from SQLite memory
+     * @inheritDoc
      */
     public function get(string $key): mixed
     {
@@ -62,7 +64,7 @@ class SQLiteMemoryCacheAdapter
     }
 
     /**
-     * Store value in SQLite memory with optional TTL
+     * @inheritDoc
      */
     public function set(string $key, mixed $value, int $ttl = 0): bool
     {
@@ -79,7 +81,7 @@ class SQLiteMemoryCacheAdapter
     }
 
     /**
-     * Check if key exists in SQLite memory
+     * @inheritDoc
      */
     public function has(string $key): bool
     {
@@ -93,7 +95,7 @@ class SQLiteMemoryCacheAdapter
     }
 
     /**
-     * Delete key from SQLite memory
+     * @inheritDoc
      */
     public function delete(string $key): bool
     {
@@ -103,12 +105,13 @@ class SQLiteMemoryCacheAdapter
     }
 
     /**
-     * Clear all keys with current prefix
+     * @inheritDoc
      */
-    public function flush(): bool
+    public function clear(?string $prefix = null): bool
     {
+        $pattern = $prefix !== null ? $this->prefix . $prefix . '%' : $this->prefix . '%';
         $stmt = $this->db->prepare("DELETE FROM cache WHERE key LIKE ?");
-        return $stmt->execute([$this->prefix . '%']);
+        return $stmt->execute([$pattern]);
     }
 
     /**
@@ -235,6 +238,32 @@ class SQLiteMemoryCacheAdapter
                 'created_at' => $row['created_at'],
                 'expires' => $row['expires']
             ];
+        }
+        
+        return $results;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function all(string $prefix = ''): array
+    {
+        $results = [];
+        $searchPattern = $this->prefix . ($prefix === '' ? '%' : $prefix . '%');
+        
+        $stmt = $this->db->prepare("
+            SELECT key, value, expires 
+            FROM cache 
+            WHERE key LIKE ? AND (expires = 0 OR expires > ?)
+        ");
+        $stmt->execute([$searchPattern, time()]);
+        
+        foreach ($stmt->fetchAll() as $row) {
+            // Remover el prefijo interno para devolver solo la parte relativa
+            $relativeKey = str_starts_with($row['key'], $this->prefix) 
+                ? substr($row['key'], strlen($this->prefix)) 
+                : $row['key'];
+            $results[$relativeKey] = unserialize($row['value']);
         }
         
         return $results;

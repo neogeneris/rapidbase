@@ -2,11 +2,14 @@
 
 namespace RapidBase\Core\Cache\Adapters;
 
+use RapidBase\Core\Contracts\KeyValueInterface;
+
 /**
  * DirectoryCacheAdapter: Persistencia en archivos .php con sharding.
  * Almacena la clave original dentro del payload para permitir borrado por prefijo.
+ * Implements KeyValueInterface for consistent cache operations.
  */
-class DirectoryCacheAdapter
+class DirectoryCacheAdapter implements KeyValueInterface
 {
     private string $basePath;
     private int $defaultTtl;
@@ -33,14 +36,17 @@ class DirectoryCacheAdapter
         return $this->basePath;
     }
 
-    public function set(string $key, mixed $value, mixed $ttl = null): bool
+    /**
+     * @inheritDoc
+     */
+    public function set(string $key, mixed $value, int $ttl = 0): bool
     {
-        $ttl = is_numeric($ttl) ? (int)$ttl : $this->defaultTtl;
+        $ttl = is_numeric($ttl) && $ttl > 0 ? (int)$ttl : $this->defaultTtl;
         $expiresAt = time() + $ttl;
         $path = $this->getStoragePath($key);
 
         $payload = [
-            'key'        => $key,          // ← guardamos la clave para poder borrar por prefijo
+            'key'        => $key,
             'expires_at' => $expiresAt,
             'data'       => $value
         ];
@@ -66,12 +72,15 @@ class DirectoryCacheAdapter
         return false;
     }
 
+    /**
+     * @inheritDoc
+     */
     public function get(string $key): mixed
     {
         // 1. Memoria L1
         if (isset($this->memL1Cache[$key])) {
             $entry = $this->memL1Cache[$key];
-            if (time() < $entry['expires_at']) {
+            if ($entry['expires_at'] === 0 || time() < $entry['expires_at']) {
                 return $entry['data'];
             }
             unset($this->memL1Cache[$key]);
@@ -84,16 +93,15 @@ class DirectoryCacheAdapter
         $payload = include $path;
         $duration = microtime(true) - $startTime;
         
-        // Guardar duración para estadísticas (se accede via reflection o método especial si se necesita)
         $this->lastReadDuration = $duration;
 
         if (!is_array($payload) || !isset($payload['expires_at'], $payload['data'], $payload['key'])) {
-            $this->forget($key);
+            $this->delete($key);
             return null;
         }
 
-        if (time() >= $payload['expires_at']) {
-            $this->forget($key);
+        if ($payload['expires_at'] > 0 && time() >= $payload['expires_at']) {
+            $this->delete($key);
             return null;
         }
 
@@ -101,7 +109,44 @@ class DirectoryCacheAdapter
         return $payload['data'];
     }
 
-    public function forget(string $key): bool
+    /**
+     * @inheritDoc
+     */
+    public function has(string $key): bool
+    {
+        // Check L1 first
+        if (isset($this->memL1Cache[$key])) {
+            $entry = $this->memL1Cache[$key];
+            if ($entry['expires_at'] === 0 || time() < $entry['expires_at']) {
+                return true;
+            }
+            unset($this->memL1Cache[$key]);
+        }
+
+        // Check disk
+        $path = $this->getStoragePath($key);
+        if (!file_exists($path)) {
+            return false;
+        }
+
+        $payload = include $path;
+
+        if (!is_array($payload) || !isset($payload['expires_at'])) {
+            return false;
+        }
+
+        if ($payload['expires_at'] > 0 && time() >= $payload['expires_at']) {
+            $this->delete($key);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function delete(string $key): bool
     {
         unset($this->memL1Cache[$key]);
         $path = $this->getStoragePath($key);
@@ -115,10 +160,9 @@ class DirectoryCacheAdapter
     }
 
     /**
-     * Borra entradas de caché que coincidan con el prefijo (tanto en L1 como en disco).
-     * Para el borrado físico en disco, escanea todos los archivos y comprueba la clave guardada.
+     * @inheritDoc
      */
-    public function clear(?string $prefix = null): void
+    public function clear(?string $prefix = null): bool
     {
         // Limpiar L1
         if ($prefix === null) {
@@ -130,7 +174,7 @@ class DirectoryCacheAdapter
         }
 
         // Limpiar L2 (disco)
-        if (!is_dir($this->basePath)) return;
+        if (!is_dir($this->basePath)) return true;
 
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($this->basePath, \RecursiveDirectoryIterator::SKIP_DOTS),
@@ -152,6 +196,49 @@ class DirectoryCacheAdapter
                 }
             }
         }
+
+        return true;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function all(string $prefix = ''): array
+    {
+        $results = [];
+        
+        if (!is_dir($this->basePath)) {
+            return $results;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->basePath, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            if (!$item->isFile()) continue;
+            $file = $item->getPathname();
+            if (pathinfo($file, PATHINFO_EXTENSION) !== 'php') continue;
+
+            $payload = include $file;
+            
+            if (!is_array($payload) || !isset($payload['key'], $payload['data'], $payload['expires_at'])) {
+                continue;
+            }
+
+            // Verificar si no ha expirado
+            if ($payload['expires_at'] > 0 && time() >= $payload['expires_at']) {
+                continue;
+            }
+
+            // Filtrar por prefijo si se especificó
+            if ($prefix === '' || str_starts_with($payload['key'], $prefix)) {
+                $results[$payload['key']] = $payload['data'];
+            }
+        }
+
+        return $results;
     }
 
     private function getStoragePath(string $key): string

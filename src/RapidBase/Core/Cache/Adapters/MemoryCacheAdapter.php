@@ -2,6 +2,8 @@
 
 namespace RapidBase\Core\Cache\Adapters;
 
+use RapidBase\Core\Contracts\KeyValueInterface;
+
 /**
  * MemoryCacheAdapter - In-Memory Cache for Single Request Lifecycle
  * 
@@ -9,7 +11,7 @@ namespace RapidBase\Core\Cache\Adapters;
  * Data persists only during the current request execution.
  * Ideal for L0 caching (faster than Redis/Memcached for repeated calls in same request).
  */
-class MemoryCacheAdapter
+class MemoryCacheAdapter implements KeyValueInterface
 {
     /**
      * @var array Static storage shared across all instances in same request
@@ -27,7 +29,7 @@ class MemoryCacheAdapter
     }
 
     /**
-     * Retrieve value from memory
+     * @inheritDoc
      */
     public function get(string $key): mixed
     {
@@ -36,7 +38,7 @@ class MemoryCacheAdapter
     }
 
     /**
-     * Store value in memory
+     * @inheritDoc
      */
     public function set(string $key, mixed $value, int $ttl = 0): bool
     {
@@ -49,7 +51,7 @@ class MemoryCacheAdapter
     }
 
     /**
-     * Check if key exists and is not expired
+     * @inheritDoc
      */
     public function has(string $key): bool
     {
@@ -68,7 +70,7 @@ class MemoryCacheAdapter
     }
 
     /**
-     * Delete key from memory
+     * @inheritDoc
      */
     public function delete(string $key): bool
     {
@@ -78,13 +80,24 @@ class MemoryCacheAdapter
     }
 
     /**
-     * Clear all keys with current prefix
+     * @inheritDoc
      */
-    public function flush(): bool
+    public function clear(?string $prefix = null): bool
     {
-        foreach (array_keys(self::$storage) as $key) {
-            if (strpos($key, $this->prefix) === 0) {
-                unset(self::$storage[$key]);
+        if ($prefix === null) {
+            // Clear all keys with this prefix
+            foreach (array_keys(self::$storage) as $key) {
+                if (strpos($key, $this->prefix) === 0) {
+                    unset(self::$storage[$key]);
+                }
+            }
+        } else {
+            // Clear keys matching specific prefix
+            $searchPrefix = $this->prefix . $prefix;
+            foreach (array_keys(self::$storage) as $key) {
+                if (strpos($key, $searchPrefix) === 0) {
+                    unset(self::$storage[$key]);
+                }
             }
         }
         return true;
@@ -131,6 +144,34 @@ class MemoryCacheAdapter
     {
         self::$storage = [];
         return true;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function all(string $prefix = ''): array
+    {
+        $results = [];
+        $searchPrefix = $this->prefix . $prefix;
+        
+        foreach (self::$storage as $key => $entry) {
+            // Verificar si la clave coincide con el prefijo de búsqueda
+            if ($prefix === '' || strpos($key, $searchPrefix) === 0) {
+                // Verificar que no haya expirado
+                if (time() <= $entry['expires']) {
+                    // Remover el prefijo interno para devolver solo la parte relativa
+                    $relativeKey = str_starts_with($key, $this->prefix) 
+                        ? substr($key, strlen($this->prefix)) 
+                        : $key;
+                    // Extraer solo el valor, no el array completo
+                    $results[$relativeKey] = is_array($entry) && isset($entry['value']) 
+                        ? $entry['value'] 
+                        : $entry;
+                }
+            }
+        }
+        
+        return $results;
     }
 
     /**
