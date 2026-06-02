@@ -3,7 +3,7 @@
         'name' => 'rapidbase/rapidbase',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'd3fc79cc60caa6b0fccbb347bba124308e0c10b7',
+        'reference' => 'ed3c4991da00af795151def65eeb215857f2f1c7',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -132,7 +132,7 @@
         'rapidbase/rapidbase' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'd3fc79cc60caa6b0fccbb347bba124308e0c10b7',
+            'reference' => 'ed3c4991da00af795151def65eeb215857f2f1c7',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

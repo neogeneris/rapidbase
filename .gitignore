@@ -1,25 +1,14 @@
 ```
-# Cache and test artifacts
-tests/tmp/
-*.sqlite
-
 # Dependencies
 vendor/
 
-# Logs and temp files
+# Cache and temporary files
+*.cache
+.phpunit.result.cache
+
+# Database files
+*.sqlite
+
+# Logs
 *.log
-*.tmp
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
 ```
