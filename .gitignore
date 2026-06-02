@@ -4,9 +4,6 @@
 __pycache__/
 *.o
 *.obj
-bin/
-build/
-dist/
 
 # Dependencies
 .venv/
@@ -26,4 +23,9 @@ node_modules/
 # Editors
 .vscode/
 .idea/
+
+# Distribution and build directories
+dist/
+build/
+target/
 ```
