@@ -27,16 +27,13 @@ class CacheAdapter implements KeyValueWriterInterface
 
     public function get(string $key, mixed $default = null): mixed
     {
-        // Intentar primero en memoria local (L1 cache)
         if (isset($this->data[$key])) {
             return $this->data[$key];
         }
 
-        // Intentar desde el adapter subyacente
         $value = $this->adapter->get($this->cacheKeyPrefix . $key);
         
         if ($value !== null) {
-            // Guardar en L1 cache
             $this->data[$key] = $value;
             return $value;
         }
@@ -51,10 +48,7 @@ class CacheAdapter implements KeyValueWriterInterface
 
     public function set(string $key, mixed $value): void
     {
-        // Actualizar L1 cache
         $this->data[$key] = $value;
-        
-        // Persistir en el adapter
         $this->adapter->set($this->cacheKeyPrefix . $key, $value);
     }
 
@@ -71,8 +65,14 @@ class CacheAdapter implements KeyValueWriterInterface
     }
 
     /**
-     * Obtiene estadísticas del adapter subyacente si están disponibles
+     * Método flush() requerido por el Autoloader.
+     * Limpia todo el caché (L1 y backend).
      */
+    public function flush(): void
+    {
+        $this->clear();
+    }
+
     public function getLastReadDuration(): float
     {
         if (method_exists($this->adapter, 'getLastReadDuration')) {

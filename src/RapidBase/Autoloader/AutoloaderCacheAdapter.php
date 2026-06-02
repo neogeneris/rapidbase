@@ -57,8 +57,16 @@ class AutoloaderCacheAdapter implements KeyValueWriterInterface
     }
 
     /**
+     * Método flush() requerido por el Autoloader.
+     * Limpia todo el caché.
+     */
+    public function flush(): void
+    {
+        $this->clear();
+    }
+
+    /**
      * Persiste los datos en disco
-     * Método público para permitir flush manual si se necesita
      */
     public function persist(): void
     {
@@ -79,18 +87,12 @@ class AutoloaderCacheAdapter implements KeyValueWriterInterface
         }
     }
 
-    /**
-     * Obtiene el número de entradas en cache
-     */
     public function count(): int
     {
         $this->load();
         return count($this->data);
     }
 
-    /**
-     * Obtiene todos los datos (para debugging)
-     */
     public function all(): array
     {
         $this->load();

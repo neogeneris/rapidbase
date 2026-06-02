@@ -24,7 +24,7 @@ final class Autoloader
     private bool $debug = false;
     private bool $cacheEnabled = true;
     private bool $statsEnabled = false;
-    private bool $strictMode = false; // Si es true, lanza excepción cuando no encuentra una clase
+    private bool $strictMode = false;
     private array $classUsageStats = [];
     private array $fileDependencies = [];
     private array $fileExecutionCount = [];
@@ -36,16 +36,9 @@ final class Autoloader
     private int $maxExecutionForStats = 0;
     private ?string $cacheDirectory = null;
 
-    /**
-     * Establece el directorio donde se guardarán los archivos de caché y estadísticas del autoloader.
-     * 
-     * @param string $directory Directorio donde se guardarán los archivos .dat
-     * @return self
-     * @throws \RuntimeException Si el directorio no existe o no es escribible
-     */
     public function setCacheDirectory(string $directory): self
     {
-        $directory = rtrim($directory, '/\\\\');
+        $directory = rtrim($directory, '/\\');
         
         if (!is_dir($directory)) {
             throw new \RuntimeException("El directorio de caché no existe: $directory");
@@ -59,25 +52,16 @@ final class Autoloader
         $this->cacheFile = $directory . '/autoloader_cache.dat';
         $this->statsFile = $directory . '/autoloader_stats.dat';
         
-        // Reinicializar el cache con la nueva ruta
         $this->initDefaultCache();
         
         return $this;
     }
     
-    /**
-     * Obtiene el directorio actual de caché.
-     * 
-     * @return string|null La ruta del directorio de caché o null si usa el default
-     */
     public function getCacheDirectory(): ?string
     {
         return $this->cacheDirectory;
     }
 
-    /**
-     * Constructor privado para el patrón Singleton.
-     */
     private function __construct(string $basePath)
     {
         $basePath = rtrim($basePath, '/\\');
@@ -93,9 +77,6 @@ final class Autoloader
         $this->loadStats();
     }
 
-    /**
-     * Obtiene la instancia única del autoloader.
-     */
     public static function getInstance(string $basePath): self
     {
         if (self::$instance === null) {
@@ -104,17 +85,11 @@ final class Autoloader
         return self::$instance;
     }
 
-    /**
-     * Resetea la instancia singleton (útil para testing y benchmarks).
-     */
     public static function resetInstance(): void
     {
         self::$instance = null;
     }
 
-    /**
-     * Inicializa el sistema de caché en disco.
-     */
     private function initDefaultCache(): void
     {
         $this->cache = new class ($this->cacheFile) {
@@ -167,9 +142,7 @@ final class Autoloader
         };
     }
 
-    // --------------------------
-    // Configuración
-    // --------------------------
+    // -------------------------- Configuración --------------------------
 
     public function setCache(object $cache): self
     {
@@ -210,21 +183,12 @@ final class Autoloader
         return $this;
     }
 
-    /**
-     * Establece el modo estricto para el autoloader.
-     * 
-     * En modo estricto (desarrollo), el autoloader lanza una excepción cuando no encuentra una clase.
-     * En modo normal (producción), retorna false silenciosamente permitiendo que otros autoloaders intenten cargarla.
-     */
     public function setStrictMode(bool $strict = true): self
     {
         $this->strictMode = $strict;
         return $this;
     }
 
-    /**
-     * Establece el umbral máximo de ejecuciones para la recolección de estadísticas.
-     */
     public function setMaxExecutionForStats(int $maxExecutions): self
     {
         $this->maxExecutionForStats = max(0, $maxExecutions);
@@ -237,13 +201,17 @@ final class Autoloader
         return $this;
     }
 
-    // --------------------------
-    // Registro y Carga
-    // --------------------------
+    // -------------------------- Registro y Carga --------------------------
 
     public function register(): self
     {
         spl_autoload_register([$this, 'loadClass']);
+        return $this;
+    }
+
+    public function unregister(): self
+    {
+        spl_autoload_unregister([$this, 'loadClass']);
         return $this;
     }
 
@@ -314,9 +282,6 @@ final class Autoloader
         return false;
     }
 
-    /**
-     * Incrementa el contador de ejecución del archivo principal.
-     */
     private function incrementCallerExecution(): void
     {
         if (!$this->statsEnabled) {
@@ -349,9 +314,7 @@ final class Autoloader
         ]);
     }
 
-    // --------------------------
-    // Estadísticas y Tracking
-    // --------------------------
+    // -------------------------- Estadísticas y Tracking --------------------------
 
     private function updateLoadPercentages(string $callerFile): void
     {
@@ -384,9 +347,7 @@ final class Autoloader
         }
     }
 
-    // --------------------------
-    // Métodos Auxiliares
-    // --------------------------
+    // -------------------------- Métodos Auxiliares --------------------------
 
     private function fileContainsClass(string $filePath, string $className): bool
     {
@@ -408,9 +369,7 @@ final class Autoloader
         return count($matches[1]);
     }
 
-    // --------------------------
-    // Debug y Formateo
-    // --------------------------
+    // -------------------------- Debug y Formateo --------------------------
 
     private function debug(string $message, array $context = [], bool $isError = false): void
     {
@@ -448,9 +407,7 @@ final class Autoloader
         }
     }
 
-    // --------------------------
-    // Precarga Inteligente
-    // --------------------------
+    // -------------------------- Precarga Inteligente --------------------------
 
     public function preloadSmart(): void
     {
@@ -488,9 +445,7 @@ final class Autoloader
         return null;
     }
 
-    // --------------------------
-    // Persistencia
-    // --------------------------
+    // -------------------------- Persistencia --------------------------
 
     private function loadStats(): void
     {
@@ -516,10 +471,11 @@ final class Autoloader
         }
     }
 
-    // --------------------------
-    // Utilidades
-    // --------------------------
+    // -------------------------- Utilidades --------------------------
 
+    /**
+     * Limpia completamente el caché del autoloader (clases y estadísticas).
+     */
     public function clearCache(): void
     {
         $this->cache->flush();
@@ -531,5 +487,13 @@ final class Autoloader
         $this->fileExecutionCount = [];
         $this->classLoadPercentage = [];
         $this->globalExecutionCounter = 0;
+    }
+
+    /**
+     * Limpia únicamente el caché de clases (sin borrar estadísticas).
+     */
+    public function flushCache(): void
+    {
+        $this->cache->flush();
     }
 }
