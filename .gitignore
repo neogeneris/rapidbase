@@ -2,63 +2,9 @@
 # Database files
 *.sqlite
 
-# Logs and temp files
+# Cache files
+*.dat
+
+# Logs
 *.log
-*.tmp
-*.swp
-
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Dependencies
-vendor/
-node_modules/
-composer.lock
-
-# Build artifacts
-dist/
-build/
-target/
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
-# Python specific
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git/
-*.git/
-!.git/
-.gitattributes
-.gitignore
-.gitmodules
-!.gitkeep
-.DS_Store
-Thumbs.db
 ```

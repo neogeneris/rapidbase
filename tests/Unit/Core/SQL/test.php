@@ -9,6 +9,22 @@
  *   php test.php                  → muestra las pruebas disponibles
  */
 
+// Load Autoloader
+$baseDir = dirname(__DIR__, 4); // Go up 4 levels: SQL -> Core -> Unit -> tests -> root
+if (file_exists($baseDir . '/src/RapidBase/Autoloader/Autoloader.php')) {
+    require_once $baseDir . '/src/RapidBase/Autoloader/Autoloader.php';
+    // Use tests/tmp for autoloader cache files during testing
+    $cacheDir = $baseDir . '/tests/tmp';
+    if (!is_dir($cacheDir)) {
+        mkdir($cacheDir, 0755, true);
+    }
+    \RapidBase\Autoloader\Autoloader::getInstance($baseDir . '/src')
+        ->setCacheDirectory($cacheDir)
+        ->enableDebug(false)
+        ->enableCache(true)
+        ->register();
+}
+
 if ($argc < 2) {
     echo "Pruebas disponibles:\n";
     $files = glob(__DIR__ . '/*Test.php');
