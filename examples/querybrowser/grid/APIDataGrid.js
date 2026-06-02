@@ -35,9 +35,16 @@ class APIDataGrid extends GridBuilder {
 
         if (this.headContainer) {
             this.headContainer.addEventListener('click', e => {
-                if (e.target.closest('.grid-resizer')) return;
-                const header = e.target.closest('th[data-column]');
-                if (header) {
+                // ── FILTRO ANTI-REFRESCO AL REDIMENSIONAR ──
+                // Si el flag de redimensionamiento heredado está activo, matamos el evento
+                if (this.isResizing || e.target.closest('.grid-resizer')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+
+                const header = e.target.closest('th, .grid-header');
+                if (header && header.dataset.column) {
                     this.sortBy(header.dataset.column);
                 }
             });
@@ -45,131 +52,93 @@ class APIDataGrid extends GridBuilder {
     }
 
     buildParams() {
-        const p = new URLSearchParams();
-        const urlParts = this.apiUrl.split('?');
-        if (urlParts.length > 1) new URLSearchParams(urlParts[1]).forEach((v, k) => p.set(k, v));
-        p.set('page', this.currentPage);
-        p.set('limit', this.pageSize);
-        if (this.sortField && this.sortOrder) {
-            const prefix = this.sortOrder === 'desc' ? '-' : '';
-            p.set('sort', `${prefix}${this.sortField}`);
+        const params = new URLSearchParams();
+        params.set('page', this.currentPage);
+        params.set('pageSize', this.pageSize);
+        if (this.searchTerm) params.set('search', this.searchTerm);
+        if (this.sortField) {
+            params.set('sortField', this.sortField);
+            params.set('sortOrder', this.sortOrder);
         }
-        if (this.searchTerm) p.set('search', this.searchTerm);
-        if (Object.keys(this.filter).length) p.set('filter', JSON.stringify(this.filter));
-        return p;
+        
+        if (this.filter && typeof this.filter === 'object') {
+            Object.keys(this.filter).forEach(k => {
+                params.set(`filter[${k}]`, this.filter[k]);
+            });
+        }
+        return params;
     }
 
     async fetchData() {
-        if (this.isLoading) return;
+        if (this.isLoading || !this.hasMore) return;
         this.isLoading = true;
         this._showLoading();
-        this._hideError();
-
-        if (this.lastResponse?.last_page && this.currentPage > this.lastResponse.last_page) {
-            this.currentPage = this.lastResponse.last_page;
-        }
+        if (this.errorContainer) this.errorContainer.style.display = 'none';
 
         try {
-            const fetchStart = performance.now();
-            const url = `${this.apiUrl.split('?')[0]}?${this.buildParams().toString()}`;
-            const r = await fetch(url);
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const d = await r.json();
-            const fetchEnd = performance.now();
+            const params = this.buildParams();
+            const url = `${this.apiUrl}${this.apiUrl.includes('?') ? '&' : '?'}${params.toString()}`;
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.lastResponse = result;
 
-            this.lastResponse = d;
+                if (result.columns) {
+                    this.setColumns(result.columns, result.titles || []);
+                }
 
-            if (d.error) throw new Error(d.error);
+                if (result.data && result.data.length > 0) {
+                    result.data.forEach(row => {
+                        this.appendRow(row); 
+                    });
 
-            const rows = d.data || [];
-            const meta = d.columns && d.titles ? { columns: d.columns, titles: d.titles } : null;
+                    if (result.data.length < this.pageSize) {
+                        this.hasMore = false;
+                    } else {
+                        this.currentPage++;
+                    }
+                } else {
+                    this.hasMore = false;
+                    if (this.currentPage === 1) {
+                        this._showError('No se encontraron registros.');
+                    }
+                }
 
-            if (this.currentPage === 1) {
-                this.render(rows, meta);
+                this.updateFooter(result);
             } else {
-                this._appendRows(rows);
+                throw new Error(result.error || 'Error desconocido en el servidor');
             }
-
-            this.hasMore = this.currentPage < (d.last_page || 1);
-
-            // ─── Footer con tiempos ─────────────────────────────
-            const totalMs = fetchEnd - fetchStart;
-            const backendMs = d.stats?.duration || 0;
-            const networkMs = Math.max(0, totalMs - backendMs);
-            const sqlTime = backendMs ? (backendMs / 1000).toFixed(7) + 's' : 'N/A';
-            const netTime = networkMs ? (networkMs/1000).toFixed(7) +'s' : 'N/A';
-
-            if (this.footerContainer) {
-                const total = d.total ?? rows.length;
-                const colCount = d.columns?.length || this.columns.length;
-                this.footerContainer.textContent =
-                    `📄 Total: ${total.toLocaleString()} registros | ` +
-                    `${colCount} columnas | 📃 Página ${d.page || this.currentPage} de ${d.last_page || '?'} | ` +
-                    `⏱️ SQL ${sqlTime} | 🌐 Red ${netTime}`;
-            }
-
-        } catch (e) {
-            console.error(e);
-            this._showError(e.message);
+        } catch (error) {
+            console.error("Grid Fetch Error:", error);
+            this._showError(error.message);
+            this.hasMore = false;
         } finally {
             this.isLoading = false;
             this._hideLoading();
         }
     }
 
-    _appendRows(rows) {
-        if (!rows?.length) return;
-        const rowHtml = this.rowTemplate.outerHTML;
-        rows.forEach(row => {
-            const clone = this._createElement(rowHtml);
-            clone.style.display = '';
-            let html = clone.outerHTML;
-
-            row.forEach((val, idx) => {
-                html = html.replace(new RegExp(`\\$\\{${idx}\\}`, 'g'), val ?? '');
-            });
-            this.columns.forEach((colName, idx) => {
-                if (colName) html = html.replace(new RegExp(`\\$\\{${colName}\\}`, 'g'), row[idx] ?? '');
-            });
-            if (html.includes('${value}')) {
-                let dataCells = '';
-                row.forEach(val => { dataCells += `<td class="grid-item">${val ?? ''}</td>`; });
-                html = html.replace(/<td[^>]*>\s*\$\{value\}\s*<\/td>/, dataCells);
-            }
-
-            const finalEl = this._createElement(html);
-            finalEl.style.display = '';
-            this.bodyContainer.appendChild(finalEl);
-        });
+    load() {
+        this.resetAndFetch();
     }
 
     _enableInfiniteScroll() {
-        // Find the nearest scrollable ancestor of the grid container.
-        // The scroll never happens on tbody; it happens on the parent pane
-        // (.qb-grid-pane, .se-results-pane, or .grid-scroll-wrapper).
-        let sc = null;
-        let el = this.container;
-        while (el && el !== document.documentElement) {
-            const style = window.getComputedStyle(el);
-            if (style.overflowY === 'auto' || style.overflowY === 'scroll' ||
-                style.overflow === 'auto' || style.overflow === 'scroll') {
-                sc = el;
-                break;
-            }
-            el = el.parentElement;
-        }
-        if (!sc) {
-            sc = this.container.querySelector('.grid-scroll-wrapper');
-        }
-        if (!sc) sc = this.container;
-
+        const sc = this.container.querySelector('.grid-scrollable') || this.container;
+        
         const onScroll = () => {
-            if (!this.hasMore || this.isLoading) return;
-            if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 500) {
-                this.currentPage++;
+            if (this.mode !== 'infinite') return;
+            const threshold = 50; 
+            const isNearBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight <= threshold;
+            
+            if (isNearBottom && !this.isLoading && this.hasMore) {
                 this.fetchData();
             }
         };
+
         sc.addEventListener('scroll', onScroll);
         this._scrollCleanup = () => sc.removeEventListener('scroll', onScroll);
     }
@@ -202,17 +171,43 @@ class APIDataGrid extends GridBuilder {
         this.updateSortIndicator();
     }
 
-    setFilter(f) { this.filter = f; this.resetAndFetch(); }
+    setFilter(f) { 
+        this.filter = f; 
+        this.resetAndFetch(); 
+    }
 
-    _showLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'block'; }
-    _hideLoading() { if (this.loadingIndicator) this.loadingIndicator.style.display = 'none'; }
+    updateFooter(result) {
+        if (!this.footerContainer) return;
+        const total = result.total !== undefined ? result.total : 0;
+        const duration = result.durationMs !== undefined ? `${result.durationMs.toFixed(2)} ms` : '';
+        
+        const infoText = this.footerContainer.querySelector('.grid-info') || this.footerContainer;
+        if (infoText) {
+            infoText.textContent = `Total registros: ${total} ${duration ? `(${duration})` : ''}`;
+        }
+    }
+
+    _showLoading() { 
+        if (this.loadingIndicator) this.loadingIndicator.style.display = 'block'; 
+    }
+    
+    _hideLoading() { 
+        if (this.loadingIndicator) this.loadingIndicator.style.display = 'none'; 
+    }
+    
     _showError(m) {
         if (this.errorContainer) {
-            this.errorContainer.textContent = 'Error: ' + m;
+            this.errorContainer.textContent = m;
             this.errorContainer.style.display = 'block';
         }
     }
-    _hideError() { if (this.errorContainer) this.errorContainer.style.display = 'none'; }
 
-    load() { this.fetchData(); }
+    destroy() {
+        if (typeof this._scrollCleanup === 'function') {
+            this._scrollCleanup();
+        }
+        this.clear();
+    }
 }
+
+window.APIDataGrid = APIDataGrid;

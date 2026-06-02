@@ -18,9 +18,18 @@ class QueryBrowserGrid {
             return p;
         };
         
+        // CORRECCIÓN: Delegación de eventos adaptada a las cabeceras dinámicas generadas por setColumns
         grid.container.addEventListener('click', (e) => {
-            const header = e.target.closest('.grid-header');
-            if (header && header.dataset.column) grid.sortBy(header.dataset.column);
+            // Si se está redimensionando o el click proviene del resizer, abortamos por completo
+            if (grid.isResizing || e.target.closest('.grid-resizer')) {
+                return;
+            }
+
+            // Buscamos tanto la clase genérica como la etiqueta nativa th de la consulta dinámica
+            const header = e.target.closest('th, .grid-header');
+            if (header && header.dataset.column) {
+                grid.sortBy(header.dataset.column);
+            }
         });
         
         grid.load();

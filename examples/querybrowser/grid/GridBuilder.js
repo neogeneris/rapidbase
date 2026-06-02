@@ -19,149 +19,139 @@ class GridBuilder {
         this.sortField = null;
         this.sortOrder = null;
 
-        // ── Redimensionamiento de columnas con protección anti-ordenación ──
-        let resizing = false;
+        // ── CONTROL DE REDIMENSIONAMIENTO CRUCIAL ──
+        this.isResizing = false; 
 
         if (this.headContainer) {
             this.headContainer.addEventListener('mousedown', (e) => {
                 const resizer = e.target.closest('.grid-resizer');
                 if (!resizer) return;
+                
+                // Bloquear propagación inmediata para que no llegue a los listeners superiores
                 e.preventDefault();
                 e.stopPropagation();
 
                 const th = resizer.closest('th');
                 if (!th) return;
 
-                const startX = e.clientX;
+                this.isResizing = true;
+                th.classList.add('resizing');
+
+                const startX = e.pageX;
                 const startWidth = th.offsetWidth;
-                resizing = true;
-                document.body.style.cursor = 'col-resize';
-                document.body.style.userSelect = 'none';
 
                 const onMouseMove = (moveEvent) => {
-                    const delta = moveEvent.clientX - startX;
-                    const newWidth = Math.max(50, startWidth + delta);
-                    th.style.width = newWidth + 'px';
-                    th.style.minWidth = newWidth + 'px';
+                    if (!this.isResizing) return;
+                    const newWidth = startWidth + (moveEvent.pageX - startX);
+                    if (newWidth > 40) {
+                        th.style.width = `${newWidth}px`;
+                        th.style.minWidth = `${newWidth}px`;
+                    }
                 };
 
-                const onMouseUp = () => {
+                const onMouseUp = (upEvent) => {
+                    th.classList.remove('resizing');
                     document.removeEventListener('mousemove', onMouseMove);
                     document.removeEventListener('mouseup', onMouseUp);
-                    document.body.style.cursor = '';
-                    document.body.style.userSelect = '';
-
-                    // Pequeña demora para evitar que el clic active la ordenación
-                    setTimeout(() => { resizing = false; }, 50);
+                    
+                    // Tiempo de gracia infinitesimal para evitar que el 'click' se dispare en APIDataGrid
+                    setTimeout(() => {
+                        this.isResizing = false;
+                    }, 50);
                 };
 
                 document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp, { once: true });
+                document.addEventListener('mouseup', onMouseUp);
             });
-
-            // Prevenir ordenación si acabamos de redimensionar
-            this.headContainer.addEventListener('click', (e) => {
-                if (resizing) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                }
-            }, true); // captura antes que el listener de APIDataGrid
         }
     }
 
-    render(data, metadata = null) {
-        if (!data || data.length === 0) return;
-        this.columns = metadata?.columns || [];
-        const titles = metadata?.titles || this.columns;
+    /**
+     * Define dinámicamente las columnas y regenera las cabeceras si el API las provee.
+     */
+    setColumns(columns, titles = []) {
+        this.columns = columns;
+        if (!this.headContainer || !this.headerTemplate) return;
 
-        if (this.headerTemplate && titles.length > 0) {
-            this._renderHeaders(titles);
-        }
+        const row = this.headerRowTemplate || this.headContainer.querySelector('tr') || document.createElement('tr');
+        row.innerHTML = '';
+        row.style.display = '';
 
-        if (this.rowTemplate) {
-            this._renderRows(data);
-        }
-    }
+        this.columns.forEach((col, index) => {
+            const th = this.headerTemplate.cloneNode(true);
+            th.style.display = '';
+            th.dataset.column = col;
 
-    _renderHeaders(titles) {
-        const head = this.headContainer;
-        head.innerHTML = '';
-
-        if (!this.headerRowTemplate) return;
-
-        const wrapper = document.createElement('tr');
-        head.appendChild(wrapper);
-
-        const originalThs = Array.from(this.headerRowTemplate.querySelectorAll('th, td, .grid-header'));
-
-        originalThs.forEach(th => {
-            const html = th.outerHTML;
-            if (html.includes('${header}')) {
-                titles.forEach((title, idx) => {
-                    let thHtml = html.replace(/\$\{header\}/g, title);
-                    if (!thHtml.includes('grid-resizer')) {
-                        thHtml = thHtml.replace('</th>', '<div class="grid-resizer"></div></th>');
-                    }
-                    const el = this._createElement(thHtml);
-                    el.style.display = '';
-                    // Usar el nombre cualificado completo si está disponible en this.columns
-                    // Esto preserva información como "comments.post_id" en lugar de solo "post_id"
-                    el.dataset.column = this.columns[idx] || idx;
-                    wrapper.appendChild(el);
-                });
+            const titleText = titles[index] || col;
+            if (th.querySelector('.grid-header-text')) {
+                th.querySelector('.grid-header-text').textContent = titleText;
             } else {
-                let fixedHtml = html;
-                if (!fixedHtml.includes('grid-resizer') && th.tagName === 'TH') {
-                    fixedHtml = fixedHtml.replace('</th>', '<div class="grid-resizer"></div></th>');
-                }
-                const el = this._createElement(fixedHtml);
-                el.style.display = '';
-                wrapper.appendChild(el);
+                th.textContent = titleText;
             }
+
+            if (!th.querySelector('.grid-resizer')) {
+                const resizer = document.createElement('div');
+                resizer.className = 'grid-resizer';
+                th.appendChild(resizer);
+            }
+
+            row.appendChild(th);
         });
 
+        if (!this.headerRowTemplate) {
+            this.headContainer.innerHTML = '';
+            this.headContainer.appendChild(row);
+        }
         this.updateSortIndicator();
     }
 
-    _renderRows(data) {
-        const body = this.bodyContainer;
-        body.innerHTML = '';
+    /**
+     * Agrega una fila al Grid adaptándose a FETCH_NUM (arrays) o FETCH_ASSOC (objetos)
+     */
+    appendRow(row) {
+        if (!this.bodyContainer) return null;
 
-        const rowHtml = this.rowTemplate.outerHTML;
+        let tr;
+        if (this.rowTemplate) {
+            tr = this.rowTemplate.cloneNode(true);
+            tr.style.display = '';
+        } else {
+            tr = document.createElement('tr');
+        }
 
-        data.forEach(row => {
-            const clone = this._createElement(rowHtml);
-            clone.style.display = '';
+        tr.innerHTML = '';
 
-            let html = clone.outerHTML;
+        this.columns.forEach((col, index) => {
+            let value;
 
-            row.forEach((val, idx) => {
-                html = html.replace(new RegExp(`\\$\\{${idx}\\}`, 'g'), val ?? '');
-            });
-
-            this.columns.forEach((colName, idx) => {
-                if (colName) {
-                    html = html.replace(new RegExp(`\\$\\{${colName}\\}`, 'g'), row[idx] ?? '');
-                }
-            });
-
-            if (html.includes('${value}')) {
-                let dataCells = '';
-                row.forEach(val => {
-                    dataCells += `<td class="grid-item">${val ?? ''}</td>`;
-                });
-                html = html.replace(/<td[^>]*>\s*\$\{value\}\s*<\/td>/, dataCells);
+            if (Array.isArray(row)) {
+                value = row[index];
+            } else if (row !== null && typeof row === 'object') {
+                value = row[col];
             }
 
-            const finalEl = this._createElement(html);
-            finalEl.style.display = '';
-            body.appendChild(finalEl);
+            if (value === undefined || value === null) {
+                value = '';
+            }
+
+            const td = document.createElement('td');
+            td.dataset.column = col;
+            
+            if (typeof value === 'string' && value.includes('\n')) {
+                td.style.whiteSpace = 'pre-wrap';
+            }
+            
+            td.textContent = value;
+            tr.appendChild(td);
         });
+
+        this.bodyContainer.appendChild(tr);
+        return tr;
     }
 
     updateSortIndicator() {
         if (!this.headContainer) return;
-        const headers = this.headContainer.querySelectorAll('th[data-column]');
+        const headers = this.headContainer.querySelectorAll('th, .grid-header');
         headers.forEach(th => {
             th.removeAttribute('data-sort');
             const col = th.dataset.column;
@@ -201,10 +191,11 @@ class GridBuilder {
 
     clear() {
         if (this.bodyContainer) {
-            const children = Array.from(this.bodyContainer.children);
-            children.forEach(child => {
-                if (child !== this.rowTemplate) child.remove();
-            });
+            while (this.bodyContainer.firstChild) {
+                this.bodyContainer.removeChild(this.bodyContainer.firstChild);
+            }
         }
     }
 }
+
+window.GridBuilder = GridBuilder;
