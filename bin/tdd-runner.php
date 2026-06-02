@@ -20,7 +20,13 @@ if (file_exists($baseDir . '/vendor/autoload.php')) {
     require_once $baseDir . '/vendor/autoload.php';
 } elseif (file_exists($baseDir . '/src/RapidBase/Autoloader/Autoloader.php')) {
     require_once $baseDir . '/src/RapidBase/Autoloader/Autoloader.php';
+    // Use tests/tmp for autoloader cache files during testing
+    $cacheDir = $baseDir . '/tests/tmp';
+    if (!is_dir($cacheDir)) {
+        mkdir($cacheDir, 0755, true);
+    }
     \RapidBase\Autoloader\Autoloader::getInstance($baseDir . '/src')
+        ->setCacheDirectory($cacheDir)
         ->enableDebug(false)
         ->enableCache(true)
         ->register();
