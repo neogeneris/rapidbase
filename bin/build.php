@@ -6,7 +6,8 @@ $outputFile = __DIR__ . '/RapidBase.php';
 echo "Buscando archivos en $srcDir...\n";
 
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcDir));
-$phpFiles = [];
+$interfaceFiles = [];
+$otherFiles = [];
 
 foreach ($iterator as $file) {
     // Excluir archivos schema_map.php
@@ -21,11 +22,24 @@ foreach ($iterator as $file) {
     }
 
     if ($file->isFile() && $file->getExtension() === 'php') {
-        $phpFiles[] = $file->getPathname();
+        $path = $file->getPathname();
+        // Detectar si es una interfaz (está en Contracts o el nombre del archivo sugiere interfaz)
+        if (strpos($fullPath, '/Contracts/') !== false) {
+            $interfaceFiles[] = $path;
+        } else {
+            $otherFiles[] = $path;
+        }
     }
 }
 
-echo "Encontrados " . count($phpFiles) . " archivos.\n";
+// Ordenar interfaces primero para asegurar que se definan antes de usarse
+sort($interfaceFiles);
+sort($otherFiles);
+
+// Combinar: interfaces primero, luego el resto
+$phpFiles = array_merge($interfaceFiles, $otherFiles);
+
+echo "Encontrados " . count($phpFiles) . " archivos (" . count($interfaceFiles) . " interfaces, " . count($otherFiles) . " clases).\n";
 
 $finalContent = "<?php\n\n/**\n * RapidBase - Bundled single file\n * Generated on " . date('Y-m-d H:i:s') . "\n */\n\ndeclare(strict_types=1);\n\n";
 

@@ -1,1 +1,29 @@
-Nothing needs to be added to the .gitignore file since there are no build artifacts, dependency directories, temporary files, or other items that should be ignored in the provided file changes. The current .gitignore already contains appropriate rules.
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+bin/
+build/
+dist/
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+```
