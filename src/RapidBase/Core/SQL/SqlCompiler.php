@@ -15,18 +15,18 @@ use RapidBase\Core\SchemaMap;
 class SqlCompiler
 {
     // Índices del array de estado compilado
-    public const SEL    = 0;
-    public const FROM   = 1;
-    public const WHERE  = 2;
-    public const GROUP  = 3;
-    public const HAVING = 4;
-    public const ORDER  = 5;
-    public const LIMIT  = 6;
-    public const PARAMS = 7;
+    public const SEL     = 0;
+    public const FROM    = 1;
+    public const WHERE   = 2;
+    public const GROUP   = 3;
+    public const HAVING  = 4;
+    public const ORDER   = 5;
+    public const LIMIT   = 6;
+    public const PARAMS  = 7;
+    public const DISTINCT = 8; 
 
     // Plantillas sprintf
-    // La plantilla de SELECT ya NO incluye "FROM" porque $from ya lo contiene.
-    private const TPL_SELECT = "SELECT\n    %s\n%s%s%s%s%s%s";
+    private const TPL_SELECT = "SELECT%s\n    %s\n%s%s%s%s%s%s";
     private const TPL_DELETE = 'DELETE FROM %s%s';
     private const TPL_COUNT  = 'SELECT COUNT(*) FROM %s%s';
     private const TPL_EXISTS = 'SELECT EXISTS(SELECT 1 FROM %s%s)';
@@ -36,48 +36,51 @@ class SqlCompiler
     /**
      * Compila un SELECT con formato legible.
      */
-	public static function compileSelect(array $state): array
-	{
-		$sel    = self::normalizeField($state[self::SEL] ?? '*');
-		
-		// Agrupar columnas de a 3 por línea
-		if ($sel !== '*') {
-			$columns = array_map('trim', explode(',', $sel));
-			$groups = array_chunk($columns, 3);
-			$sel = implode(",\n    ", array_map(fn($group) => implode(', ', $group), $groups));
-		}
+    public static function compileSelect(array $state): array
+    {
+        $distinct = ($state[self::DISTINCT] ?? false) ? ' DISTINCT' : '';
+        $sel    = self::normalizeField($state[self::SEL] ?? '*');
+        
+        // Agrupar columnas de a 3 por línea
+        if ($sel !== '*') {
+            $columns = array_map('trim', explode(',', $sel));
+            $groups = array_chunk($columns, 3);
+            $sel = implode(",\n    ", array_map(fn($group) => implode(', ', $group), $groups));
+        }
 
-		$from   = $state[self::FROM]   ?? '';
-		$where  = $state[self::WHERE]  ? "\nWHERE\n    " . $state[self::WHERE] : '';
-		$group  = ($g = self::normalizeField($state[self::GROUP] ?? '')) ? "\nGROUP BY\n    " . $g : '';
-		$having = $state[self::HAVING] ? "\nHAVING\n    " . $state[self::HAVING] : '';
-		$order  = ($o = self::normalizeField($state[self::ORDER] ?? '')) ? "\nORDER BY\n    " . $o : '';
-		$limit  = $state[self::LIMIT]  ? "\n" . trim($state[self::LIMIT]) : '';
-		$params = $state[self::PARAMS] ?? [];
+        $from   = $state[self::FROM]   ?? '';
+        $where  = $state[self::WHERE]  ? "\nWHERE\n    " . $state[self::WHERE] : '';
+        $group  = ($g = self::normalizeField($state[self::GROUP] ?? '')) ? "\nGROUP BY\n    " . $g : '';
+        $having = $state[self::HAVING] ? "\nHAVING\n    " . $state[self::HAVING] : '';
+        $order  = ($o = self::normalizeField($state[self::ORDER] ?? '')) ? "\nORDER BY\n    " . $o : '';
+        $limit  = $state[self::LIMIT]  ? "\n" . trim($state[self::LIMIT]) : '';
+        $params = $state[self::PARAMS] ?? [];
 
-		// Cada JOIN en su propia línea
-		$from = preg_replace_callback(
-			'/\s+((?:LEFT|RIGHT|INNER|OUTER|CROSS)\s+)?JOIN\s+/i',
-			function($matches) {
-				return "\n    " . $matches[0];
-			},
-			$from
-		);
+        // Cada JOIN en su propia línea
+        $from = preg_replace_callback(
+            '/\s+((?:LEFT|RIGHT|INNER|OUTER|CROSS)\s+)?JOIN\s+/i',
+            function($matches) {
+                return "\n    " . $matches[0];
+            },
+            $from
+        );
 
-		$sql = sprintf(
-			self::TPL_SELECT,   // "SELECT\n    %s\n%s%s%s%s%s%s"
-			$sel,
-			$from,
-			$where,
-			$group,
-			$having,
-			$order,
-			$limit
-		);
+        $sql = sprintf(
+            self::TPL_SELECT,
+            $distinct,
+            $sel,
+            $from,
+            $where,
+            $group,
+            $having,
+            $order,
+            $limit
+        );
 
-		$projectionMap = self::buildProjectionMap($state[self::SEL] ?? '*', $from);
-		return [$sql, $params, $projectionMap];
-	}
+        $projectionMap = self::buildProjectionMap($state[self::SEL] ?? '*', $from);
+        return [$sql, $params, $projectionMap];
+    }
+
     public static function compileDelete(array $state): array
     {
         $from   = $state[self::FROM] ?? '';
@@ -227,12 +230,10 @@ class SqlCompiler
             else {
                 // Extract simple column name or use the whole expression as alias
                 if (strpos($field, '.') !== false && !preg_match('/^\w+\(/', $field)) {
-                    // table.column format - extract base name
                     $parts = explode('.', $field);
                     $colName = end($parts);
                     $map[$colName] = $index;
                 } else {
-                    // Simple column or function - extract base name or use as-is
                     $cleanField = preg_replace('/^\w+\((.*?)\)$/', '$1', $field);
                     $cleanField = preg_replace('/\s+/', '', $cleanField);
                     $map[$cleanField] = $index;
@@ -255,7 +256,6 @@ class SqlCompiler
             $part = preg_replace('/\s+ON\s+.*$/i', '', $part);
             $part = trim($part);
             
-            // Soporta identificadores con comillas dobles (Postgres), backticks (MySQL) o simples
             if (preg_match('/^(?:["`]?([\w.-]+)["`]?)(?:\s+(?:AS\s+)?(?:["`]?([\w.-]+)["`]?))?/i', $part, $matches)) {
                 $realTable = $matches[1];
                 $alias = $matches[2] ?? $realTable;

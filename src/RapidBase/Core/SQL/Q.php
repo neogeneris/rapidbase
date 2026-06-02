@@ -15,6 +15,7 @@ class Q
     private array $state;
     private array $compiledParams = [];
     private static array $starProjectionCache = [];
+	private bool $distinct = false;
 
     private function __construct()
     {
@@ -146,6 +147,15 @@ class Q
 
         return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $projectionMap, $sourceTables);
     }
+
+
+	public function selectDistinct(
+		$fields = null, $pagination = null, $sort = [],
+		$groupBy = null, array $having = [], bool $withTotal = false
+	): CompiledQuery {
+		$this->distinct = true;
+		return $this->select($fields, $pagination, $sort, $groupBy, $having, $withTotal);
+	}
 
     // ========== Métodos auxiliares de calificación ==========
 
