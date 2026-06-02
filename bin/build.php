@@ -5,41 +5,71 @@ $outputFile = __DIR__ . '/RapidBase.php';
 
 echo "Buscando archivos en $srcDir...\n";
 
+// Orden explícito de interfaces para garantizar dependencias correctas
+$interfaceOrder = [
+    'KeyValueReaderInterface.php',
+    'KeyValueWriterInterface.php',
+    'KeyValueInterface.php',
+    'CacheInterface.php'
+];
+
 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcDir));
-$interfaceFiles = [];
+$orderedInterfaces = [];
 $otherFiles = [];
 
+// 1. Buscar primero las interfaces específicas en el orden definido
+$contractsDir = $srcDir . '/Core/Contracts';
+if (is_dir($contractsDir)) {
+    foreach ($interfaceOrder as $interfaceFile) {
+        $fullPath = $contractsDir . '/' . $interfaceFile;
+        if (file_exists($fullPath)) {
+            $orderedInterfaces[] = $fullPath;
+        }
+    }
+    
+    // 2. Capturar cualquier otra interfaz en Contracts que no esté en la lista explícita
+    $contractsIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($contractsDir));
+    foreach ($contractsIterator as $file) {
+        if ($file->isFile() && $file->getExtension() === 'php') {
+            $path = $file->getPathname();
+            $fileName = $file->getFilename();
+            if (!in_array($fileName, $interfaceOrder)) {
+                $orderedInterfaces[] = $path;
+            }
+        }
+    }
+}
+
+// 3. Capturar el resto de archivos (excluyendo Contracts, Tdd y schema_map)
 foreach ($iterator as $file) {
     // Excluir archivos schema_map.php
     if (basename($file) === 'schema_map.php') {
         continue;
     }
 
-    // Excluir toda la carpeta Tdd (funciona en Windows y Linux)
+    // Excluir toda la carpeta Tdd
     $fullPath = str_replace('\\', '/', $file->getPathname());
     if (strpos($fullPath, '/Tdd/') !== false) {
         continue;
     }
+    
+    // Excluir carpeta Contracts (ya procesada arriba)
+    if (strpos($fullPath, '/Contracts/') !== false) {
+        continue;
+    }
 
     if ($file->isFile() && $file->getExtension() === 'php') {
-        $path = $file->getPathname();
-        // Detectar si es una interfaz (está en Contracts o el nombre del archivo sugiere interfaz)
-        if (strpos($fullPath, '/Contracts/') !== false) {
-            $interfaceFiles[] = $path;
-        } else {
-            $otherFiles[] = $path;
-        }
+        $otherFiles[] = $file->getPathname();
     }
 }
 
-// Ordenar interfaces primero para asegurar que se definan antes de usarse
-sort($interfaceFiles);
+// Ordenar el resto de archivos alfabéticamente
 sort($otherFiles);
 
-// Combinar: interfaces primero, luego el resto
-$phpFiles = array_merge($interfaceFiles, $otherFiles);
+// Combinar: interfaces en orden específico primero, luego el resto
+$phpFiles = array_merge($orderedInterfaces, $otherFiles);
 
-echo "Encontrados " . count($phpFiles) . " archivos (" . count($interfaceFiles) . " interfaces, " . count($otherFiles) . " clases).\n";
+echo "Encontrados " . count($phpFiles) . " archivos (" . count($orderedInterfaces) . " interfaces, " . count($otherFiles) . " clases).\n";
 
 $finalContent = "<?php\n\n/**\n * RapidBase - Bundled single file\n * Generated on " . date('Y-m-d H:i:s') . "\n */\n\ndeclare(strict_types=1);\n\n";
 
