@@ -24,6 +24,7 @@ final class Autoloader
     private bool $debug = false;
     private bool $cacheEnabled = true;
     private bool $statsEnabled = false;
+    private bool $strictMode = false; // Si es true, lanza excepción cuando no encuentra una clase
     private array $classUsageStats = [];
     private array $fileDependencies = [];
     private array $fileExecutionCount = [];
@@ -33,6 +34,46 @@ final class Autoloader
     private string $cacheFile;
     private int $globalExecutionCounter = 0;
     private int $maxExecutionForStats = 0;
+    private ?string $cacheDirectory = null;
+
+    /**
+     * Establece el directorio donde se guardarán los archivos de caché y estadísticas del autoloader.
+     * 
+     * @param string $directory Directorio donde se guardarán los archivos .dat
+     * @return self
+     * @throws \RuntimeException Si el directorio no existe o no es escribible
+     */
+    public function setCacheDirectory(string $directory): self
+    {
+        $directory = rtrim($directory, '/\\\\');
+        
+        if (!is_dir($directory)) {
+            throw new \RuntimeException("El directorio de caché no existe: $directory");
+        }
+        
+        if (!is_writable($directory)) {
+            throw new \RuntimeException("El directorio de caché no es escribible: $directory");
+        }
+        
+        $this->cacheDirectory = $directory;
+        $this->cacheFile = $directory . '/autoloader_cache.dat';
+        $this->statsFile = $directory . '/autoloader_stats.dat';
+        
+        // Reinicializar el cache con la nueva ruta
+        $this->initDefaultCache();
+        
+        return $this;
+    }
+    
+    /**
+     * Obtiene el directorio actual de caché.
+     * 
+     * @return string|null La ruta del directorio de caché o null si usa el default
+     */
+    public function getCacheDirectory(): ?string
+    {
+        return $this->cacheDirectory;
+    }
 
     /**
      * Constructor privado para el patrón Singleton.
@@ -61,6 +102,14 @@ final class Autoloader
             self::$instance = new self($basePath);
         }
         return self::$instance;
+    }
+
+    /**
+     * Resetea la instancia singleton (útil para testing y benchmarks).
+     */
+    public static function resetInstance(): void
+    {
+        self::$instance = null;
     }
 
     /**
@@ -162,6 +211,18 @@ final class Autoloader
     }
 
     /**
+     * Establece el modo estricto para el autoloader.
+     * 
+     * En modo estricto (desarrollo), el autoloader lanza una excepción cuando no encuentra una clase.
+     * En modo normal (producción), retorna false silenciosamente permitiendo que otros autoloaders intenten cargarla.
+     */
+    public function setStrictMode(bool $strict = true): self
+    {
+        $this->strictMode = $strict;
+        return $this;
+    }
+
+    /**
      * Establece el umbral máximo de ejecuciones para la recolección de estadísticas.
      */
     public function setMaxExecutionForStats(int $maxExecutions): self
@@ -245,6 +306,11 @@ final class Autoloader
         }
 
         $this->debug("Failed to load class: $fullClassName", [], true);
+        
+        if ($this->strictMode) {
+            throw new \RuntimeException("Autoloader no pudo encontrar la clase: $fullClassName. Verifica que el archivo exista y esté en uno de los directorios registrados.");
+        }
+        
         return false;
     }
 
