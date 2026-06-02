@@ -2,21 +2,15 @@
 # Compiled and build artifacts
 *.pyc
 __pycache__/
-*.o
-*.obj
-bin/
-build/
-dist/
 
 # Dependencies
-.venv/
-venv/
+vendor/
 node_modules/
+composer.lock
 
 # Logs and temp files
 *.log
 *.tmp
-*.swp
 
 # Environment
 .env
@@ -26,4 +20,13 @@ node_modules/
 # Editors
 .vscode/
 .idea/
+
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# PHP specific
+*.phar
+.php_cs.cache
 ```
