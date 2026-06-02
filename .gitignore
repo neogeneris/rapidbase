@@ -1,32 +1,64 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
+# Database files
+*.sqlite
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
 
 # Dependencies
 vendor/
 node_modules/
 composer.lock
 
-# Logs and temp files
-*.log
-*.tmp
+# Build artifacts
+dist/
+build/
+target/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Coverage reports
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
 .coverage
-coverage/
-htmlcov/
-
-# PHP specific
-*.phar
-.php_cs.cache
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/
+*.git/
+!.git/
+.gitattributes
+.gitignore
+.gitmodules
+!.gitkeep
+.DS_Store
+Thumbs.db
 ```

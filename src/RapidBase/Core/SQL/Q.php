@@ -126,14 +126,15 @@ class Q
         $selectSql = is_array($selectFields) ? implode(', ', $selectFields) : $selectFields;
 
         $compiledState = [
-            SqlCompiler::SEL    => $selectSql,
-            SqlCompiler::FROM   => $fromClause,
-            SqlCompiler::WHERE  => $whereData['sql'],
-            SqlCompiler::GROUP  => $groupSql,
-            SqlCompiler::HAVING => $havingData['sql'],
-            SqlCompiler::ORDER  => $orderSql,
-            SqlCompiler::LIMIT  => $limitSql,
-            SqlCompiler::PARAMS => $params,
+            SqlCompiler::SEL      => $selectSql,
+            SqlCompiler::FROM     => $fromClause,
+            SqlCompiler::WHERE    => $whereData['sql'],
+            SqlCompiler::GROUP    => $groupSql,
+            SqlCompiler::HAVING   => $havingData['sql'],
+            SqlCompiler::ORDER    => $orderSql,
+            SqlCompiler::LIMIT    => $limitSql,
+            SqlCompiler::PARAMS   => $params,
+            SqlCompiler::DISTINCT => $this->distinct,
         ];
 
         [$sql, $params, $projectionMap] = SqlCompiler::compileSelect($compiledState);
@@ -501,7 +502,8 @@ class Q
         $limitSql = $this->buildLimitClause($pagination);
         $selectFields = $fields ?? '*';
         if (is_array($selectFields)) $selectFields = implode(', ', $selectFields);
-        $sql = "SELECT $selectFields FROM $table$whereSql$orderSql$limitSql";
+        $distinct = $this->distinct ? ' DISTINCT' : '';
+        $sql = "SELECT$distinct $selectFields FROM $table$whereSql$orderSql$limitSql";
         return new CompiledQuery($sql, $params, CompiledQuery::SELECT, $this->getSimpleProjection($fields ?? '*'), [$this->state[self::T]]);
     }
 
