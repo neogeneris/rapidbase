@@ -3,11 +3,11 @@
 namespace RapidBase\Core\Cache;
 
 use RapidBase\Core\Cache\Adapters\DirectoryCacheAdapter;
-use RapidBase\Core\Contracts\KeyValueInterface;
+use RapidBase\Core\Contracts\CacheInterface;
 
 class CacheService
 {
-    private static ?KeyValueInterface $adapter = null;
+    private static ?CacheInterface $adapter = null;
     private static bool $enabled = true;
 
     public static function init(string $path): void
@@ -30,14 +30,6 @@ class CacheService
         self::$enabled = false;
     }
 	
-	/**
-     * Genera una clave hash segura y rápida para los datos proporcionados.
-     * 
-     * Prioriza xxh128 (si está disponible en PHP 8.1+), y si no, usa crc32 como fallback.
-     *
-     * @param string $data Datos a hashear (normalmente un JSON).
-     * @return string Clave hash en formato hexadecimal.
-     */
     public static function hash(string $data): string
     {
         if (function_exists('xxh128')) {
@@ -49,27 +41,28 @@ class CacheService
     /**
      * Obtiene un valor de la caché.
      */
-    public static function get(string $key): mixed
+    public static function get(string $key, mixed $default = null): mixed
     {
         if (!self::$enabled || !self::$adapter) {
-            return null;
+            return $default;
         }
-        return self::$adapter->get($key);
+        return self::$adapter->get($key, $default);
     }
 
     /**
-     * Guarda un valor en la caché.
+     * Guarda un valor en la caché con un tiempo de vida específico.
      */
     public static function set(string $key, mixed $value, int $ttl = 3600): bool
     {
         if (!self::$enabled || !self::$adapter) {
             return false;
         }
-        return self::$adapter->set($key, $value, $ttl);
+        self::$adapter->setWithTtl($key, $value, $ttl);
+        return true;
     }
 
     /**
-     * Recupera o genera un valor mediante callback.
+     * Recupera o genera un valor mediante un callback ejecutable.
      */
     public static function remember(string $key, int $ttl, callable $callback): mixed
     {
@@ -98,7 +91,7 @@ class CacheService
     }
 
     /**
-     * Limpia toda la caché o un prefijo (alias).
+     * Limpia toda la caché o un prefijo específico.
      */
     public static function clear(?string $prefix = null): void
     {
@@ -107,17 +100,11 @@ class CacheService
         }
     }
 
-    /**
-     * Retorna la ruta base del adaptador.
-     */
     public static function getPath(): ?string
     {
         return self::$adapter ? self::$adapter->getPath() : null;
     }
 
-    /**
-     * Retorna la duración de la última lectura del adaptador.
-     */
     public static function getLastReadDuration(): float
     {
         return self::$adapter ? self::$adapter->getLastReadDuration() : 0.0;

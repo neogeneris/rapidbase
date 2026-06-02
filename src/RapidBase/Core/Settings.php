@@ -1,142 +1,152 @@
 <?php
 
+declare(strict_types=1);
+
 namespace RapidBase\Core;
 
-use RapidBase\Core\Contracts\KeyValueInterface;
+use RapidBase\Core\Contracts\KeyValueReaderInterface;
 
 /**
  * Class Settings
- * 
- * Gestiona configuraciones de la aplicación utilizando un almacén clave-valor.
- * Usa la barra "/" como separador para claves jerárquicas.
- * 
- * @package RapidBase\Core
+ * * Acceso estático global e inmutable a las configuraciones precompiladas de la aplicación.
+ * Carga el bloque consolidado desde SQLite en un solo viaje a disco y resuelve en memoria RAM.
+ * * @package RapidBase\Core
  */
 class Settings
 {
     /**
-     * @var KeyValueInterface
+     * @var KeyValueReaderInterface|null Motor de lectura inyectado en el arranque
      */
-    private KeyValueInterface $cache;
+    private static ?KeyValueReaderInterface $cache = null;
 
     /**
-     * @var string Prefijo para todas las claves de configuración
+     * @var array Mapa de configuraciones en memoria RAM
      */
-    private string $prefix = 'settings/';
+    private static array $data = [];
 
     /**
-     * Constructor
-     * 
-     * @param KeyValueInterface $cache Instancia del almacén clave-valor
-     * @param string $prefix Prefijo opcional para las claves
+     * @var bool Estado de la carga del bloque maestro
      */
-    public function __construct(KeyValueInterface $cache, string $prefix = 'settings/')
+    private static bool $loaded = false;
+
+    /**
+     * @var string Llave del archivo compilado en el DirectoryCacheAdapter
+     */
+    private static string $masterKey = 'settings/app';
+
+    /**
+     * Inicializa el servicio de configuraciones en el bootstrap del framework.
+     * * @param KeyValueReaderInterface $cache Adaptador de lectura (ej: DirectoryCacheAdapter)
+     * @param string $masterKey Llave del bloque consolidado
+     */
+    public static function init(KeyValueReaderInterface $cache, string $masterKey = 'settings/app'): void
     {
-        $this->cache = $cache;
-        $this->prefix = $prefix;
+        self::$cache = $cache;
+        self::$masterKey = $masterKey;
+        self::$data = [];
+        self::$loaded = false;
+    }
+
+    /**
+     * Carga el bloque completo de configuración a la memoria RAM.
+     * Al ser un archivo .php plano, OPcache se encarga de mantenerlo en bytecode.
+     */
+    private static function ensureLoaded(): void
+    {
+        if (self::$loaded) {
+            return;
+        }
+
+        if (self::$cache === null) {
+            // Failsafe por si se intenta leer antes de inicializar el framework
+            self::$data = [];
+            self::$loaded = true;
+            return;
+        }
+
+        // Recuperamos el array consolidado completo
+        self::$data = self::$cache->get(self::$masterKey, []);
+        self::$loaded = true;
     }
 
     /**
      * Obtiene el valor de una configuración por clave.
-     * Las claves pueden usar "/" para separadores jerárquicos.
-     * 
-     * @param string $key Clave de configuración (ej: "database/host")
-     * @param mixed $default Valor por defecto si la clave no existe
-     * @return mixed El valor almacenado o el valor por defecto
+     * Soporta búsquedas de primer nivel o profundas mediante el separador "/".
+     * * @param string $key Clave de configuración (ej: "app/timezone" o "db/main/host")
+     * @param mixed $default Valor de retorno si la clave no existe
+     * @return mixed El valor configurado o el valor por defecto
      */
-    public function get(string $key, mixed $default = null): mixed
+    public static function get(string $key, mixed $default = null): mixed
     {
-        $fullKey = $this->normalizeKey($key);
-        
-        if ($this->cache->has($fullKey)) {
-            return $this->cache->get($fullKey);
+        self::ensureLoaded();
+
+        $key = self::normalizeKey($key);
+
+        // Optimización de primer nivel: acceso directo si la llave está plana en la raíz
+        if (isset(self::$data[$key])) {
+            return self::$data[$key];
         }
-        
-        return $default;
+
+        // Búsqueda profunda para arrays multidimensionales anidados
+        $segments = explode('/', $key);
+        $cursor = self::$data;
+
+        foreach ($segments as $segment) {
+            if (is_array($cursor) && isset($cursor[$segment])) {
+                $cursor = $cursor[$segment];
+            } else {
+                return $default;
+            }
+        }
+
+        return $cursor;
     }
 
     /**
-     * Establece un valor de configuración.
-     * 
-     * @param string $key Clave de configuración (ej: "database/host")
-     * @param mixed $value Valor a almacenar
-     * @param int $ttl Tiempo de vida en segundos (0 para persistente)
-     * @return bool True si se estableció correctamente
-     */
-    public function set(string $key, mixed $value, int $ttl = 0): bool
-    {
-        $fullKey = $this->normalizeKey($key);
-        return $this->cache->set($fullKey, $value, $ttl);
-    }
-
-    /**
-     * Verifica si una clave de configuración existe.
-     * 
-     * @param string $key Clave de configuración
+     * Verifica la existencia de una configuración.
+     * * @param string $key Clave de configuración
      * @return bool True si existe, false en caso contrario
      */
-    public function has(string $key): bool
+    public static function has(string $key): bool
     {
-        $fullKey = $this->normalizeKey($key);
-        return $this->cache->has($fullKey);
-    }
+        self::ensureLoaded();
 
-    /**
-     * Elimina una configuración por clave.
-     * 
-     * @param string $key Clave de configuración
-     * @return bool True si se eliminó, false si no existía
-     */
-    public function delete(string $key): bool
-    {
-        $fullKey = $this->normalizeKey($key);
-        return $this->cache->delete($fullKey);
-    }
+        $key = self::normalizeKey($key);
 
-    /**
-     * Obtiene todas las configuraciones que coinciden con un prefijo.
-     * 
-     * @param string $prefix Prefijo para filtrar claves (ej: "database/")
-     * @return array Array asociativo con las claves y valores
-     */
-    public function all(string $prefix = ''): array
-    {
-        $searchPrefix = $this->normalizeKey($prefix);
-        return $this->cache->all($searchPrefix);
-    }
-
-    /**
-     * Limpia todas las configuraciones o aquellas que coincidan con un prefijo.
-     * 
-     * @param string|null $prefix Prefijo opcional para limpiar solo un grupo
-     * @return bool True si se limpió correctamente
-     */
-    public function clear(?string $prefix = null): bool
-    {
-        if ($prefix !== null) {
-            $fullPrefix = $this->normalizeKey($prefix);
-            return $this->cache->clear($fullPrefix);
+        if (isset(self::$data[$key])) {
+            return true;
         }
-        
-        return $this->cache->clear($this->prefix);
+
+        $segments = explode('/', $key);
+        $cursor = self::$data;
+
+        foreach ($segments as $segment) {
+            if (is_array($cursor) && isset($cursor[$segment])) {
+                $cursor = $cursor[$segment];
+            } else {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
-     * Normaliza una clave asegurando que tenga el prefijo correcto.
-     * Usa "/" como separador obligatorio.
-     * 
-     * @param string $key Clave a normalizar
-     * @return string Clave normalizada con prefijo
+     * Retorna el universo completo de configuraciones cargadas en la petición.
+     * * @return array
      */
-    private function normalizeKey(string $key): string
+    public static function all(): array
     {
-        // Aseguramos que la clave use "/" como separador
-        $key = str_replace('\\', '/', $key);
-        $key = str_replace('.', '/', $key);
-        
-        // Eliminamos slash inicial si existe para evitar duplicados
-        $key = ltrim($key, '/');
-        
-        return $this->prefix . $key;
+        self::ensureLoaded();
+        return self::$data;
+    }
+
+    /**
+     * Normaliza los separadores de la clave de búsqueda.
+     */
+    private static function normalizeKey(string $key): string
+    {
+        $key = str_replace(['\\', '.'], '/', $key);
+        return trim($key, '/');
     }
 }

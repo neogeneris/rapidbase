@@ -1,261 +1,168 @@
 <?php
 
+declare(strict_types=1);
+
 namespace RapidBase\Core\Cache\Adapters;
 
-use RapidBase\Core\Contracts\KeyValueInterface;
+use RapidBase\Core\Contracts\CacheInterface;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 
 /**
- * DirectoryCacheAdapter: Persistencia en archivos .php con sharding.
- * Almacena la clave original dentro del payload para permitir borrado por prefijo.
- * Implements KeyValueInterface for consistent cache operations.
+ * DirectoryCacheAdapter: Persistencia de alto rendimiento en archivos .php con sharding.
+ * Combina almacenamiento L1 en memoria y L2 en archivos nativos listos para OPcache.
+ * * Implementa CacheInterface con soporte estricto para claves jerárquicas '/'.
  */
-class DirectoryCacheAdapter implements KeyValueInterface
+class DirectoryCacheAdapter implements CacheInterface
 {
     private string $basePath;
-    private int $defaultTtl;
-    private array $memL1Cache = [];     // [key => ['data'=>mixed, 'expires_at'=>int]]
+    private array $memL1Cache = []; // [key => ['value' => mixed, 'expires_at' => int]]
     private int $maxL1Size = 500;
     private float $lastReadDuration = 0.0;
-    
-    public function getLastReadDuration(): float
-    {
-        return $this->lastReadDuration;
-    }
 
-    public function __construct(string $basePath, int $defaultTtl = 3600)
+    public function __construct(string $basePath)
     {
         $this->basePath = rtrim($basePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-        $this->defaultTtl = $defaultTtl;
         if (!is_dir($this->basePath)) {
             mkdir($this->basePath, 0775, true);
         }
     }
 
-    public function getPath(): string
-    {
-        return $this->basePath;
-    }
-
     /**
-     * @inheritDoc
+     * Obtiene la ruta física del archivo utilizando Sharding para evitar colapsar directorios.
      */
-    public function set(string $key, mixed $value, int $ttl = 0): bool
-    {
-        $ttl = is_numeric($ttl) && $ttl > 0 ? (int)$ttl : $this->defaultTtl;
-        $expiresAt = time() + $ttl;
-        $path = $this->getStoragePath($key);
-
-        $payload = [
-            'key'        => $key,
-            'expires_at' => $expiresAt,
-            'data'       => $value
-        ];
-
-        $content = "<?php\nreturn " . var_export($payload, true) . ";";
-        $dir = dirname($path);
-        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
-            return false;
-        }
-
-        $tempFile = tempnam($dir, 'tmp_');
-        if ($tempFile === false) return false;
-        file_put_contents($tempFile, $content);
-
-        if (rename($tempFile, $path)) {
-            if (function_exists('opcache_invalidate')) {
-                @opcache_invalidate($path, true);
-            }
-            $this->storeInL1($key, $value, $expiresAt);
-            return true;
-        }
-        @unlink($tempFile);
-        return false;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function get(string $key): mixed
-    {
-        // 1. Memoria L1
-        if (isset($this->memL1Cache[$key])) {
-            $entry = $this->memL1Cache[$key];
-            if ($entry['expires_at'] === 0 || time() < $entry['expires_at']) {
-                return $entry['data'];
-            }
-            unset($this->memL1Cache[$key]);
-        }
-
-        $path = $this->getStoragePath($key);
-        if (!file_exists($path)) return null;
-
-        $startTime = microtime(true);
-        $payload = include $path;
-        $duration = microtime(true) - $startTime;
-        
-        $this->lastReadDuration = $duration;
-
-        if (!is_array($payload) || !isset($payload['expires_at'], $payload['data'], $payload['key'])) {
-            $this->delete($key);
-            return null;
-        }
-
-        if ($payload['expires_at'] > 0 && time() >= $payload['expires_at']) {
-            $this->delete($key);
-            return null;
-        }
-
-        $this->storeInL1($payload['key'], $payload['data'], $payload['expires_at']);
-        return $payload['data'];
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function has(string $key): bool
-    {
-        // Check L1 first
-        if (isset($this->memL1Cache[$key])) {
-            $entry = $this->memL1Cache[$key];
-            if ($entry['expires_at'] === 0 || time() < $entry['expires_at']) {
-                return true;
-            }
-            unset($this->memL1Cache[$key]);
-        }
-
-        // Check disk
-        $path = $this->getStoragePath($key);
-        if (!file_exists($path)) {
-            return false;
-        }
-
-        $payload = include $path;
-
-        if (!is_array($payload) || !isset($payload['expires_at'])) {
-            return false;
-        }
-
-        if ($payload['expires_at'] > 0 && time() >= $payload['expires_at']) {
-            $this->delete($key);
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function delete(string $key): bool
-    {
-        unset($this->memL1Cache[$key]);
-        $path = $this->getStoragePath($key);
-        if (file_exists($path)) {
-            if (function_exists('opcache_invalidate')) {
-                @opcache_invalidate($path, true);
-            }
-            return @unlink($path);
-        }
-        return true;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function clear(?string $prefix = null): bool
-    {
-        // Limpiar L1
-        if ($prefix === null) {
-            $this->memL1Cache = [];
-        } else {
-            foreach ($this->memL1Cache as $k => $v) {
-                if (str_starts_with($k, $prefix)) unset($this->memL1Cache[$k]);
-            }
-        }
-
-        // Limpiar L2 (disco)
-        if (!is_dir($this->basePath)) return true;
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($this->basePath, \RecursiveDirectoryIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST
-        );
-
-        foreach ($iterator as $item) {
-            if (!$item->isFile()) continue;
-            $file = $item->getPathname();
-            if (pathinfo($file, PATHINFO_EXTENSION) !== 'php') continue;
-
-            if ($prefix === null) {
-                @unlink($file);
-            } else {
-                // Leer la clave guardada dentro del archivo
-                $payload = include $file;
-                if (is_array($payload) && isset($payload['key']) && str_starts_with($payload['key'], $prefix)) {
-                    @unlink($file);
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function all(string $prefix = ''): array
-    {
-        $results = [];
-        
-        if (!is_dir($this->basePath)) {
-            return $results;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($this->basePath, \RecursiveDirectoryIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST
-        );
-
-        foreach ($iterator as $item) {
-            if (!$item->isFile()) continue;
-            $file = $item->getPathname();
-            if (pathinfo($file, PATHINFO_EXTENSION) !== 'php') continue;
-
-            $payload = include $file;
-            
-            if (!is_array($payload) || !isset($payload['key'], $payload['data'], $payload['expires_at'])) {
-                continue;
-            }
-
-            // Verificar si no ha expirado
-            if ($payload['expires_at'] > 0 && time() >= $payload['expires_at']) {
-                continue;
-            }
-
-            // Filtrar por prefijo si se especificó
-            if ($prefix === '' || str_starts_with($payload['key'], $prefix)) {
-                $results[$payload['key']] = $payload['data'];
-            }
-        }
-
-        return $results;
-    }
-
     private function getStoragePath(string $key): string
     {
-        // Usar XXH128 si está disponible (PHP 8.1+), sino fallback a MD5
+        // Limpiamos o aplanamos sutilmente para el hash, pero usamos el separador original
         $hash = function_exists('xxh128') ? xxh128($key) : md5($key);
+        
+        // Estructura: basePath/ab/cd/hash.cache.php
         return $this->basePath .
                substr($hash, 0, 2) . DIRECTORY_SEPARATOR .
                substr($hash, 2, 2) . DIRECTORY_SEPARATOR .
-               $hash . '.php';
+               $hash . '.cache.php';
     }
 
-    private function storeInL1(string $key, mixed $data, int $expiresAt): void
+    public function get(string $key, mixed $default = null): mixed
+    {
+        // 1. Intentar recuperar de Capa 1 (Memoria RAM del proceso)
+        if (isset($this->memL1Cache[$key])) {
+            $item = $this->memL1Cache[$key];
+            if ($item['expires_at'] === 0 || time() < $item['expires_at']) {
+                return $item['value'];
+            }
+            $this->delete($key);
+            return $default;
+        }
+
+        // 2. Intentar recuperar de Capa 2 (Disco / OPcache)
+        $file = $this->getStoragePath($key);
+        if (!file_exists($file)) {
+            return $default;
+        }
+
+        $start = microtime(true);
+        $payload = include $file;
+        $this->lastReadDuration = (microtime(true) - $start) * 1000;
+
+        if (!is_array($payload) || !isset($payload['expires_at'], $payload['value'])) {
+            return $default;
+        }
+
+        // Verificar expiración
+        if ($payload['expires_at'] > 0 && time() >= $payload['expires_at']) {
+            $this->delete($key);
+            return $default;
+        }
+
+        // Guardar en L1 para futuras lecturas en la misma petición
+        $this->storeInL1($key, $payload['value'], $payload['expires_at']);
+
+        return $payload['value'];
+    }
+
+    public function has(string $key): bool
+    {
+        return $this->get($key) !== null;
+    }
+
+    public function set(string $key, mixed $value): void
+    {
+        // Un set normal guarda de forma persistente (TTL = 0)
+        $this->setWithTtl($key, $value, 0);
+    }
+
+    public function setWithTtl(string $key, mixed $value, int $ttl): void
+    {
+        $file = $this->getStoragePath($key);
+        $dir = dirname($file);
+        
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
+        $expiresAt = ($ttl === 0) ? 0 : time() + $ttl;
+
+        $payload = [
+            'key'        => $key, // Preservamos la llave con sus '/' originales
+            'expires_at' => $expiresAt,
+            'value'      => $value
+        ];
+
+        // Exportamos código ejecutable PHP nativo para activar OPcache
+        $content = "<?php\nreturn " . var_export($payload, true) . ";\n";
+        
+        if (file_put_contents($file, $content, LOCK_EX) !== false) {
+            $this->storeInL1($key, $value, $expiresAt);
+        }
+    }
+
+    public function delete(string $key): void
+    {
+        // Remover de L1
+        unset($this->memL1Cache[$key]);
+
+        // Remover de L2 (Disco)
+        $file = $this->getStoragePath($key);
+        if (file_exists($file)) {
+            unlink($file);
+        }
+    }
+
+    public function clear(): void
+    {
+        $this->memL1Cache = [];
+
+        if (!is_dir($this->basePath)) {
+            return;
+        }
+
+        // Recorremos recursivamente las subcarpetas creadas por el sharding
+        $dirIterator = new RecursiveDirectoryIterator($this->basePath, RecursiveDirectoryIterator::SKIP_DOTS);
+        $iterator = new RecursiveIteratorIterator($dirIterator, RecursiveIteratorIterator::CHILD_FIRST);
+
+        foreach ($iterator as $item) {
+            if ($item->isFile() && $item->getExtension() === 'php') {
+                unlink($item->getPathname());
+            } elseif ($item->isDir()) {
+                rmdir($item->getPathname());
+            }
+        }
+    }
+
+    private function storeInL1(string $key, mixed $value, int $expiresAt): void
     {
         if (count($this->memL1Cache) >= $this->maxL1Size) {
-            array_shift($this->memL1Cache);
+            array_shift($this->memL1Cache); // Evitamos desbordamiento de memoria
         }
-        $this->memL1Cache[$key] = ['data' => $data, 'expires_at' => $expiresAt];
+        $this->memL1Cache[$key] = [
+            'value'      => $value,
+            'expires_at' => $expiresAt
+        ];
+    }
+
+    public function getLastReadDuration(): float
+    {
+        return $this->lastReadDuration;
     }
 }

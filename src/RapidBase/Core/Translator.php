@@ -1,137 +1,131 @@
 <?php
 
+declare(strict_types=1);
+
 namespace RapidBase\Core;
 
-use RapidBase\Core\Contracts\KeyValueInterface;
+use RapidBase\Core\Contracts\KeyValueReaderInterface;
 
 /**
  * Class Translator
- * 
- * Gestiona traducciones y mensajes utilizando un almacén clave-valor.
- * Usa la barra "/" como separador para claves jerárquicas (ej: "en/messages/welcome").
- * Soporta interpolación de parámetros en los mensajes.
- * 
- * @package RapidBase\Core
+ * * Servicio estático global e inmutable para internacionalización (i18n).
+ * Carga en bloque el diccionario del idioma actual desde el almacén precompilado
+ * y resuelve cadenas jerárquicas con interpolación en memoria RAM.
+ * * @package RapidBase\Core
  */
 class Translator
 {
     /**
-     * @var KeyValueInterface
+     * @var KeyValueReaderInterface|null Motor de lectura inyectado en el arranque
      */
-    private KeyValueInterface $cache;
+    private static ?KeyValueReaderInterface $cache = null;
 
     /**
-     * @var string Prefijo para todas las claves de traducción
+     * @var string Locale por defecto del sistema
      */
-    private string $prefix = 'translations/';
+    private static string $defaultLocale = 'en';
 
     /**
-     * @var string Locale por defecto
+     * @var string Locale actualmente activo en la petición actual
      */
-    private string $defaultLocale = 'en';
+    private static string $currentLocale = 'en';
 
     /**
-     * @var string Locale actual
+     * @var string Prefijo de almacenamiento maestro
      */
-    private string $currentLocale = 'en';
+    private static string $prefix = 'translations/';
 
     /**
-     * Constructor
-     * 
-     * @param KeyValueInterface $cache Instancia del almacén clave-valor
-     * @param string $prefix Prefijo opcional para las claves
-     * @param string $defaultLocale Locale por defecto
+     * @var array Caché de diccionarios cargados en memoria RAM [locale => [data]]
      */
-    public function __construct(
-        KeyValueInterface $cache,
-        string $prefix = 'translations/',
-        string $defaultLocale = 'en'
-    ) {
-        $this->cache = $cache;
-        $this->prefix = $prefix;
-        $this->defaultLocale = $defaultLocale;
-        $this->currentLocale = $defaultLocale;
+    private static array $loadedLocales = [];
+
+    /**
+     * Inicializa el motor de traducciones en el bootstrap de RapidBase.
+     * * @param KeyValueReaderInterface $cache Adaptador de lectura (ej: DirectoryCacheAdapter)
+     * @param string $defaultLocale Idioma base (ej: 'es')
+     */
+    public static function init(KeyValueReaderInterface $cache, string $defaultLocale = 'en'): void
+    {
+        self::$cache = $cache;
+        self::$defaultLocale = $defaultLocale;
+        self::$currentLocale = $defaultLocale;
+        self::$loadedLocales = [];
     }
 
     /**
-     * Establece el locale actual para las traducciones.
-     * 
-     * @param string $locale Código de locale (ej: "en", "es", "fr")
-     * @return self
+     * Cambia el idioma activo en tiempo de ejecución para la petición actual.
      */
-    public function setLocale(string $locale): self
+    public static function setLocale(string $locale): void
     {
-        $this->currentLocale = $locale;
-        return $this;
+        self::$currentLocale = $locale;
     }
 
     /**
-     * Obtiene el locale actual.
-     * 
-     * @return string
+     * Retorna el idioma activo actual.
      */
-    public function getLocale(): string
+    public static function getLocale(): string
     {
-        return $this->currentLocale;
+        return self::$currentLocale;
     }
 
     /**
-     * Obtiene el locale por defecto.
-     * 
-     * @return string
+     * Retorna el idioma por defecto.
      */
-    public function getDefaultLocale(): string
+    public static function getDefaultLocale(): string
     {
-        return $this->defaultLocale;
+        return self::$defaultLocale;
     }
 
     /**
-     * Obtiene una traducción por clave.
-     * Las claves usan "/" como separadores jerárquicos.
-     * Soporta interpolación de parámetros usando {nombre} en el mensaje.
-     * 
-     * @param string $key Clave de traducción (ej: "messages/welcome" o "en/messages/welcome")
-     * @param array $params Parámetros para interpolar en el mensaje
-     * @param string|null $locale Locale opcional (usa el actual si no se especifica)
-     * @param string|null $default Valor por defecto si la clave no existe
-     * @return string|null La traducción o el valor por defecto
+     * Asegura que el diccionario completo de un idioma específico esté volcado en memoria RAM.
      */
-    public function get(string $key, array $params = [], ?string $locale = null, ?string $default = null): ?string
+    private static function ensureLoaded(string $locale): void
     {
-        if ($locale === null) {
-            $locale = $this->currentLocale;
+        if (isset(self::$loadedLocales[$locale])) {
+            return;
         }
 
-        // Si la clave ya incluye el locale, lo usamos directamente
-        if (!str_contains($key, '/')) {
-            $fullKey = $this->normalizeKey($locale . '/' . $key);
-        } else {
-            // Verificamos si la clave ya empieza con un locale válido
-            $parts = explode('/', $key);
-            if (strlen($parts[0]) === 2 || strlen($parts[0]) === 5) {
-                // Parece un locale, usamos la clave tal cual
-                $fullKey = $this->normalizeKey($key);
-            } else {
-                // Añadimos el locale al inicio
-                $fullKey = $this->normalizeKey($locale . '/' . $key);
-            }
+        if (self::$cache === null) {
+            self::$loadedLocales[$locale] = [];
+            return;
         }
 
-        $message = $this->cache->get($fullKey);
+        // Clave maestra esperada en el DirectoryCacheAdapter: 'translations/es'
+        $masterKey = self::$prefix . $locale;
+        self::$loadedLocales[$locale] = self::$cache->get($masterKey, []);
+    }
 
+    /**
+     * Obtiene una traducción por clave jerárquica con soporte para parámetros.
+     * * @param string $key Clave de traducción (ej: "auth/login/success" o "errors/invalid_id")
+     * @param array $params Parámetros asociativos a interpolar usando {clave}
+     * @param string|null $locale Forzar un idioma específico para esta traducción
+     * @param string|null $default Valor de fallback si la clave no existe en ningún diccionario
+     * @return string|null
+     */
+    public static function get(string $key, array $params = [], ?string $locale = null, ?string $default = null): ?string
+    {
+        $targetLocale = $locale ?? self::$currentLocale;
+        
+        self::ensureLoaded($targetLocale);
+        $key = self::normalizeKey($key);
+
+        // 1. Intentar resolver en el idioma solicitado
+        $message = self::resolveKey(self::$loadedLocales[$targetLocale], $key);
+
+        // 2. Fallback al idioma por defecto si no se encontró y el solicitado era otro
+        if ($message === null && $targetLocale !== self::$defaultLocale) {
+            self::ensureLoaded(self::$defaultLocale);
+            $message = self::resolveKey(self::$loadedLocales[self::$defaultLocale], $key);
+        }
+
+        // 3. Si sigue siendo null, devolvemos el valor por defecto configurado
         if ($message === null) {
-            // Intentar con el locale por defecto si no es el actual
-            if ($locale !== $this->defaultLocale) {
-                $fallbackKey = $this->normalizeKey($this->defaultLocale . '/' . $key);
-                $message = $this->cache->get($fallbackKey);
-            }
-
-            if ($message === null) {
-                return $default;
-            }
+            return $default;
         }
 
-        // Interpolar parámetros si existen
+        // 4. Interpolar los tokens del mensaje si se suministraron parámetros ({user}, etc.)
         if (!empty($params)) {
             foreach ($params as $paramName => $paramValue) {
                 $message = str_replace('{' . $paramName . '}', (string)$paramValue, $message);
@@ -142,140 +136,44 @@ class Translator
     }
 
     /**
-     * Alias de get() para obtener una traducción.
-     * 
-     * @param string $key Clave de traducción
-     * @param array $params Parámetros para interpolar
-     * @param string|null $locale Locale opcional
-     * @param string|null $default Valor por defecto
-     * @return string|null La traducción
+     * Resuelve de manera iterativa/profunda una clave jerárquica dividida por "/"
      */
-    public function trans(string $key, array $params = [], ?string $locale = null, ?string $default = null): ?string
+    private static function resolveKey(array $dictionary, string $key): ?string
     {
-        return $this->get($key, $params, $locale, $default);
-    }
-
-    /**
-     * Establece una traducción.
-     * 
-     * @param string $key Clave de traducción (ej: "messages/welcome")
-     * @param string $value El mensaje traducido
-     * @param string|null $locale Locale opcional (usa el actual si no se especifica)
-     * @param int $ttl Tiempo de vida en segundos (0 para persistente)
-     * @return bool True si se estableció correctamente
-     */
-    public function set(string $key, string $value, ?string $locale = null, int $ttl = 0): bool
-    {
-        if ($locale === null) {
-            $locale = $this->currentLocale;
+        if (isset($dictionary[$key]) && is_string($dictionary[$key])) {
+            return $dictionary[$key];
         }
 
-        $fullKey = $this->normalizeKey($locale . '/' . $key);
-        return $this->cache->set($fullKey, $value, $ttl);
-    }
+        $segments = explode('/', $key);
+        $cursor = $dictionary;
 
-    /**
-     * Verifica si una clave de traducción existe.
-     * 
-     * @param string $key Clave de traducción
-     * @param string|null $locale Locale opcional
-     * @return bool True si existe, false en caso contrario
-     */
-    public function has(string $key, ?string $locale = null): bool
-    {
-        if ($locale === null) {
-            $locale = $this->currentLocale;
-        }
-
-        $fullKey = $this->normalizeKey($locale . '/' . $key);
-        return $this->cache->has($fullKey);
-    }
-
-    /**
-     * Elimina una traducción por clave.
-     * 
-     * @param string $key Clave de traducción
-     * @param string|null $locale Locale opcional
-     * @return bool True si se eliminó, false si no existía
-     */
-    public function delete(string $key, ?string $locale = null): bool
-    {
-        if ($locale === null) {
-            $locale = $this->currentLocale;
-        }
-
-        $fullKey = $this->normalizeKey($locale . '/' . $key);
-        return $this->cache->delete($fullKey);
-    }
-
-    /**
-     * Obtiene todas las traducciones para un locale y prefijo específicos.
-     * 
-     * @param string $prefix Prefijo para filtrar claves (ej: "messages/")
-     * @param string|null $locale Locale opcional
-     * @return array Array asociativo con las claves y valores
-     */
-    public function all(string $prefix = '', ?string $locale = null): array
-    {
-        if ($locale === null) {
-            $locale = $this->currentLocale;
-        }
-
-        $searchPrefix = $this->prefix . $locale . '/' . $prefix;
-        $results = [];
-
-        if (method_exists($this->cache, 'all')) {
-            $allKeys = $this->cache->all($searchPrefix);
-            foreach ($allKeys as $key => $value) {
-                // Removemos el prefijo interno para devolver solo la parte relativa
-                $relativeKey = str_starts_with($key, $searchPrefix)
-                    ? substr($key, strlen($searchPrefix))
-                    : $key;
-                $results[$relativeKey] = $value;
+        foreach ($segments as $segment) {
+            if (is_array($cursor) && isset($cursor[$segment])) {
+                $cursor = $cursor[$segment];
+            } else {
+                return null;
             }
         }
 
-        return $results;
+        return is_string($cursor) ? $cursor : null;
     }
 
     /**
-     * Limpia todas las traducciones o aquellas que coincidan con un locale/prefijo.
-     * 
-     * @param string|null $locale Locale opcional para limpiar solo un idioma
-     * @param string|null $prefix Prefijo opcional dentro del locale
-     * @return bool True si se limpió correctamente
+     * Devuelve el mapa completo del idioma cargado.
      */
-    public function clear(?string $locale = null, ?string $prefix = null): bool
+    public static function all(?string $locale = null): array
     {
-        if ($locale === null) {
-            $locale = $this->currentLocale;
-        }
-
-        $clearPath = $locale;
-        if ($prefix !== null) {
-            $clearPath .= '/' . $prefix;
-        }
-
-        $fullPrefix = $this->normalizeKey($clearPath);
-        return $this->cache->clear($fullPrefix);
+        $targetLocale = $locale ?? self::$currentLocale;
+        self::ensureLoaded($targetLocale);
+        return self::$loadedLocales[$targetLocale] ?? [];
     }
 
     /**
-     * Normaliza una clave asegurando que tenga el prefijo correcto.
-     * Usa "/" como separador obligatorio.
-     * 
-     * @param string $key Clave a normalizar
-     * @return string Clave normalizada con prefijo
+     * Normaliza los separadores internos de la clave lingüística.
      */
-    private function normalizeKey(string $key): string
+    private static function normalizeKey(string $key): string
     {
-        // Aseguramos que la clave use "/" como separador
-        $key = str_replace('\\', '/', $key);
-        $key = str_replace('.', '/', $key);
-
-        // Eliminamos slash inicial si existe para evitar duplicados
-        $key = ltrim($key, '/');
-
-        return $this->prefix . $key;
+        $key = str_replace(['\\', '.'], '/', $key);
+        return trim($key, '/');
     }
 }
