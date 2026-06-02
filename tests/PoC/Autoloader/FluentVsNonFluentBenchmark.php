@@ -1,9 +1,9 @@
 <?php
 
-namespace RapidBase\Tests\Performance;
+namespace RapidBase\Tests\PoC\Autoloader;
 
 use RapidBase\Autoloader\Autoloader;
-use RapidBase\Autoloader\AutoloaderNonFluent;
+use RapidBase\Tests\PoC\Autoloader\AutoloaderNonFluent;
 
 /**
  * Benchmark comparativo: Fluent vs Non-Fluent Autoloader
@@ -11,7 +11,12 @@ use RapidBase\Autoloader\AutoloaderNonFluent;
  * Objetivo: Medir el impacto de performance de retornar $this en cada método.
  */
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+// Nota: Este script se ejecuta directamente con PHP
+// require_once __DIR__ . '/../../vendor/autoload.php';
+
+// Carga manual para PoC
+require_once __DIR__ . '/../../../src/RapidBase/Autoloader/Autoloader.php';
+require_once __DIR__ . '/AutoloaderNonFluent.php';
 
 // Configuración
 $iterations = 10000;

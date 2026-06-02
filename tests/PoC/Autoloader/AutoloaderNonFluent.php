@@ -1,11 +1,17 @@
 <?php
 
-namespace RapidBase\Autoloader;
+namespace RapidBase\Tests\PoC\Autoloader;
 
 use RapidBase\Core\Contracts\KeyValueWriterInterface;
 
 /**
- * Autoloader optimizado sin patrón Fluent.
+ * Prueba de Concepto: Autoloader Non-Fluent
+ * 
+ * Esta clase es una implementación alternativa del Autoloader
+ * que NO usa el patrón Fluent, diseñada exclusivamente para
+ * pruebas de benchmark y comparación de performance.
+ * 
+ * ⚠️  NO USAR EN PRODUCCIÓN - Solo para fines de testing en /tests/PoC/
  * 
  * Los métodos no retornan $this, lo que reduce ligeramente la sobrecarga
  * de la pila de llamadas y permite un análisis estático más claro.
