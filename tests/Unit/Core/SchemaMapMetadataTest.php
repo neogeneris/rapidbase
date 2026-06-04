@@ -7,6 +7,9 @@ use RapidBase\Core\SchemaMap;
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * Test para verificar que SchemaMap carga correctamente los metadatos
  * y que DB::grid() puede obtener columnas y títulos desde el schema_map.

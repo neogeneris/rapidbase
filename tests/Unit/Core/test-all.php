@@ -1,35 +1,10 @@
 <?php
 // tests/Unit/Core/test-all.php
 
-// Cargamos las dependencias en el orden correcto
-// Nuevo Motor Flat Engine
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/QType.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/JoinStrategy.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/DeterministicJoin.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/ConditionMatrix.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/SqlCompiler.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Q.php';
-
-// Core Legacy / Wrapper
-// require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php'; // Removido por obsoleto
-require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/DBInterface.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SchemaMap.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/DB.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
+// El bootstrap centralizado ya cargó el autoloader y las clases necesarias
+// Solo necesitamos importar las clases específicas que no se cargan automáticamente
 
 use RapidBase\Core\DB;
-
-// Función global de ayuda para aserciones
-function assert_core($name, $condition, $details = "") {
-    if ($condition) {
-        echo "\033[32m[OK]\033[0m $name\n";
-    } else {
-        echo "\033[31m[FAIL]\033[0m $name\n";
-        if ($details) echo "  Detalles: $details\n";
-        exit(1);
-    }
-}
 
 // Lista de archivos de prueba de Core
 $coreTests = [

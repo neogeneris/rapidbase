@@ -31,19 +31,33 @@ class Gateway
         $pagination = null;
         $returnedPage = 0;
         $returnedLimit = 0;
-        if ($page !== 0 && $page !== null) {
+        
+        // Si page es null, [] o [null, X], no aplicar paginación
+        if ($page !== null && $page !== []) {
             if (is_array($page)) {
-                $offset = max(0, (int)$page[0]);
-                $limit = max(1, (int)($page[1] ?? 10));
-                $pagination = [$offset, $limit];
-                $returnedPage = $limit > 0 ? (int)($offset / $limit) + 1 : 1;
-                $returnedLimit = $limit;
+                // Si el primer elemento es null, no aplicar paginación
+                if (!isset($page[0]) || $page[0] === null) {
+                    $pagination = null;
+                } else {
+                    $offset = max(0, (int)$page[0]);
+                    $limit = max(1, (int)($page[1] ?? 10));
+                    $pagination = [$offset, $limit];
+                    $returnedPage = $limit > 0 ? (int)($offset / $limit) + 1 : 1;
+                    $returnedLimit = $limit;
+                }
             } else {
-                $p = max(1, (int)$page);
-                $perPage = 10;
-                $pagination = Q::page($p, $perPage);
-                $returnedPage = $p;
-                $returnedLimit = $perPage;
+                $p = (int)$page;
+                // page <= 0 significa "sin paginación"
+                if ($p <= 0) {
+                    $pagination = null;
+                } else {
+                    $perPage = 10;
+                    $pagination = Q::page($p, $perPage);
+                    if ($pagination !== null) {
+                        $returnedPage = $p;
+                        $returnedLimit = $perPage;
+                    }
+                }
             }
         }
 

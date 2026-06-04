@@ -375,17 +375,27 @@ class Q
         return new CompiledQuery($sql, $params, CompiledQuery::EXISTS);
     }
 
-    public static function page(mixed $page, int $perPage = 10): array 
+    public static function page(mixed $page, int $perPage = 10): ?array 
     {
         if (is_array($page)) {
+            // Si el array está vacío o el primer elemento es null, significa "sin paginación"
+            if (empty($page) || $page[0] === null) {
+                return null;
+            }
             $perPage = $page[1] ?? $perPage;
             $page = $page[0] ?? 1;
         }
 
-        $page = max(1, (int)$page);
-        $perPage = max(1, $perPage);
+        $page = (int)$page;
+        $perPage = (int)$perPage;
 
-        return [($page - 1) * $perPage, $perPage];
+        // page <= 0 significa "sin paginación"
+        if ($page <= 0) {
+            return null;
+        }
+
+        $offset = ($page - 1) * $perPage;
+        return [$offset, $perPage];
     }
 
     public static function setDriver(string $driver): void { ConditionMatrix::setDriver($driver); }

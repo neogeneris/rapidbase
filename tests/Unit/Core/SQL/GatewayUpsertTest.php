@@ -7,7 +7,7 @@
  * como en modo fallback (update-then-insert).
  */
 
-require_once __DIR__ . '/../../../vendor/autoload.php';
+require_once __DIR__ . '/../../../../vendor/autoload.php';
 
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;

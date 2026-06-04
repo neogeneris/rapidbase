@@ -2,6 +2,9 @@
 // tests/Unit/test-all.php
 // Ejecuta todos los test-all.php de cada subcarpeta
 
+// Cargar bootstrap centralizado
+require_once __DIR__ . '/bootstrap.php';
+
 echo "\n========================================\n";
 echo "EJECUTANDO TODAS LAS PRUEBAS UNITARIAS\n";
 echo "========================================\n\n";

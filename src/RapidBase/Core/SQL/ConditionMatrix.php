@@ -11,6 +11,8 @@ class ConditionMatrix
 
     /** @var array<string, array{sql:string, params:array}> Cache por petición */
     private static array $parseCache = [];
+    private static int $parseCacheMaxSize = 500;   // Ajusta según memoria disponible
+    private static array $parseCacheOrder = [];    // Almacena orden LRU
 
     public static function setDriver(string $driver): void
     {
@@ -61,12 +63,25 @@ class ConditionMatrix
         array $tablesSchema = []
     ): array {
         $cacheKey = self::getCacheKey($conditions, $context, $tablesSchema);
+        
+        // Hit: mover al final (más reciente)
         if (isset(self::$parseCache[$cacheKey])) {
+            unset(self::$parseCacheOrder[$cacheKey]);
+            self::$parseCacheOrder[$cacheKey] = true;
             return self::$parseCache[$cacheKey];
         }
 
         $result = self::doParse($conditions, $context, $defaultAlias, $tablesSchema);
+        
+        // Control de crecimiento
+        if (count(self::$parseCache) >= self::$parseCacheMaxSize) {
+            $oldestKey = array_key_first(self::$parseCacheOrder);
+            unset(self::$parseCache[$oldestKey], self::$parseCacheOrder[$oldestKey]);
+        }
+        
         self::$parseCache[$cacheKey] = $result;
+        self::$parseCacheOrder[$cacheKey] = true;
+        
         return $result;
     }
 
@@ -202,6 +217,31 @@ class ConditionMatrix
     }
 
     /**
+     * Limpia toda la caché (útil para pruebas o liberación manual)
+     */
+    public static function clearCache(): void
+    {
+        self::$parseCache = [];
+        self::$parseCacheOrder = [];
+    }
+
+    /**
+     * Establece el tamaño máximo de la caché
+     */
+    public static function setCacheMaxSize(int $size): void
+    {
+        self::$parseCacheMaxSize = $size;
+    }
+
+    /**
+     * Obtiene el tamaño actual de la caché
+     */
+    public static function getCacheSize(): int
+    {
+        return count(self::$parseCache);
+    }
+
+    /**
      * Generates a cache key based on the structure of conditions, context, and schema.
      * Uses crc32(json_encode(...)) for maximum speed.
      */
@@ -210,11 +250,10 @@ class ConditionMatrix
         array $context,
         array $tablesSchema
     ): string {
-        $base = crc32(serialize($conditions));
-
+        // Usar json_encode más rápido que serialize para arrays simples
+        $base = crc32(json_encode($conditions));
         $ctx = !empty($context) ? '|ctx:' . implode(',', array_keys($context)) : '';
-        $sch = !empty($tablesSchema) ? '|sch:' . crc32(serialize($tablesSchema)) : '';
-
+        $sch = !empty($tablesSchema) ? '|sch:' . crc32(json_encode($tablesSchema)) : '';
         return $base . $ctx . $sch;
     }
 

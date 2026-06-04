@@ -4,8 +4,7 @@
  * Suite de Pruebas para ordenamiento en SQL::buildSelect
  */
 
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL.php';
-
+// El bootstrap ya cargó el autoloader, solo necesitamos importar las clases
 use RapidBase\Core\SQL;
 
 $failed = 0;

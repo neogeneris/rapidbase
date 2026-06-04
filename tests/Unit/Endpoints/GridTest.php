@@ -6,6 +6,9 @@ namespace RapidBase\Endpoints;
 
 use RapidBase\Tdd\TestCase;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * Auto-generated Test Suite for Grid
  */

@@ -15,6 +15,9 @@ use RapidBase\Core\DB;
 use RapidBase\Core\SchemaMap;
 use RapidBase\Core\Gateway;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * @requires extension pdo_sqlite
  */

@@ -6,7 +6,7 @@
  * Verifica la generación de UPDATE ... FROM (SELECT ...)
  */
 
-require_once __DIR__ . '/../../../vendor/autoload.php';
+require_once __DIR__ . '/../../../../vendor/autoload.php';
 
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SQL\ConditionMatrix;
@@ -15,7 +15,7 @@ use RapidBase\Core\SchemaMap;
 use RapidBase\Core\Conn;
 
 // Preparar entorno y esquema con relaciones
-Conn::setup('sqlite::memory:', '', '', 'main');
+Conn::setup('sqlite::memory:', '', '', 'default');
 ConditionMatrix::setDriver('sqlite');
 
 $schema = [
@@ -54,7 +54,7 @@ $schema = [
     ]
 ];
 
-SchemaMap::setMap($schema, 'main');
+SchemaMap::setMap($schema, 'default');
 
 $passed = 0;
 $failed = 0;

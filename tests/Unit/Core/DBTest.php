@@ -7,26 +7,9 @@ namespace RapidBase\Tests\Unit\Core;
 use RapidBase\Tdd\TestCase;
 use RapidBase\Core\DB;
 
-// Bootstrap: cargar RapidBase usando el autoloader inteligente del proyecto
-// (El framework TDD no está incluido en el bundle, requiere autoloader)
-$baseDir = dirname(__DIR__, 3); // tests/Unit/Core -> tests -> workspace
-$srcAutoloader = $baseDir . '/src/RapidBase/Autoloader/Autoloader.php';
-$vendorAutoloader = $baseDir . '/vendor/autoload.php';
 
-if (file_exists($srcAutoloader)) {
-    // Modo autoloader: usar código fuente directamente (necesario para TDD)
-    require_once $srcAutoloader;
-    \RapidBase\Autoloader\Autoloader::getInstance($baseDir . '/src')
-        ->enableDebug(false)
-        ->enableCache(true)
-        ->register();
-} elseif (file_exists($vendorAutoloader)) {
-    // Fallback: autoloader de Composer
-    require_once $vendorAutoloader;
-} else {
-    throw new \RuntimeException('No se pudo cargar RapidBase. Verifique que exista src/RapidBase/Autoloader/Autoloader.php o vendor/autoload.php');
-}
-
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * Tests unitarios para la clase DB usando el framework TDD de RapidBase
  */

@@ -6,7 +6,7 @@
  * Tests the ORIGINAL SqlCompiler behavior (FROM and LIMIT include keywords).
  */
 
-require_once __DIR__ . '/../../../vendor/autoload.php';
+require_once __DIR__ . '/../../../../vendor/autoload.php';
 
 use RapidBase\Core\SQL\SqlCompiler;
 use RapidBase\Core\SQL\ConditionMatrix;
