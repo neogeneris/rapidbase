@@ -11,8 +11,7 @@
  * - Auto-referencia (categories → categories)
  */
 
-require_once __DIR__ . '/../../../vendor/autoload.php';
-
+// El bootstrap ya cargó el autoloader y las dependencias
 use RapidBase\Core\DB;
 use RapidBase\Core\Conn;
 use RapidBase\Core\Gateway;

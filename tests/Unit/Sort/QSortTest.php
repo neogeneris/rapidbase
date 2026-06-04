@@ -8,6 +8,9 @@ use RapidBase\Core\SQL\Q;
 use RapidBase\Core\Env;
 use RapidBase\Tdd\TestCase;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * Pruebas unitarias para Q::sort()
  * 

@@ -1,10 +1,16 @@
 ```
+# Cache and temporary data files
+*.dat
+tmp/
+
+# PHP specific
+*.php~
+*.phtml~
+
 # Database files
 *.sqlite
+*.db
 
-# Cache files
-*.dat
-
-# Logs
-*.log
+# Test related
+tests/tmp/
 ```

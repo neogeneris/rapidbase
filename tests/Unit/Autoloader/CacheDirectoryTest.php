@@ -7,6 +7,9 @@ namespace Tests\Unit\Autoloader;
 use RapidBase\Tdd\TestCase;
 use RapidBase\Autoloader\Autoloader;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * Pruebas para el método setCacheDirectory() del Autoloader.
  */

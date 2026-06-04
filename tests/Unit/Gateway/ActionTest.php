@@ -3,24 +3,8 @@
 
 namespace Tests\Unit\Gateway;
 
-// 1. Carga de infraestructura refactorizada (SQL v2 con Q.php)
-require_once __DIR__ . '/../../../src/RapidBase/Core/Conn.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Executor.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Gateway.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/Cache/CacheService.php';
-
-// Cargar clases SQL v2
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Q.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/CompiledQuery.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/ConditionMatrix.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/DeterministicJoin.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/JoinResolver.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/JoinStrategy.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/SqlCompiler.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/QType.php';
-
-// Dependencias adicionales de SQL v2
-require_once __DIR__ . '/../../../src/RapidBase/Core/SchemaMap.php';
+// Usar bootstrap centralizado que carga el autoloader
+require_once __DIR__ . '/../bootstrap.php';
 
 use RapidBase\Core\Conn;
 use RapidBase\Core\Gateway;

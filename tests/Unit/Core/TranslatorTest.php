@@ -8,6 +8,9 @@ use RapidBase\Tdd\TestCase;
 use RapidBase\Core\Cache\Adapters\MemoryCacheAdapter;
 use RapidBase\Core\Contracts\KeyValueInterface;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * Test Suite for Translator class
  * Pruebas reales que validan la funcionalidad de la clase Translator

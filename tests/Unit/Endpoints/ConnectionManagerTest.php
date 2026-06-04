@@ -11,6 +11,9 @@ use RapidBase\Core\Conn;
 use RapidBase\Core\Cache\CacheService;
 use RapidBase\Models\Connection as ConnectionModel;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 /**
  * Test Suite for ConnectionManager Endpoint using RapidBase TDD Framework
  * 

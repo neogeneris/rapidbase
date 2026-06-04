@@ -4,11 +4,7 @@
  * Suite de Pruebas para paginación en el nuevo motor Q
  */
 
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/Q.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/ConditionMatrix.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/SqlCompiler.php';
-require_once __DIR__ . '/../../../src/RapidBase/Core/SQL/CompiledQuery.php';
-
+// El bootstrap ya cargó el autoloader, solo necesitamos importar las clases
 use RapidBase\Core\SQL\Q;
 
 $failed = 0;

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace RapidBase\Core;
 
+
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
 // Auto-cargar dependencias si se ejecuta directamente
 if (php_sapi_name() === 'cli' && isset($argv) && realpath($argv[0]) === __FILE__) {
     $baseDir = dirname(__DIR__, 3);

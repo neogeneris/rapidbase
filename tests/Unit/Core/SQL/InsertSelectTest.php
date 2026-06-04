@@ -6,7 +6,7 @@
  * Verifica la generación de INSERT INTO ... SELECT ...
  */
 
-require_once __DIR__ . '/../../../vendor/autoload.php';
+require_once __DIR__ . '/../../../../vendor/autoload.php';
 
 use RapidBase\Core\SQL\Q;
 use RapidBase\Core\SQL\ConditionMatrix;

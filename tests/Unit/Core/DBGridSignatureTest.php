@@ -6,6 +6,9 @@ namespace RapidBase\Core;
 
 use RapidBase\Tdd\TestCase;
 
+// Bootstrap centralizado para pruebas unitarias
+require_once __DIR__ . '/../bootstrap.php';
+
 /**
  * Pruebas para la firma del método DB::grid()
  * Modernizada para usar RapidBase TDD Framework
